@@ -3,13 +3,13 @@
   "spec": "022-local-data-backup",
   "state": "building",
   "subtasks": {
-    "completed": 17,
+    "completed": 18,
     "total": 27,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Backup Settings UI",
+    "current": "Navigation & Integration",
     "id": null,
     "total": 5
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 10,
+    "number": 11,
     "started_at": "2026-01-03T01:04:16.451409"
   },
-  "last_update": "2026-01-03T01:46:46.010006"
+  "last_update": "2026-01-03T01:50:44.591721"
 }
