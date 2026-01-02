@@ -28,7 +28,8 @@ data class MainUiState(
     val rawBankSms: List<SmsMessage> = emptyList(),
     val errorMessage: String? = null,
     val isLoadedFromDatabase: Boolean = false,
-    val newTransactionsSynced: Int = 0
+    val newTransactionsSynced: Int = 0,
+    val lastSyncTimestamp: Long? = null
 )
 
 class MainViewModel : ViewModel() {
@@ -98,6 +99,18 @@ class MainViewModel : ViewModel() {
                     }
                     .getOrElse { emptyList() }
 
+                // Step 2: Check last sync timestamp (before showing existing data)
+                val lastSyncTimestamp = repo.getLastSyncTimestamp()
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        ErrorHandler.logWarning(
+                            "Failed to get last sync timestamp: ${errorInfo.technicalMessage}",
+                            "loadSmsData"
+                        )
+                        // Continue with null - will do full sync
+                    }
+                    .getOrNull()
+
                 if (existingTransactions.isNotEmpty()) {
                     // Show existing data immediately for fast startup
                     val categories = try {
@@ -115,21 +128,10 @@ class MainViewModel : ViewModel() {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         transactions = existingTransactions,
-                        isLoadedFromDatabase = true
+                        isLoadedFromDatabase = true,
+                        lastSyncTimestamp = lastSyncTimestamp
                     )
                 }
-
-                // Step 2: Check last sync timestamp
-                val lastSyncTimestamp = repo.getLastSyncTimestamp()
-                    .onFailure { throwable ->
-                        val errorInfo = throwable.toErrorInfo()
-                        ErrorHandler.logWarning(
-                            "Failed to get last sync timestamp: ${errorInfo.technicalMessage}",
-                            "loadSmsData"
-                        )
-                        // Continue with null - will do full sync
-                    }
-                    .getOrNull()
 
                 // Step 3: Read only new SMS since last sync
                 val smsReader = SmsReader(context)
@@ -268,7 +270,8 @@ class MainViewModel : ViewModel() {
                     transactions = allTransactions,
                     rawBankSms = newBankSms,
                     isLoadedFromDatabase = true,
-                    newTransactionsSynced = deduplicated.size
+                    newTransactionsSynced = deduplicated.size,
+                    lastSyncTimestamp = currentTimestamp
                 )
 
                 ErrorHandler.logInfo(
