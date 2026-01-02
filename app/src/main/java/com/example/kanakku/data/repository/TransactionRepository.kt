@@ -4,6 +4,8 @@ import com.example.kanakku.data.database.KanakkuDatabase
 import com.example.kanakku.data.database.entity.CategoryOverrideEntity
 import com.example.kanakku.data.database.entity.SyncMetadataEntity
 import com.example.kanakku.data.database.entity.TransactionEntity
+import com.example.kanakku.data.database.toDomain
+import com.example.kanakku.data.database.toEntity
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.TransactionType
 import kotlinx.coroutines.flow.Flow
@@ -280,45 +282,5 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      */
     suspend fun clearSyncMetadata(): Int {
         return syncMetadataDao.deleteAll()
-    }
-
-    // ==================== Entity-Model Mapping ====================
-
-    /**
-     * Converts a ParsedTransaction domain model to a TransactionEntity.
-     */
-    private fun ParsedTransaction.toEntity(): TransactionEntity {
-        return TransactionEntity(
-            smsId = this.smsId,
-            amount = this.amount,
-            type = this.type,
-            merchant = this.merchant,
-            accountNumber = this.accountNumber,
-            referenceNumber = this.referenceNumber,
-            date = this.date,
-            rawSms = this.rawSms,
-            senderAddress = this.senderAddress,
-            balanceAfter = this.balanceAfter,
-            location = this.location
-        )
-    }
-
-    /**
-     * Converts a TransactionEntity to a ParsedTransaction domain model.
-     */
-    private fun TransactionEntity.toDomain(): ParsedTransaction {
-        return ParsedTransaction(
-            smsId = this.smsId,
-            amount = this.amount,
-            type = this.type,
-            merchant = this.merchant,
-            accountNumber = this.accountNumber,
-            referenceNumber = this.referenceNumber,
-            date = this.date,
-            rawSms = this.rawSms,
-            senderAddress = this.senderAddress,
-            balanceAfter = this.balanceAfter,
-            location = this.location
-        )
     }
 }
