@@ -3,6 +3,7 @@ package com.example.kanakku.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -26,8 +27,30 @@ fun KanakkuNavHost(
     onRefresh: () -> Unit,
     onCategoryChange: (Long, Category) -> Unit,
     modifier: Modifier = Modifier,
+    initialDestination: String? = null,
     navController: NavHostController = rememberNavController()
 ) {
+    // Handle deep link navigation from widget clicks
+    LaunchedEffect(initialDestination) {
+        // Navigate to the destination specified by widget deep link
+        // Only navigate if destination is not null and is a valid route
+        initialDestination?.let { destination ->
+            val validRoutes = BottomNavItem.items.map { it.route }
+            if (destination in validRoutes) {
+                navController.navigate(destination) {
+                    // Pop up to start destination to avoid building a large back stack
+                    popUpTo(navController.graph.findStartDestination().id) {
+                        saveState = true
+                    }
+                    // Avoid multiple copies of the same destination when tapping widget multiple times
+                    launchSingleTop = true
+                    // Restore state when navigating to a previously visited destination
+                    restoreState = true
+                }
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = {
             KanakkuBottomBar(navController = navController)

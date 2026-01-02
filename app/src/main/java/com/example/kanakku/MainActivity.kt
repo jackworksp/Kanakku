@@ -1,6 +1,7 @@
 package com.example.kanakku
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -21,9 +22,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kanakku.ui.MainViewModel
 import com.example.kanakku.ui.navigation.KanakkuNavHost
 import com.example.kanakku.ui.theme.KanakkuTheme
+import com.example.kanakku.widget.actions.WidgetActions
 import com.example.kanakku.widget.worker.WidgetUpdateScheduler
 
 class MainActivity : ComponentActivity() {
+    /**
+     * Initial navigation destination from widget deep link.
+     * When a widget is tapped, the intent contains a destination extra
+     * that determines which screen to navigate to.
+     */
+    private val initialDestination = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -32,16 +41,46 @@ class MainActivity : ComponentActivity() {
         // This ensures all widgets stay up-to-date with latest transaction data
         WidgetUpdateScheduler.schedulePeriodicUpdates(this)
 
+        // Handle widget deep link navigation
+        handleWidgetIntent(intent)
+
         setContent {
             KanakkuTheme {
-                KanakkuApp()
+                KanakkuApp(initialDestination = initialDestination.value)
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Handle deep link when app is already running
+        handleWidgetIntent(intent)
+    }
+
+    /**
+     * Handles incoming intents from widget clicks.
+     *
+     * Extracts the destination from the intent extras and updates the
+     * initial destination state to trigger navigation in the compose UI.
+     *
+     * @param intent The intent containing widget navigation data
+     */
+    private fun handleWidgetIntent(intent: Intent?) {
+        intent?.let {
+            // Extract destination from widget action intent
+            val destination = it.getStringExtra(WidgetActions.EXTRA_DESTINATION)
+            if (!destination.isNullOrEmpty()) {
+                initialDestination.value = destination
             }
         }
     }
 }
 
 @Composable
-fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
+fun KanakkuApp(
+    initialDestination: String? = null,
+    viewModel: MainViewModel = viewModel()
+) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val categoryMap by viewModel.categoryMap.collectAsState()
@@ -89,6 +128,7 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
                     onCategoryChange = { smsId, category ->
                         viewModel.updateTransactionCategory(smsId, category)
                     },
+                    initialDestination = initialDestination,
                     modifier = Modifier.padding(innerPadding)
                 )
             }
