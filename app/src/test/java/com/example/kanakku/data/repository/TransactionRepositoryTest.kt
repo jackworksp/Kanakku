@@ -26,7 +26,7 @@ import org.robolectric.annotation.Config
  * - Incremental sync logic
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [33])
 class TransactionRepositoryTest {
 
     private lateinit var database: KanakkuDatabase
@@ -328,6 +328,7 @@ class TransactionRepositoryTest {
         // Given
         val smsId = 1L
         val categoryId = "food"
+        repository.saveTransaction(createTestTransaction(smsId = smsId))
 
         // When
         repository.setCategoryOverride(smsId, categoryId)
@@ -341,6 +342,7 @@ class TransactionRepositoryTest {
     fun setCategoryOverride_updatesExisting() = runTest {
         // Given
         val smsId = 1L
+        repository.saveTransaction(createTestTransaction(smsId = smsId))
         repository.setCategoryOverride(smsId, "food")
 
         // When
@@ -363,6 +365,9 @@ class TransactionRepositoryTest {
     @Test
     fun getAllCategoryOverrides_returnsMap() = runTest {
         // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+        repository.saveTransaction(createTestTransaction(smsId = 2L))
+        repository.saveTransaction(createTestTransaction(smsId = 3L))
         repository.setCategoryOverride(1L, "food")
         repository.setCategoryOverride(2L, "transport")
         repository.setCategoryOverride(3L, "shopping")
@@ -380,6 +385,7 @@ class TransactionRepositoryTest {
     @Test
     fun getAllCategoryOverridesFlow_emitsUpdates() = runTest {
         // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
         repository.setCategoryOverride(1L, "food")
 
         // When
@@ -394,6 +400,7 @@ class TransactionRepositoryTest {
     @Test
     fun removeCategoryOverride_deletesCorrectly() = runTest {
         // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
         repository.setCategoryOverride(1L, "food")
 
         // When
@@ -416,6 +423,8 @@ class TransactionRepositoryTest {
     @Test
     fun removeAllCategoryOverrides_clearsAll() = runTest {
         // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+        repository.saveTransaction(createTestTransaction(smsId = 2L))
         repository.setCategoryOverride(1L, "food")
         repository.setCategoryOverride(2L, "transport")
 
