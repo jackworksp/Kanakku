@@ -176,9 +176,14 @@ class RecentTransactionsWidget : GlanceAppWidget() {
 
                 Spacer(modifier = GlanceModifier.size(8.dp))
 
-                // Amount (right side)
+                // Amount (right side) with prefix for debit/credit
+                val amountPrefix = when (transaction.type) {
+                    TransactionType.DEBIT -> "-"
+                    TransactionType.CREDIT -> "+"
+                    TransactionType.UNKNOWN -> ""
+                }
                 Text(
-                    text = formatAmount(transaction.amount),
+                    text = "$amountPrefix${formatAmount(transaction.amount)}",
                     style = TextStyle(
                         color = getAmountColor(transaction.type),
                         fontSize = 13.sp,
@@ -240,6 +245,7 @@ class RecentTransactionsWidget : GlanceAppWidget() {
      * Color coding:
      * - DEBIT: Red (money going out)
      * - CREDIT: Green (money coming in)
+     * - UNKNOWN: Gray (indeterminate)
      *
      * @param type The transaction type
      * @return ColorProvider for the amount text
@@ -248,6 +254,7 @@ class RecentTransactionsWidget : GlanceAppWidget() {
         return when (type) {
             TransactionType.DEBIT -> ColorProvider(Color(0xFFE53935)) // Red for debits
             TransactionType.CREDIT -> ColorProvider(Color(0xFF43A047)) // Green for credits
+            TransactionType.UNKNOWN -> ColorProvider(Color(0xFF757575)) // Gray for unknown
         }
     }
 
