@@ -72,8 +72,9 @@ object DatabaseProvider {
      *
      * Handles database corruption by attempting to recover:
      * 1. First attempt: Try to build database normally
-     * 2. On corruption: Delete corrupted database files and retry
-     * 3. Log all errors for debugging
+     * 2. Run integrity check to verify database health
+     * 3. On corruption: Delete corrupted database files and retry
+     * 4. Log all errors for debugging
      *
      * @param context Application context
      * @return Configured KanakkuDatabase instance
@@ -84,7 +85,15 @@ object DatabaseProvider {
 
         return try {
             // Attempt to build database normally
-            buildDatabaseInternal(context)
+            val db = buildDatabaseInternal(context)
+
+            // Verify database integrity on first access
+            if (!verifyDatabaseIntegrity(db)) {
+                Log.w(TAG, "Database integrity check failed - triggering recovery")
+                throw SQLiteException("Database integrity check failed")
+            }
+
+            db
 
         } catch (e: SQLiteException) {
             // SQLite-specific errors (corruption, disk I/O, locking issues)
@@ -158,6 +167,53 @@ object DatabaseProvider {
         )
             .fallbackToDestructiveMigration() // For development - TODO: implement proper migrations for production
             .build()
+    }
+
+    /**
+     * Verifies database integrity using SQLite's PRAGMA quick_check.
+     *
+     * This performs a lightweight health check on the database to detect corruption early.
+     * The quick_check is faster than a full integrity_check and is suitable for startup checks.
+     *
+     * @param database The database instance to verify
+     * @return true if database is healthy, false if corrupted
+     */
+    private fun verifyDatabaseIntegrity(database: KanakkuDatabase): Boolean {
+        return try {
+            Log.d(TAG, "Performing database integrity check...")
+
+            // Access the underlying SQLite database
+            val sqliteDb = database.openHelper.writableDatabase
+
+            // Run PRAGMA quick_check - returns "ok" if database is healthy
+            sqliteDb.rawQuery("PRAGMA quick_check", null).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val result = cursor.getString(0)
+                    val isHealthy = result.equals("ok", ignoreCase = true)
+
+                    if (isHealthy) {
+                        Log.i(TAG, "Database integrity check passed: $result")
+                    } else {
+                        Log.w(TAG, "Database integrity check failed: $result")
+                    }
+
+                    return isHealthy
+                } else {
+                    Log.w(TAG, "Database integrity check returned no results")
+                    return false
+                }
+            }
+
+        } catch (e: SQLiteException) {
+            // Database corruption or access error
+            Log.e(TAG, "SQLiteException during integrity check: ${e.message}", e)
+            return false
+
+        } catch (e: Exception) {
+            // Unexpected error during integrity check
+            Log.e(TAG, "Unexpected error during integrity check: ${e.message}", e)
+            return false
+        }
     }
 
     /**
