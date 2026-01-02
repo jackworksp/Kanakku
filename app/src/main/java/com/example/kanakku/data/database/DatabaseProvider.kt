@@ -1,7 +1,9 @@
 package com.example.kanakku.data.database
 
 import android.content.Context
+import android.database.SQLException
 import android.database.sqlite.SQLiteException
+import android.util.Log
 import androidx.room.Room
 import com.example.kanakku.data.repository.TransactionRepository
 import java.io.File
@@ -22,13 +24,14 @@ import java.io.File
  */
 object DatabaseProvider {
 
+    private const val TAG = "DatabaseProvider"
+    private const val DATABASE_NAME = "kanakku_database"
+
     @Volatile
     private var database: KanakkuDatabase? = null
 
     @Volatile
     private var repository: TransactionRepository? = null
-
-    private const val DATABASE_NAME = "kanakku_database"
 
     /**
      * Gets the singleton database instance.
@@ -36,11 +39,13 @@ object DatabaseProvider {
      *
      * @param context Application or Activity context (applicationContext is used internally)
      * @return The KanakkuDatabase instance
+     * @throws DatabaseInitializationException if database cannot be created after recovery attempts
      */
     fun getDatabase(context: Context): KanakkuDatabase {
         return database ?: synchronized(this) {
             database ?: buildDatabase(context.applicationContext).also {
                 database = it
+                Log.i(TAG, "Database initialized successfully")
             }
         }
     }
@@ -51,11 +56,13 @@ object DatabaseProvider {
      *
      * @param context Application or Activity context (applicationContext is used internally)
      * @return The TransactionRepository instance
+     * @throws DatabaseInitializationException if database cannot be created after recovery attempts
      */
     fun getRepository(context: Context): TransactionRepository {
         return repository ?: synchronized(this) {
             repository ?: TransactionRepository(getDatabase(context)).also {
                 repository = it
+                Log.i(TAG, "Repository initialized successfully")
             }
         }
     }
@@ -73,39 +80,67 @@ object DatabaseProvider {
      * @throws DatabaseInitializationException if database cannot be initialized after retry
      */
     private fun buildDatabase(context: Context): KanakkuDatabase {
+        Log.d(TAG, "Building database: $DATABASE_NAME")
+
         return try {
             // Attempt to build database normally
             buildDatabaseInternal(context)
+
         } catch (e: SQLiteException) {
-            // Database corruption or error - attempt recovery
-            System.err.println("Database initialization failed: ${e.message}")
-            e.printStackTrace()
+            // SQLite-specific errors (corruption, disk I/O, locking issues)
+            Log.e(TAG, "SQLiteException during database initialization: ${e.message}", e)
+            attemptDatabaseRecovery(context, e)
 
-            // Try to recover by deleting corrupted database
-            handleDatabaseCorruption(context)
+        } catch (e: SQLException) {
+            // General SQL errors
+            Log.e(TAG, "SQLException during database initialization: ${e.message}", e)
+            attemptDatabaseRecovery(context, e)
 
-            try {
-                // Retry building database after cleanup
-                buildDatabaseInternal(context)
-            } catch (retryException: Exception) {
-                // If retry fails, throw a more descriptive exception
-                System.err.println("Database recovery failed: ${retryException.message}")
-                retryException.printStackTrace()
-                throw DatabaseInitializationException(
-                    "Failed to initialize database after corruption recovery",
-                    retryException
-                )
-            }
         } catch (e: IllegalStateException) {
-            // Invalid database state
-            System.err.println("Database state error: ${e.message}")
-            e.printStackTrace()
-            throw DatabaseInitializationException("Database is in an invalid state", e)
+            // Invalid database state or Room configuration errors
+            Log.e(TAG, "IllegalStateException during database initialization: ${e.message}", e)
+            throw DatabaseInitializationException(
+                "Database is in an invalid state. Please reinstall the app.",
+                e
+            )
+
         } catch (e: Exception) {
             // Catch-all for unexpected errors
-            System.err.println("Unexpected database error: ${e.message}")
-            e.printStackTrace()
-            throw DatabaseInitializationException("Unexpected error during database initialization", e)
+            Log.e(TAG, "Unexpected error during database initialization: ${e.message}", e)
+            throw DatabaseInitializationException(
+                "Unexpected error during database initialization. Please contact support.",
+                e
+            )
+        }
+    }
+
+    /**
+     * Attempts to recover from database errors by cleaning up corrupted files and retrying.
+     *
+     * @param context Application context
+     * @param originalException The exception that triggered recovery
+     * @return A new KanakkuDatabase instance
+     * @throws DatabaseInitializationException if recovery fails
+     */
+    private fun attemptDatabaseRecovery(context: Context, originalException: Exception): KanakkuDatabase {
+        Log.w(TAG, "Attempting database recovery after error")
+
+        // Try to recover by deleting corrupted database
+        handleDatabaseCorruption(context)
+
+        return try {
+            // Retry building database after cleanup
+            Log.i(TAG, "Retrying database creation after corruption cleanup")
+            buildDatabaseInternal(context)
+
+        } catch (retryException: Exception) {
+            // If retry fails, throw a critical exception
+            Log.e(TAG, "Database recovery failed: ${retryException.message}", retryException)
+            throw DatabaseInitializationException(
+                "Database is corrupted and recovery failed. Please reinstall the app to fix this issue. " +
+                        "Original error: ${originalException.message}",
+                retryException
+            )
         }
     }
 
@@ -129,36 +164,61 @@ object DatabaseProvider {
      * Handles database corruption by deleting corrupted database files.
      * This allows the app to recover by creating a fresh database.
      *
+     * Deletes:
+     * - Main database file (.db)
+     * - Write-Ahead Logging file (-wal)
+     * - Shared Memory file (-shm)
+     *
      * @param context Application context
      */
     private fun handleDatabaseCorruption(context: Context) {
         try {
-            System.err.println("Attempting to recover from database corruption...")
+            Log.w(TAG, "Cleaning up corrupted database files...")
+
+            // Close existing database connection if open
+            database?.close()
+            database = null
 
             // Get database file path
             val dbFile = context.getDatabasePath(DATABASE_NAME)
+            var filesDeleted = 0
 
             // Delete main database file
-            if (dbFile.exists() && dbFile.delete()) {
-                System.err.println("Deleted corrupted database: ${dbFile.absolutePath}")
+            if (dbFile.exists()) {
+                if (dbFile.delete()) {
+                    Log.d(TAG, "Deleted corrupted database: ${dbFile.name}")
+                    filesDeleted++
+                } else {
+                    Log.w(TAG, "Failed to delete database file: ${dbFile.name}")
+                }
             }
 
             // Delete WAL (Write-Ahead Logging) file if it exists
             val walFile = File(dbFile.parent, "$DATABASE_NAME-wal")
-            if (walFile.exists() && walFile.delete()) {
-                System.err.println("Deleted WAL file: ${walFile.absolutePath}")
+            if (walFile.exists()) {
+                if (walFile.delete()) {
+                    Log.d(TAG, "Deleted WAL file: ${walFile.name}")
+                    filesDeleted++
+                } else {
+                    Log.w(TAG, "Failed to delete WAL file: ${walFile.name}")
+                }
             }
 
             // Delete SHM (Shared Memory) file if it exists
             val shmFile = File(dbFile.parent, "$DATABASE_NAME-shm")
-            if (shmFile.exists() && shmFile.delete()) {
-                System.err.println("Deleted SHM file: ${shmFile.absolutePath}")
+            if (shmFile.exists()) {
+                if (shmFile.delete()) {
+                    Log.d(TAG, "Deleted SHM file: ${shmFile.name}")
+                    filesDeleted++
+                } else {
+                    Log.w(TAG, "Failed to delete SHM file: ${shmFile.name}")
+                }
             }
 
-            System.err.println("Database corruption cleanup completed")
+            Log.i(TAG, "Database corruption cleanup completed. Deleted $filesDeleted file(s)")
+
         } catch (e: Exception) {
-            System.err.println("Error during corruption cleanup: ${e.message}")
-            e.printStackTrace()
+            Log.e(TAG, "Error during corruption cleanup: ${e.message}", e)
             // Don't throw - let the retry attempt fail if cleanup didn't work
         }
     }
@@ -172,17 +232,35 @@ object DatabaseProvider {
      */
     @Synchronized
     fun resetInstance() {
-        database?.close()
+        try {
+            database?.close()
+            Log.d(TAG, "Database instance reset")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error closing database during reset: ${e.message}", e)
+        }
         database = null
         repository = null
     }
 }
 
 /**
- * Exception thrown when database initialization fails.
- * This exception indicates a critical error that prevents the app from functioning.
+ * Exception thrown when database initialization fails critically.
  *
- * @param message Descriptive error message
+ * This exception indicates a critical error that prevents the app from functioning.
+ * It should be caught by the UI layer to inform the user about the issue.
+ *
+ * Common causes:
+ * - Database file corruption
+ * - Insufficient disk space
+ * - File permission issues
+ * - SQLite version incompatibility
+ *
+ * Recovery steps:
+ * 1. Inform user of the issue
+ * 2. Suggest app reinstall or data clearing
+ * 3. Log details for debugging
+ *
+ * @param message User-friendly error message
  * @param cause The underlying cause of the initialization failure
  */
 class DatabaseInitializationException(
