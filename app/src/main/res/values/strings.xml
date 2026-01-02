@@ -3,4 +3,5 @@
 
     <!-- Widget descriptions -->
     <string name="widget_today_spending_description">View today\'s total spending at a glance</string>
+    <string name="widget_budget_progress_description">Track your weekly spending against your budget</string>
 </resources>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Widget configuration for Budget Progress Widget (Medium, 3x2).
+
+    This widget displays weekly spending progress against the user's budget
+    with a visual progress bar and color-coded status indicator.
+    Size: 3 cells wide x 2 cells tall (approximately 180dp x 110dp minimum)
+
+    Update mechanism:
+    - updatePeriodMillis is set to 30 minutes (1800000ms)
+    - Actual updates are managed by WorkManager for better battery efficiency
+    - The system may update less frequently to conserve battery
+
+    See: BudgetProgressWidget, BudgetProgressWidgetReceiver
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:previewImage="@drawable/widget_preview_budget_progress"
+    android:description="@string/widget_budget_progress_description"
+    android:widgetCategory="home_screen"
+    android:resizeMode="none" />
