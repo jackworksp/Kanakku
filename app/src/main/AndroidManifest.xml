@@ -26,6 +26,26 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Intent filters for widget navigation -->
+
+            <!-- Widget action: Open Transactions screen -->
+            <intent-filter>
+                <action android:name="com.example.kanakku.OPEN_TRANSACTIONS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- Widget action: Open Analytics screen -->
+            <intent-filter>
+                <action android:name="com.example.kanakku.OPEN_ANALYTICS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- Widget action: Open Categories screen -->
+            <intent-filter>
+                <action android:name="com.example.kanakku.OPEN_CATEGORIES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <!-- Widget Receivers -->
