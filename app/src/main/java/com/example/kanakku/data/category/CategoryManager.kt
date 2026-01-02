@@ -37,20 +37,22 @@ class CategoryManager(
     private suspend fun loadOverridesFromDatabase() {
         val repo = repository ?: return
 
-        try {
-            val overrides = repo.getAllCategoryOverrides()
-            manualOverrides.clear()
-
-            for ((smsId, categoryId) in overrides) {
-                // Find matching category from DefaultCategories
-                val category = DefaultCategories.ALL.find { it.id == categoryId }
-                if (category != null) {
-                    manualOverrides[smsId] = category
+        // Handle Result type from repository
+        repo.getAllCategoryOverrides()
+            .onSuccess { overrides ->
+                manualOverrides.clear()
+                for ((smsId, categoryId) in overrides) {
+                    // Find matching category from DefaultCategories
+                    val category = DefaultCategories.ALL.find { it.id == categoryId }
+                    if (category != null) {
+                        manualOverrides[smsId] = category
+                    }
                 }
             }
-        } catch (e: Exception) {
-            // Silently fail - overrides will be empty if database is unavailable
-        }
+            .onFailure {
+                // Silently fail - overrides will be empty if database is unavailable
+                manualOverrides.clear()
+            }
     }
 
     fun categorizeTransaction(transaction: ParsedTransaction): Category {
@@ -77,12 +79,19 @@ class CategoryManager(
      *
      * @param smsId The SMS ID of the transaction
      * @param category The category to assign
+     * @return Result<Unit> indicating success or failure
      */
-    suspend fun setManualOverride(smsId: Long, category: Category) {
+    suspend fun setManualOverride(smsId: Long, category: Category): Result<Unit> {
+        // Update in-memory state first
         manualOverrides[smsId] = category
 
         // Persist to database
-        repository?.setCategoryOverride(smsId, category.id)
+        return if (repository != null) {
+            repository!!.setCategoryOverride(smsId, category.id)
+        } else {
+            // If no repository, still succeed (in-memory only)
+            Result.success(Unit)
+        }
     }
 
     /**
@@ -90,12 +99,19 @@ class CategoryManager(
      * Removes from database if repository is available.
      *
      * @param smsId The SMS ID of the transaction
+     * @return Result<Unit> indicating success or failure
      */
-    suspend fun removeManualOverride(smsId: Long) {
+    suspend fun removeManualOverride(smsId: Long): Result<Unit> {
+        // Remove from in-memory state first
         manualOverrides.remove(smsId)
 
         // Remove from database
-        repository?.removeCategoryOverride(smsId)
+        return if (repository != null) {
+            repository!!.removeCategoryOverride(smsId)
+        } else {
+            // If no repository, still succeed (in-memory only)
+            Result.success(Unit)
+        }
     }
 
     fun getManualOverride(smsId: Long): Category? = manualOverrides[smsId]
