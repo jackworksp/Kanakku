@@ -14,6 +14,7 @@ vico = "2.0.0-beta.2"
 materialIconsExtended = "1.7.5"
 kotlinxSerializationJson = "1.6.3"
 kotlinxCoroutines = "1.8.0"
+mockk = "1.13.9"
 
 # Google Services
 playServicesAuth = "21.3.0"
@@ -45,6 +46,9 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 
 # Coroutines Testing
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
+
+# Mocking
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 
 # Google Services
 play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
