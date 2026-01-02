@@ -21,6 +21,7 @@ import com.example.kanakku.ui.backup.OperationType
 import com.example.kanakku.ui.components.BackupProgressCard
 import com.example.kanakku.ui.components.PasswordDialog
 import com.example.kanakku.ui.components.PasswordDialogMode
+import com.example.kanakku.ui.components.PrivacyInfoCard
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -38,7 +39,6 @@ fun BackupSettingsScreen(
 
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordDialogMode by remember { mutableStateOf(PasswordDialogMode.CREATE) }
-    var showPrivacyInfo by remember { mutableStateOf(false) }
 
     // Show snackbar for success/error messages
     LaunchedEffect(uiState.successMessage, uiState.errorMessage) {
@@ -136,9 +136,7 @@ fun BackupSettingsScreen(
 
             // Privacy Information
             item {
-                PrivacyInfoCard(
-                    onShowDetails = { showPrivacyInfo = true }
-                )
+                PrivacyInfoCard()
             }
 
             item {
@@ -167,13 +165,6 @@ fun BackupSettingsScreen(
                 showPasswordDialog = false
                 viewModel.resetState()
             }
-        )
-    }
-
-    // Privacy Info Dialog
-    if (showPrivacyInfo) {
-        PrivacyInfoDialog(
-            onDismiss = { showPrivacyInfo = false }
         )
     }
 }
@@ -376,113 +367,6 @@ private fun LastBackupCard(
             )
         }
     }
-}
-
-@Composable
-private fun PrivacyInfoCard(
-    onShowDetails: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFF3E5F5)
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Filled.Security,
-                    contentDescription = null,
-                    tint = Color(0xFF7B1FA2),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Privacy & Security",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF7B1FA2)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Your backup is encrypted with AES-256 and secured with your password. Data stays under your control.",
-                style = MaterialTheme.typography.bodySmall
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            TextButton(
-                onClick = onShowDetails,
-                modifier = Modifier.align(Alignment.End)
-            ) {
-                Text("Learn More")
-            }
-        }
-    }
-}
-
-@Composable
-private fun PrivacyInfoDialog(
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
-            Icon(
-                imageVector = Icons.Filled.Security,
-                contentDescription = null,
-                tint = Color(0xFF7B1FA2)
-            )
-        },
-        title = { Text("Privacy & Security") },
-        text = {
-            Column {
-                Text(
-                    text = "What's included in your backup:",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("• All parsed bank transactions", style = MaterialTheme.typography.bodySmall)
-                Text("• Category assignments and overrides", style = MaterialTheme.typography.bodySmall)
-                Text("• App preferences and settings", style = MaterialTheme.typography.bodySmall)
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Security features:",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("• AES-256-GCM encryption", style = MaterialTheme.typography.bodySmall)
-                Text("• Password-based key derivation (PBKDF2)", style = MaterialTheme.typography.bodySmall)
-                Text("• 100,000 iterations for key strength", style = MaterialTheme.typography.bodySmall)
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Privacy guarantees:",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("• Data stays under your control", style = MaterialTheme.typography.bodySmall)
-                Text("• No app servers involved", style = MaterialTheme.typography.bodySmall)
-                Text("• Local storage or your personal Google Drive", style = MaterialTheme.typography.bodySmall)
-                Text("• Google Drive uses app-specific folder", style = MaterialTheme.typography.bodySmall)
-            }
-        },
-        confirmButton = {
-            Button(onClick = onDismiss) {
-                Text("Got It")
-            }
-        }
-    )
 }
 
 private fun formatBackupDate(timestamp: Long): String {
