@@ -4,7 +4,7 @@
   "state": "building",
   "subtasks": {
     "completed": 0,
-    "total": 19,
+    "total": 0,
     "in_progress": 1,
     "failed": 0
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 6,
-    "started_at": "2026-01-03T02:29:00.143235"
+    "number": 8,
+    "started_at": "2026-01-03T02:23:20.115141"
   },
-  "last_update": "2026-01-03T02:56:32.027442"
+  "last_update": "2026-01-03T03:01:28.352352"
 }
