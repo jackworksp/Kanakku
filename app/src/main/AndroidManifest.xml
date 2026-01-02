@@ -2,7 +2,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- SMS Permission for reading bank transaction messages -->
+    <!--
+        OFFLINE-FIRST ARCHITECTURE:
+        This app is intentionally designed to work 100% offline.
+        NO INTERNET PERMISSION is requested to ensure:
+        - All data stays on the user's device (privacy-first)
+        - App functions fully without network connectivity
+        - No accidental network dependencies can be introduced
+
+        DO NOT add android.permission.INTERNET to this manifest.
+    -->
+
+    <!-- SMS Permission for reading bank transaction messages (local-only operation) -->
     <uses-permission android:name="android.permission.READ_SMS" />
 
     <!-- Declare telephony feature as optional for ChromeOS/tablet compatibility -->
