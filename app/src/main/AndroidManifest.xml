@@ -5,6 +5,10 @@
     <!-- SMS Permission for reading bank transaction messages -->
     <uses-permission android:name="android.permission.READ_SMS" />
 
+    <!-- Internet permissions for Google Drive API access -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- Declare telephony feature as optional for ChromeOS/tablet compatibility -->
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
