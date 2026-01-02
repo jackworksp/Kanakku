@@ -48,6 +48,18 @@
             </intent-filter>
         </activity>
 
+        <!-- Widget Configuration Activity -->
+
+        <!-- Budget Widget Configuration Activity -->
+        <activity
+            android:name=".widget.config.BudgetWidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Kanakku">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <!-- Widget Receivers -->
 
         <!-- Small Widget: Today's Spending (2x1) -->

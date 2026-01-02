@@ -26,4 +26,5 @@
     android:previewImage="@drawable/widget_preview_budget_progress"
     android:description="@string/widget_budget_progress_description"
     android:widgetCategory="home_screen"
-    android:resizeMode="none" />
+    android:resizeMode="none"
+    android:configure="com.example.kanakku.widget.config.BudgetWidgetConfigActivity" />
