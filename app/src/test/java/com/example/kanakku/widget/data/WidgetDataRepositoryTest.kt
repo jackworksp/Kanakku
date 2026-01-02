@@ -446,7 +446,7 @@ class WidgetDataRepositoryTest {
     }
 
     @Test
-    fun getRecentTransactions_returnsAllWhenFewer ThanLimit() = runTest {
+    fun getRecentTransactions_returnsAllWhenFewerThanLimit() = runTest {
         // Given - Only 3 transactions but requesting 5
         val now = System.currentTimeMillis()
         val transactions = listOf(
