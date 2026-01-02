@@ -37,10 +37,23 @@ data class BackupUiState(
     val passwordError: String? = null,
     val successMessage: String? = null,
     val errorMessage: String? = null,
+    val errorRecoveryAction: ErrorRecoveryAction? = null,
     val lastBackupMetadata: BackupMetadata? = null,
     val availableBackups: List<BackupMetadata> = emptyList(),
     val isDriveSignedIn: Boolean = false
 )
+
+/**
+ * Recovery actions that can be taken when an error occurs
+ */
+sealed class ErrorRecoveryAction {
+    object SignInToDrive : ErrorRecoveryAction()
+    object RetryOperation : ErrorRecoveryAction()
+    object CheckPassword : ErrorRecoveryAction()
+    object CheckPermissions : ErrorRecoveryAction()
+    object CheckNetwork : ErrorRecoveryAction()
+    data class CustomAction(val label: String, val action: () -> Unit) : ErrorRecoveryAction()
+}
 
 /**
  * Type of backup operation
@@ -162,6 +175,78 @@ class BackupViewModel : ViewModel() {
     }
 
     /**
+     * Convert exception to user-friendly error message
+     */
+    private fun getUserFriendlyErrorMessage(error: Throwable, operation: String): String {
+        return when (error) {
+            is BackupException -> when {
+                error.message?.contains("password", ignoreCase = true) == true ->
+                    "Incorrect password. Please check your password and try again."
+                error.message?.contains("write", ignoreCase = true) == true ->
+                    "Failed to write backup file. Please check storage permissions and available space."
+                error.message?.contains("network", ignoreCase = true) == true ->
+                    "Network error. Please check your internet connection and try again."
+                error.message?.contains("authentication", ignoreCase = true) == true ->
+                    "Authentication failed. Please sign in to Google Drive again."
+                else -> "Backup failed: ${error.message ?: "Unknown error"}"
+            }
+            is RestoreException -> when {
+                error.message?.contains("password", ignoreCase = true) == true ->
+                    "Incorrect password. The password you entered doesn't match this backup."
+                error.message?.contains("decrypt", ignoreCase = true) == true ->
+                    "Failed to decrypt backup. This file may be corrupted or use a different password."
+                error.message?.contains("read", ignoreCase = true) == true ->
+                    "Failed to read backup file. The file may be corrupted or in an invalid format."
+                else -> "Restore failed: ${error.message ?: "Unknown error"}"
+            }
+            is InvalidBackupException ->
+                "Invalid backup file. This file is corrupted or was not created by Kanakku."
+            is java.io.IOException -> when {
+                error.message?.contains("Permission denied", ignoreCase = true) == true ->
+                    "Permission denied. Please grant storage access to $operation."
+                error.message?.contains("No space", ignoreCase = true) == true ->
+                    "Not enough storage space. Please free up space and try again."
+                error.message?.contains("Network", ignoreCase = true) == true ->
+                    "Network connection lost. Please check your internet and try again."
+                else -> "File error: ${error.message ?: "Unable to access file"}"
+            }
+            is java.net.UnknownHostException, is java.net.SocketTimeoutException ->
+                "Network error. Please check your internet connection and try again."
+            is SecurityException ->
+                "Permission denied. Please grant the necessary permissions and try again."
+            else -> "$operation failed: ${error.message ?: "An unexpected error occurred"}"
+        }
+    }
+
+    /**
+     * Determine appropriate recovery action based on error type
+     */
+    private fun getRecoveryAction(error: Throwable): ErrorRecoveryAction? {
+        return when {
+            error.message?.contains("authentication", ignoreCase = true) == true ||
+            error.message?.contains("sign in", ignoreCase = true) == true ->
+                ErrorRecoveryAction.SignInToDrive
+
+            error.message?.contains("password", ignoreCase = true) == true ->
+                ErrorRecoveryAction.CheckPassword
+
+            error.message?.contains("network", ignoreCase = true) == true ||
+            error is java.net.UnknownHostException ||
+            error is java.net.SocketTimeoutException ->
+                ErrorRecoveryAction.CheckNetwork
+
+            error is SecurityException ||
+            error.message?.contains("permission", ignoreCase = true) == true ->
+                ErrorRecoveryAction.CheckPermissions
+
+            error is BackupException || error is RestoreException ->
+                ErrorRecoveryAction.RetryOperation
+
+            else -> null
+        }
+    }
+
+    /**
      * Validate password and confirm password match
      */
     private fun validatePasswordsMatch(): String? {
@@ -186,6 +271,15 @@ class BackupViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             try {
+                // Validate Google Drive sign-in if needed
+                if (_uiState.value.backupType == BackupType.GOOGLE_DRIVE && !_uiState.value.isDriveSignedIn) {
+                    _uiState.value = _uiState.value.copy(
+                        errorMessage = "Please sign in to Google Drive before creating a cloud backup.",
+                        errorRecoveryAction = ErrorRecoveryAction.SignInToDrive
+                    )
+                    return@launch
+                }
+
                 // Validate password
                 val passwordError = validatePasswordsMatch()
                 if (passwordError != null) {
@@ -205,7 +299,8 @@ class BackupViewModel : ViewModel() {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         operationType = OperationType.IDLE,
-                        errorMessage = "Backup repository not initialized"
+                        errorMessage = "Backup repository not initialized. Please try again.",
+                        errorRecoveryAction = ErrorRecoveryAction.RetryOperation
                     )
                     return@launch
                 }
@@ -231,25 +326,32 @@ class BackupViewModel : ViewModel() {
                             progress = "",
                             password = "",
                             confirmPassword = "",
-                            successMessage = "Backup created successfully (${metadata.transactionCount} transactions)",
+                            successMessage = "Backup created successfully! Saved ${metadata.transactionCount} transactions and ${metadata.categoryCount} categories.",
+                            errorRecoveryAction = null,
                             lastBackupMetadata = metadata
                         )
                     },
                     onFailure = { error ->
+                        val friendlyMessage = getUserFriendlyErrorMessage(error, "create backup")
+                        val recoveryAction = getRecoveryAction(error)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             operationType = OperationType.IDLE,
                             progress = "",
-                            errorMessage = "Backup failed: ${error.message}"
+                            errorMessage = friendlyMessage,
+                            errorRecoveryAction = recoveryAction
                         )
                     }
                 )
             } catch (e: Exception) {
+                val friendlyMessage = getUserFriendlyErrorMessage(e, "create backup")
+                val recoveryAction = getRecoveryAction(e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     operationType = OperationType.IDLE,
                     progress = "",
-                    errorMessage = "Unexpected error: ${e.message}"
+                    errorMessage = friendlyMessage,
+                    errorRecoveryAction = recoveryAction
                 )
             }
         }
@@ -267,6 +369,15 @@ class BackupViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             try {
+                // Validate Google Drive sign-in if needed
+                if (_uiState.value.backupType == BackupType.GOOGLE_DRIVE && !_uiState.value.isDriveSignedIn) {
+                    _uiState.value = _uiState.value.copy(
+                        errorMessage = "Please sign in to Google Drive before restoring from cloud backup.",
+                        errorRecoveryAction = ErrorRecoveryAction.SignInToDrive
+                    )
+                    return@launch
+                }
+
                 // Validate password
                 val passwordError = validatePassword(_uiState.value.password)
                 if (passwordError != null) {
@@ -286,7 +397,8 @@ class BackupViewModel : ViewModel() {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         operationType = OperationType.IDLE,
-                        errorMessage = "Backup repository not initialized"
+                        errorMessage = "Backup repository not initialized. Please try again.",
+                        errorRecoveryAction = ErrorRecoveryAction.RetryOperation
                     )
                     return@launch
                 }
@@ -313,30 +425,32 @@ class BackupViewModel : ViewModel() {
                             operationType = OperationType.IDLE,
                             progress = "",
                             password = "",
-                            successMessage = "Backup restored successfully (${backupData.metadata.transactionCount} transactions)",
+                            successMessage = "Backup restored successfully! Loaded ${backupData.metadata.transactionCount} transactions and ${backupData.metadata.categoryCount} categories.",
+                            errorRecoveryAction = null,
                             lastBackupMetadata = backupData.metadata
                         )
                     },
                     onFailure = { error ->
-                        val errorMsg = when (error) {
-                            is InvalidBackupException -> "Invalid backup file: ${error.message}"
-                            is RestoreException -> "Restore failed: ${error.message}"
-                            else -> "Restore failed: ${error.message}"
-                        }
+                        val friendlyMessage = getUserFriendlyErrorMessage(error, "restore backup")
+                        val recoveryAction = getRecoveryAction(error)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             operationType = OperationType.IDLE,
                             progress = "",
-                            errorMessage = errorMsg
+                            errorMessage = friendlyMessage,
+                            errorRecoveryAction = recoveryAction
                         )
                     }
                 )
             } catch (e: Exception) {
+                val friendlyMessage = getUserFriendlyErrorMessage(e, "restore backup")
+                val recoveryAction = getRecoveryAction(e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     operationType = OperationType.IDLE,
                     progress = "",
-                    errorMessage = "Unexpected error: ${e.message}"
+                    errorMessage = friendlyMessage,
+                    errorRecoveryAction = recoveryAction
                 )
             }
         }
@@ -383,32 +497,40 @@ class BackupViewModel : ViewModel() {
                                 isLoading = false,
                                 operationType = OperationType.IDLE,
                                 progress = "",
-                                successMessage = "Password is correct"
+                                successMessage = "Password is correct! You can proceed with restore.",
+                                errorRecoveryAction = null
                             )
                         } else {
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 operationType = OperationType.IDLE,
                                 progress = "",
-                                errorMessage = "Incorrect password"
+                                errorMessage = "Incorrect password. Please verify your password and try again.",
+                                errorRecoveryAction = ErrorRecoveryAction.CheckPassword
                             )
                         }
                     },
                     onFailure = { error ->
+                        val friendlyMessage = getUserFriendlyErrorMessage(error, "validate password")
+                        val recoveryAction = getRecoveryAction(error)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             operationType = OperationType.IDLE,
                             progress = "",
-                            errorMessage = "Validation failed: ${error.message}"
+                            errorMessage = friendlyMessage,
+                            errorRecoveryAction = recoveryAction
                         )
                     }
                 )
             } catch (e: Exception) {
+                val friendlyMessage = getUserFriendlyErrorMessage(e, "validate password")
+                val recoveryAction = getRecoveryAction(e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     operationType = OperationType.IDLE,
                     progress = "",
-                    errorMessage = "Unexpected error: ${e.message}"
+                    errorMessage = friendlyMessage,
+                    errorRecoveryAction = recoveryAction
                 )
             }
         }
@@ -450,22 +572,29 @@ class BackupViewModel : ViewModel() {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             progress = "",
-                            lastBackupMetadata = metadata
+                            lastBackupMetadata = metadata,
+                            errorRecoveryAction = null
                         )
                     },
                     onFailure = { error ->
+                        val friendlyMessage = getUserFriendlyErrorMessage(error, "read backup info")
+                        val recoveryAction = getRecoveryAction(error)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             progress = "",
-                            errorMessage = "Failed to read backup info: ${error.message}"
+                            errorMessage = friendlyMessage,
+                            errorRecoveryAction = recoveryAction
                         )
                     }
                 )
             } catch (e: Exception) {
+                val friendlyMessage = getUserFriendlyErrorMessage(e, "read backup info")
+                val recoveryAction = getRecoveryAction(e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     progress = "",
-                    errorMessage = "Unexpected error: ${e.message}"
+                    errorMessage = friendlyMessage,
+                    errorRecoveryAction = recoveryAction
                 )
             }
         }
@@ -500,24 +629,32 @@ class BackupViewModel : ViewModel() {
                             isLoading = false,
                             operationType = OperationType.IDLE,
                             progress = "",
-                            availableBackups = backups
+                            availableBackups = backups,
+                            errorRecoveryAction = null,
+                            successMessage = if (backups.isEmpty()) "No backups found in Google Drive" else null
                         )
                     },
                     onFailure = { error ->
+                        val friendlyMessage = getUserFriendlyErrorMessage(error, "load backups")
+                        val recoveryAction = getRecoveryAction(error)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             operationType = OperationType.IDLE,
                             progress = "",
-                            errorMessage = "Failed to load backups: ${error.message}"
+                            errorMessage = friendlyMessage,
+                            errorRecoveryAction = recoveryAction
                         )
                     }
                 )
             } catch (e: Exception) {
+                val friendlyMessage = getUserFriendlyErrorMessage(e, "load backups")
+                val recoveryAction = getRecoveryAction(e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     operationType = OperationType.IDLE,
                     progress = "",
-                    errorMessage = "Unexpected error: ${e.message}"
+                    errorMessage = friendlyMessage,
+                    errorRecoveryAction = recoveryAction
                 )
             }
         }
@@ -551,24 +688,31 @@ class BackupViewModel : ViewModel() {
                         // Reload backups list
                         loadAvailableBackups()
                         _uiState.value = _uiState.value.copy(
-                            successMessage = "Backup deleted successfully"
+                            successMessage = "Backup deleted successfully",
+                            errorRecoveryAction = null
                         )
                     },
                     onFailure = { error ->
+                        val friendlyMessage = getUserFriendlyErrorMessage(error, "delete backup")
+                        val recoveryAction = getRecoveryAction(error)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             operationType = OperationType.IDLE,
                             progress = "",
-                            errorMessage = "Failed to delete backup: ${error.message}"
+                            errorMessage = friendlyMessage,
+                            errorRecoveryAction = recoveryAction
                         )
                     }
                 )
             } catch (e: Exception) {
+                val friendlyMessage = getUserFriendlyErrorMessage(e, "delete backup")
+                val recoveryAction = getRecoveryAction(e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     operationType = OperationType.IDLE,
                     progress = "",
-                    errorMessage = "Unexpected error: ${e.message}"
+                    errorMessage = friendlyMessage,
+                    errorRecoveryAction = recoveryAction
                 )
             }
         }
@@ -590,13 +734,28 @@ class BackupViewModel : ViewModel() {
                     )
                     _uiState.value = _uiState.value.copy(
                         isDriveSignedIn = true,
-                        successMessage = "Signed in to Google Drive"
+                        successMessage = "Successfully signed in to Google Drive! You can now backup to the cloud.",
+                        errorRecoveryAction = null
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isDriveSignedIn = false,
+                        errorMessage = "Sign-in was cancelled. Please try again to enable cloud backup.",
+                        errorRecoveryAction = ErrorRecoveryAction.SignInToDrive
                     )
                 }
             } catch (e: Exception) {
+                val friendlyMessage = when {
+                    e.message?.contains("network", ignoreCase = true) == true ->
+                        "Network error during sign-in. Please check your connection and try again."
+                    e.message?.contains("play services", ignoreCase = true) == true ->
+                        "Google Play Services required. Please update Play Services and try again."
+                    else -> "Failed to sign in to Google Drive. ${e.message ?: "Please try again."}"
+                }
                 _uiState.value = _uiState.value.copy(
                     isDriveSignedIn = false,
-                    errorMessage = "Failed to sign in: ${e.message}"
+                    errorMessage = friendlyMessage,
+                    errorRecoveryAction = ErrorRecoveryAction.SignInToDrive
                 )
             }
         }
@@ -612,11 +771,13 @@ class BackupViewModel : ViewModel() {
                 driveRepository = null
                 _uiState.value = _uiState.value.copy(
                     isDriveSignedIn = false,
-                    successMessage = "Signed out from Google Drive"
+                    successMessage = "Signed out from Google Drive successfully",
+                    errorRecoveryAction = null
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    errorMessage = "Failed to sign out: ${e.message}"
+                    errorMessage = "Failed to sign out: ${e.message ?: "Please try again."}",
+                    errorRecoveryAction = ErrorRecoveryAction.RetryOperation
                 )
             }
         }
@@ -628,12 +789,13 @@ class BackupViewModel : ViewModel() {
     fun getGoogleSignInIntent() = googleDriveService?.getSignInIntent()
 
     /**
-     * Clear messages
+     * Clear messages and recovery actions
      */
     fun clearMessages() {
         _uiState.value = _uiState.value.copy(
             successMessage = null,
-            errorMessage = null
+            errorMessage = null,
+            errorRecoveryAction = null
         )
     }
 

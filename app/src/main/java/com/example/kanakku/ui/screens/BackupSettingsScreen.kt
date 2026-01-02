@@ -14,9 +14,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import com.example.kanakku.ui.backup.BackupType
 import com.example.kanakku.ui.backup.BackupUiState
 import com.example.kanakku.ui.backup.BackupViewModel
+import com.example.kanakku.ui.backup.ErrorRecoveryAction
 import com.example.kanakku.ui.backup.OperationType
 import com.example.kanakku.ui.components.BackupProgressCard
 import com.example.kanakku.ui.components.PasswordDialog
@@ -40,14 +42,55 @@ fun BackupSettingsScreen(
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordDialogMode by remember { mutableStateOf(PasswordDialogMode.CREATE) }
 
-    // Show snackbar for success/error messages
+    // Show snackbar for success/error messages with recovery actions
     LaunchedEffect(uiState.successMessage, uiState.errorMessage) {
-        uiState.successMessage?.let {
-            snackbarHostState.showSnackbar(it)
+        uiState.successMessage?.let { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short
+            )
             viewModel.clearMessages()
         }
-        uiState.errorMessage?.let {
-            snackbarHostState.showSnackbar(it)
+        uiState.errorMessage?.let { message ->
+            val actionLabel = when (uiState.errorRecoveryAction) {
+                is ErrorRecoveryAction.SignInToDrive -> "Sign In"
+                is ErrorRecoveryAction.RetryOperation -> "Retry"
+                is ErrorRecoveryAction.CheckPassword -> "Try Again"
+                is ErrorRecoveryAction.CheckNetwork -> "Retry"
+                is ErrorRecoveryAction.CheckPermissions -> "Settings"
+                is ErrorRecoveryAction.CustomAction -> (uiState.errorRecoveryAction as ErrorRecoveryAction.CustomAction).label
+                null -> null
+            }
+
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = actionLabel,
+                duration = if (actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short
+            )
+
+            // Handle action button clicks
+            if (result == SnackbarResult.ActionPerformed) {
+                when (uiState.errorRecoveryAction) {
+                    is ErrorRecoveryAction.SignInToDrive -> onDriveSignIn()
+                    is ErrorRecoveryAction.RetryOperation -> {
+                        // User can manually retry
+                    }
+                    is ErrorRecoveryAction.CheckPassword -> {
+                        showPasswordDialog = true
+                    }
+                    is ErrorRecoveryAction.CheckNetwork -> {
+                        // User can manually retry
+                    }
+                    is ErrorRecoveryAction.CheckPermissions -> {
+                        // Could open app settings in future
+                    }
+                    is ErrorRecoveryAction.CustomAction -> {
+                        (uiState.errorRecoveryAction as ErrorRecoveryAction.CustomAction).action()
+                    }
+                    null -> {}
+                }
+            }
+
             viewModel.clearMessages()
         }
     }
@@ -88,6 +131,13 @@ fun BackupSettingsScreen(
                         operationType = uiState.operationType,
                         progress = uiState.progress
                     )
+                }
+            }
+
+            // Google Drive Sign-In Required Info
+            if (uiState.backupType == BackupType.GOOGLE_DRIVE && !uiState.isDriveSignedIn) {
+                item {
+                    DriveSignInRequiredCard(onSignIn = onDriveSignIn)
                 }
             }
 
@@ -372,4 +422,57 @@ private fun LastBackupCard(
 private fun formatBackupDate(timestamp: Long): String {
     val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
     return sdf.format(Date(timestamp))
+}
+
+@Composable
+private fun DriveSignInRequiredCard(onSignIn: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFFFF9C4) // Light yellow
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = null,
+                tint = Color(0xFFF57F17), // Dark yellow
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Sign-In Required",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFF57F17)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Please sign in to Google Drive to enable cloud backup and restore",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF795548)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(
+                onClick = onSignIn,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFF57F17)
+                )
+            ) {
+                Text("Sign In")
+            }
+        }
+    }
 }
