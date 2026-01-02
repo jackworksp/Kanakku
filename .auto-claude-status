@@ -3,7 +3,7 @@
   "spec": "022-local-data-backup",
   "state": "building",
   "subtasks": {
-    "completed": 7,
+    "completed": 8,
     "total": 27,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 9,
-    "started_at": "2026-01-02T23:11:14.419705"
+    "number": 1,
+    "started_at": "2026-01-03T01:04:16.451409"
   },
-  "last_update": "2026-01-02T23:49:45.099784"
+  "last_update": "2026-01-03T01:04:16.451409"
 }
