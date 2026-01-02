@@ -25,6 +25,14 @@ import kotlinx.coroutines.flow.map
  * - Manage category overrides
  * - Track sync metadata for incremental updates
  * - Provide reactive data streams via Flow
+ * - Handle all database errors gracefully with comprehensive error handling
+ *
+ * Error Handling Strategy:
+ * - All database operations wrapped in try-catch blocks via ErrorHandler
+ * - Errors logged for debugging with appropriate context
+ * - Suspend functions return Result<T> for error propagation to callers
+ * - Flow operations include .catch() to emit fallback values on error
+ * - No uncaught exceptions - all errors are handled gracefully
  *
  * @param database The Room database instance
  */
