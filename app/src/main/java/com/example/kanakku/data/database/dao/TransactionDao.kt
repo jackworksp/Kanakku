@@ -129,16 +129,36 @@ interface TransactionDao {
     // ==================== Widget-Optimized Queries ====================
 
     /**
-     * Gets the sum of DEBIT transactions within a date range.
-     * Optimized for widget data fetching by calculating sum directly in SQL.
-     * This is more efficient than fetching all records and summing in Kotlin.
+     * Gets the total sum of DEBIT transactions for today.
+     * Optimized query for widget data fetching - performs aggregation at database level.
+     * This is more efficient than fetching all transactions and filtering in Kotlin.
      *
-     * @param startDate Start timestamp (inclusive)
-     * @param endDate End timestamp (inclusive)
-     * @return Sum of debit amounts in the range, or 0.0 if no debits exist
+     * @param startDate Start of day timestamp (00:00:00.000, inclusive)
+     * @param endDate End of day timestamp (23:59:59.999, inclusive)
+     * @return Sum of debit amounts for today, or 0.0 if no transactions exist
      */
-    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE type = 'DEBIT' AND date BETWEEN :startDate AND :endDate")
-    suspend fun getDebitTotalInRange(startDate: Long, endDate: Long): Double
+    @Query("""
+        SELECT COALESCE(SUM(amount), 0.0)
+        FROM transactions
+        WHERE type = 'DEBIT' AND date BETWEEN :startDate AND :endDate
+    """)
+    suspend fun getTodayDebitTotal(startDate: Long, endDate: Long): Double
+
+    /**
+     * Gets the total sum of DEBIT transactions for the current week.
+     * Optimized query for widget data fetching - performs aggregation at database level.
+     * Week is Monday to Sunday as per app convention.
+     *
+     * @param startDate Start of week timestamp (Monday 00:00:00.000, inclusive)
+     * @param endDate End of week timestamp (Sunday 23:59:59.999, inclusive)
+     * @return Sum of debit amounts for the week, or 0.0 if no transactions exist
+     */
+    @Query("""
+        SELECT COALESCE(SUM(amount), 0.0)
+        FROM transactions
+        WHERE type = 'DEBIT' AND date BETWEEN :startDate AND :endDate
+    """)
+    suspend fun getWeekDebitTotal(startDate: Long, endDate: Long): Double
 
     /**
      * Retrieves the most recent N transactions.
