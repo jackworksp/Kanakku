@@ -64,6 +64,8 @@ class MainViewModel : ViewModel() {
                 // Initialize repository if not already done
                 if (repository == null) {
                     repository = DatabaseProvider.getRepository(context)
+                    // Initialize CategoryManager with repository and load overrides
+                    categoryManager.initialize(repository!!)
                 }
                 val repo = repository!!
 
@@ -153,14 +155,11 @@ class MainViewModel : ViewModel() {
      */
     fun updateTransactionCategory(smsId: Long, category: Category) {
         viewModelScope.launch {
-            // Update in-memory state
+            // Update in-memory state and persist to database
             categoryManager.setManualOverride(smsId, category)
             _categoryMap.value = _categoryMap.value.toMutableMap().apply {
                 put(smsId, category)
             }
-
-            // Persist to database
-            repository?.setCategoryOverride(smsId, category.id)
         }
     }
 }
