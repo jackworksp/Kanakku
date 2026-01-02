@@ -27,6 +27,44 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Widget Receivers -->
+
+        <!-- Small Widget: Today's Spending (2x1) -->
+        <receiver
+            android:name=".widget.TodaySpendingWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_spending_widget_info" />
+        </receiver>
+
+        <!-- Medium Widget: Budget Progress (3x2) -->
+        <receiver
+            android:name=".widget.BudgetProgressWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/budget_progress_widget_info" />
+        </receiver>
+
+        <!-- Large Widget: Recent Transactions (4x3) -->
+        <receiver
+            android:name=".widget.RecentTransactionsWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/recent_transactions_widget_info" />
+        </receiver>
     </application>
 
 </manifest>
