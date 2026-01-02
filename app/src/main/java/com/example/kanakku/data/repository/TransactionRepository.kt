@@ -12,6 +12,8 @@ import com.example.kanakku.data.model.TransactionType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Repository for managing transaction persistence and retrieval.
@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.map
  * - Track sync metadata for incremental updates
  * - Provide reactive data streams via Flow
  * - Handle all database errors gracefully with comprehensive error handling
+ * - Provide in-memory caching for frequently accessed data to improve performance
  *
  * Error Handling Strategy:
  * - All database operations wrapped in try-catch blocks via ErrorHandler
@@ -33,6 +36,13 @@ import kotlinx.coroutines.flow.map
  * - Suspend functions return Result<T> for error propagation to callers
  * - Flow operations include .catch() to emit fallback values on error
  * - No uncaught exceptions - all errors are handled gracefully
+ *
+ * Caching Strategy:
+ * - Frequently accessed data cached in memory to reduce database reads
+ * - Cache invalidated automatically when data changes (save, delete operations)
+ * - Thread-safe cache access using Mutex for coroutine synchronization
+ * - Cache failures are transparent - falls back to database on cache miss
+ * - Improves performance for common operations like getAllTransactions()
  *
  * @param database The Room database instance
  */
@@ -42,6 +52,54 @@ class TransactionRepository(private val database: KanakkuDatabase) {
     private val transactionDao = database.transactionDao()
     private val categoryOverrideDao = database.categoryOverrideDao()
     private val syncMetadataDao = database.syncMetadataDao()
+
+    // ==================== In-Memory Cache ====================
+
+    /**
+     * Cache for frequently accessed data to reduce database queries.
+     * All cache access is synchronized using cacheMutex to ensure thread safety.
+     */
+    private var transactionsCache: List<ParsedTransaction>? = null
+    private var transactionCountCache: Int? = null
+    private var latestTransactionDateCache: Long? = null
+
+    /**
+     * Mutex for thread-safe cache access.
+     * Ensures cache consistency when accessed from multiple coroutines.
+     */
+    private val cacheMutex = Mutex()
+
+    /**
+     * Invalidates all cached data.
+     * Should be called after any operation that modifies transactions.
+     */
+    private suspend fun invalidateCache() {
+        cacheMutex.withLock {
+            transactionsCache = null
+            transactionCountCache = null
+            latestTransactionDateCache = null
+        }
+        ErrorHandler.logDebug("Cache invalidated", "TransactionRepository")
+    }
+
+    /**
+     * Updates the transactions cache with fresh data.
+     * Thread-safe operation using cacheMutex.
+     *
+     * @param transactions The transactions to cache
+     */
+    private suspend fun updateTransactionsCache(transactions: List<ParsedTransaction>) {
+        cacheMutex.withLock {
+            transactionsCache = transactions
+            transactionCountCache = transactions.size
+            // Update latest date from cached transactions
+            latestTransactionDateCache = transactions.maxOfOrNull { it.date }
+        }
+        ErrorHandler.logDebug(
+            "Cache updated: ${transactions.size} transactions",
+            "TransactionRepository"
+        )
+    }
 
     // Metadata keys
     companion object {
@@ -54,6 +112,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
     /**
      * Saves a single transaction to the database.
      * Converts the domain model to an entity before persisting.
+     * Invalidates cache after successful save to ensure data consistency.
      *
      * @param transaction The parsed transaction to save
      * @return Result<Unit> indicating success or failure with error information
@@ -61,12 +120,14 @@ class TransactionRepository(private val database: KanakkuDatabase) {
     suspend fun saveTransaction(transaction: ParsedTransaction): Result<Unit> {
         return ErrorHandler.runSuspendCatching("Save transaction") {
             transactionDao.insert(transaction.toEntity())
+            invalidateCache()
         }
     }
 
     /**
      * Saves multiple transactions to the database in a single operation.
      * More efficient than saving individually for bulk imports.
+     * Invalidates cache after successful save to ensure data consistency.
      *
      * @param transactions List of parsed transactions to save
      * @return Result<Unit> indicating success or failure with error information
@@ -74,6 +135,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
     suspend fun saveTransactions(transactions: List<ParsedTransaction>): Result<Unit> {
         return ErrorHandler.runSuspendCatching("Save transactions") {
             transactionDao.insertAll(transactions.map { it.toEntity() })
+            invalidateCache()
         }
     }
 
@@ -96,13 +158,28 @@ class TransactionRepository(private val database: KanakkuDatabase) {
     /**
      * Retrieves all transactions as a one-time snapshot.
      * Useful for non-reactive operations.
+     * Uses in-memory cache to reduce database reads - falls back to database on cache miss.
      *
      * @return Result<List<ParsedTransaction>> containing transactions or error information
      */
     suspend fun getAllTransactionsSnapshot(): Result<List<ParsedTransaction>> {
         return ErrorHandler.runSuspendCatching("Get all transactions snapshot") {
-            transactionDao.getAllTransactionsSnapshot()
+            // Check cache first
+            val cached = cacheMutex.withLock { transactionsCache }
+            if (cached != null) {
+                ErrorHandler.logDebug("Cache hit: getAllTransactionsSnapshot", "TransactionRepository")
+                return@runSuspendCatching cached
+            }
+
+            // Cache miss - fetch from database
+            ErrorHandler.logDebug("Cache miss: getAllTransactionsSnapshot", "TransactionRepository")
+            val transactions = transactionDao.getAllTransactionsSnapshot()
                 .map { it.toDomain() }
+
+            // Update cache with fresh data
+            updateTransactionsCache(transactions)
+
+            transactions
         }
     }
 
@@ -167,48 +244,88 @@ class TransactionRepository(private val database: KanakkuDatabase) {
 
     /**
      * Deletes a transaction by its SMS ID.
+     * Invalidates cache after successful deletion to ensure data consistency.
      *
      * @param smsId The SMS ID of the transaction to delete
      * @return Result<Boolean> indicating if transaction was deleted or error information
      */
     suspend fun deleteTransaction(smsId: Long): Result<Boolean> {
         return ErrorHandler.runSuspendCatching("Delete transaction") {
-            transactionDao.deleteById(smsId) > 0
+            val deleted = transactionDao.deleteById(smsId) > 0
+            if (deleted) {
+                invalidateCache()
+            }
+            deleted
         }
     }
 
     /**
      * Deletes all transactions from the database.
      * Use with caution - this cannot be undone.
+     * Invalidates cache after successful deletion to ensure data consistency.
      *
      * @return Result<Int> containing number of transactions deleted or error information
      */
     suspend fun deleteAllTransactions(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Delete all transactions") {
-            transactionDao.deleteAll()
+            val deletedCount = transactionDao.deleteAll()
+            if (deletedCount > 0) {
+                invalidateCache()
+            }
+            deletedCount
         }
     }
 
     /**
      * Gets the total count of transactions in the database.
+     * Uses in-memory cache to reduce database reads - falls back to database on cache miss.
      *
      * @return Result<Int> containing total number of transactions or error information
      */
     suspend fun getTransactionCount(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Get transaction count") {
-            transactionDao.getTransactionCount()
+            // Check cache first
+            val cached = cacheMutex.withLock { transactionCountCache }
+            if (cached != null) {
+                ErrorHandler.logDebug("Cache hit: getTransactionCount", "TransactionRepository")
+                return@runSuspendCatching cached
+            }
+
+            // Cache miss - fetch from database
+            ErrorHandler.logDebug("Cache miss: getTransactionCount", "TransactionRepository")
+            val count = transactionDao.getTransactionCount()
+
+            // Update cache
+            cacheMutex.withLock { transactionCountCache = count }
+
+            count
         }
     }
 
     /**
      * Gets the most recent transaction date.
      * Useful for determining last sync time.
+     * Uses in-memory cache to reduce database reads - falls back to database on cache miss.
      *
      * @return Result<Long?> containing timestamp of most recent transaction or error information
      */
     suspend fun getLatestTransactionDate(): Result<Long?> {
         return ErrorHandler.runSuspendCatching("Get latest transaction date") {
-            transactionDao.getLatestTransactionDate()
+            // Check cache first
+            val cached = cacheMutex.withLock { latestTransactionDateCache }
+            if (cached != null) {
+                ErrorHandler.logDebug("Cache hit: getLatestTransactionDate", "TransactionRepository")
+                return@runSuspendCatching cached
+            }
+
+            // Cache miss - fetch from database
+            ErrorHandler.logDebug("Cache miss: getLatestTransactionDate", "TransactionRepository")
+            val latestDate = transactionDao.getLatestTransactionDate()
+
+            // Update cache
+            cacheMutex.withLock { latestTransactionDateCache = latestDate }
+
+            latestDate
         }
     }
 
