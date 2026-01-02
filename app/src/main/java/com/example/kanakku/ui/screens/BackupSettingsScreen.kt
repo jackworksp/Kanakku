@@ -18,6 +18,7 @@ import com.example.kanakku.ui.backup.BackupType
 import com.example.kanakku.ui.backup.BackupUiState
 import com.example.kanakku.ui.backup.BackupViewModel
 import com.example.kanakku.ui.backup.OperationType
+import com.example.kanakku.ui.components.BackupProgressCard
 import com.example.kanakku.ui.components.PasswordDialog
 import com.example.kanakku.ui.components.PasswordDialogMode
 import java.text.SimpleDateFormat
@@ -83,7 +84,7 @@ fun BackupSettingsScreen(
             // Progress Card
             if (uiState.isLoading) {
                 item {
-                    ProgressCard(
+                    BackupProgressCard(
                         operationType = uiState.operationType,
                         progress = uiState.progress
                     )
@@ -327,56 +328,6 @@ private fun BackupActionCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(buttonText)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProgressCard(
-    operationType: OperationType,
-    progress: String
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
-                strokeWidth = 3.dp
-            )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column {
-                Text(
-                    text = when (operationType) {
-                        OperationType.CREATING_BACKUP -> "Creating Backup"
-                        OperationType.RESTORING_BACKUP -> "Restoring Backup"
-                        OperationType.VALIDATING_PASSWORD -> "Validating Password"
-                        OperationType.LOADING_BACKUPS -> "Loading Backups"
-                        OperationType.DELETING_BACKUP -> "Deleting Backup"
-                        OperationType.IDLE -> "Processing"
-                    },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                if (progress.isNotEmpty()) {
-                    Text(
-                        text = progress,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         }
     }
