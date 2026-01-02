@@ -42,7 +42,7 @@ class WidgetDataRepositoryTest {
             .allowMainThreadQueries() // For testing only
             .build()
 
-        repository = WidgetDataRepository(ApplicationProvider.getApplicationContext())
+        repository = WidgetDataRepository(database.transactionDao())
     }
 
     @After

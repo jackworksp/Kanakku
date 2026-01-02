@@ -21,6 +21,7 @@ import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
+import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -171,23 +172,39 @@ class BudgetProgressWidget : GlanceAppWidget() {
 
             Spacer(modifier = GlanceModifier.size(8.dp))
 
-            // Progress bar background and foreground
-            Box(
-                modifier = GlanceModifier
-                    .fillMaxWidth()
-                    .height(12.dp)
-                    .background(ColorProvider(Color(0xFFE0E0E0)))
-            ) {
-                // Progress bar fill with color coding
-                val progressColor = getProgressColor(percentage)
-                val progressWidth = (percentage / 100.0).coerceIn(0.0, 1.0)
+            // Progress bar with side-by-side fill and empty portions
+            val progressColor = getProgressColor(percentage)
+            val fillFraction = (percentage / 100.0).coerceIn(0.0, 1.0)
+            val barWidth = 140.dp
+            val fillWidth = barWidth * fillFraction.toFloat()
+            val emptyWidth = barWidth * (1.0f - fillFraction.toFloat())
 
-                Box(
-                    modifier = GlanceModifier
-                        .fillMaxWidth(progressWidth.toFloat())
-                        .height(12.dp)
-                        .background(progressColor)
-                )
+            Row(
+                modifier = GlanceModifier
+                    .width(barWidth)
+                    .height(12.dp)
+            ) {
+                // Filled portion
+                if (fillFraction > 0.0) {
+                    Box(
+                        modifier = GlanceModifier
+                            .width(fillWidth)
+                            .height(12.dp)
+                            .background(progressColor),
+                        content = {}
+                    )
+                }
+
+                // Empty portion
+                if (fillFraction < 1.0) {
+                    Box(
+                        modifier = GlanceModifier
+                            .width(emptyWidth)
+                            .height(12.dp)
+                            .background(ColorProvider(Color(0xFFE0E0E0))),
+                        content = {}
+                    )
+                }
             }
 
             Spacer(modifier = GlanceModifier.size(6.dp))

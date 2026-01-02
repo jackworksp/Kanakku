@@ -24,12 +24,17 @@ import java.util.Calendar
  * - Retrieve recent transactions for large widget
  * - Provide snapshot data suitable for widget rendering
  *
- * @param context Application context for database access
+ * @param transactionDao DAO for database access (optional, for testing)
  */
-class WidgetDataRepository(context: Context) {
+class WidgetDataRepository(private val transactionDao: TransactionDao) {
 
-    private val transactionDao: TransactionDao =
+    /**
+     * Convenience constructor that uses DatabaseProvider for production use.
+     * @param context Application context for database access
+     */
+    constructor(context: Context) : this(
         DatabaseProvider.getDatabase(context.applicationContext).transactionDao()
+    )
 
     /**
      * Gets today's total debit amount for the spending widget.
@@ -40,12 +45,8 @@ class WidgetDataRepository(context: Context) {
     suspend fun getTodaySpending(): TodaySpendingData {
         val (startOfDay, endOfDay) = getTodayDateRange()
 
-        // Get all transactions for today
-        val todayTransactions = transactionDao.getAllTransactionsSnapshot()
-            .filter { it.date in startOfDay..endOfDay && it.type == TransactionType.DEBIT }
-
-        // Sum up all debit amounts
-        val todayTotal = todayTransactions.sumOf { it.amount }
+        // Get today's debit total using optimized DAO query
+        val todayTotal = transactionDao.getTodayDebitTotal(startOfDay, endOfDay)
 
         return TodaySpendingData(
             todayTotal = todayTotal,
@@ -64,12 +65,8 @@ class WidgetDataRepository(context: Context) {
     suspend fun getWeeklyBudgetProgress(budget: Double): BudgetProgressData {
         val (startOfWeek, endOfWeek) = getWeekDateRange()
 
-        // Get all debit transactions for this week
-        val weekTransactions = transactionDao.getAllTransactionsSnapshot()
-            .filter { it.date in startOfWeek..endOfWeek && it.type == TransactionType.DEBIT }
-
-        // Sum up all debit amounts for the week
-        val spent = weekTransactions.sumOf { it.amount }
+        // Get week's debit total using optimized DAO query
+        val spent = transactionDao.getWeekDebitTotal(startOfWeek, endOfWeek)
 
         // Calculate percentage (handle division by zero)
         val percentage = if (budget > 0) {
@@ -94,9 +91,8 @@ class WidgetDataRepository(context: Context) {
      * @return RecentTransactionsData containing list of recent transactions and timestamp
      */
     suspend fun getRecentTransactions(limit: Int = 5): RecentTransactionsData {
-        // Get all transactions and take the most recent ones
-        val recentTransactions = transactionDao.getAllTransactionsSnapshot()
-            .take(limit)
+        // Get recent transactions using optimized DAO query
+        val recentTransactions = transactionDao.getRecentTransactionsSnapshot(limit)
             .map { entity ->
                 WidgetTransaction(
                     id = entity.smsId,
