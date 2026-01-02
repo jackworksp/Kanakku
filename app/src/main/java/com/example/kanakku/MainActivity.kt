@@ -21,11 +21,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kanakku.ui.MainViewModel
 import com.example.kanakku.ui.navigation.KanakkuNavHost
 import com.example.kanakku.ui.theme.KanakkuTheme
+import com.example.kanakku.widget.worker.WidgetUpdateScheduler
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Schedule periodic widget updates (hourly)
+        // This ensures all widgets stay up-to-date with latest transaction data
+        WidgetUpdateScheduler.schedulePeriodicUpdates(this)
+
         setContent {
             KanakkuTheme {
                 KanakkuApp()
