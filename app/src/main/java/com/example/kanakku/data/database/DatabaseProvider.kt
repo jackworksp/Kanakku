@@ -1,0 +1,90 @@
+package com.example.kanakku.data.database
+
+import android.content.Context
+import androidx.room.Room
+import com.example.kanakku.data.repository.TransactionRepository
+
+/**
+ * Singleton provider for database instance and repository.
+ *
+ * This class manages the lifecycle of the Room database and provides
+ * centralized access to database operations through the repository pattern.
+ *
+ * Thread-safe singleton implementation using double-checked locking.
+ * Database is lazily initialized on first access.
+ *
+ * Usage:
+ * ```
+ * val repository = DatabaseProvider.getRepository(context)
+ * ```
+ */
+object DatabaseProvider {
+
+    @Volatile
+    private var database: KanakkuDatabase? = null
+
+    @Volatile
+    private var repository: TransactionRepository? = null
+
+    private const val DATABASE_NAME = "kanakku_database"
+
+    /**
+     * Gets the singleton database instance.
+     * Creates the database on first access using the provided context.
+     *
+     * @param context Application or Activity context (applicationContext is used internally)
+     * @return The KanakkuDatabase instance
+     */
+    fun getDatabase(context: Context): KanakkuDatabase {
+        return database ?: synchronized(this) {
+            database ?: buildDatabase(context.applicationContext).also {
+                database = it
+            }
+        }
+    }
+
+    /**
+     * Gets the singleton repository instance.
+     * Creates both database and repository on first access.
+     *
+     * @param context Application or Activity context (applicationContext is used internally)
+     * @return The TransactionRepository instance
+     */
+    fun getRepository(context: Context): TransactionRepository {
+        return repository ?: synchronized(this) {
+            repository ?: TransactionRepository(getDatabase(context)).also {
+                repository = it
+            }
+        }
+    }
+
+    /**
+     * Builds the Room database with proper configuration.
+     *
+     * @param context Application context
+     * @return Configured KanakkuDatabase instance
+     */
+    private fun buildDatabase(context: Context): KanakkuDatabase {
+        return Room.databaseBuilder(
+            context,
+            KanakkuDatabase::class.java,
+            DATABASE_NAME
+        )
+            .fallbackToDestructiveMigration() // For development - TODO: implement proper migrations for production
+            .build()
+    }
+
+    /**
+     * Clears the singleton instances.
+     * Useful for testing or forcing a database reset.
+     *
+     * WARNING: This should only be used in tests or controlled scenarios.
+     * Calling this while the database is in use may cause issues.
+     */
+    @Synchronized
+    fun resetInstance() {
+        database?.close()
+        database = null
+        repository = null
+    }
+}
