@@ -100,7 +100,16 @@ class MainViewModel : ViewModel() {
 
                 if (existingTransactions.isNotEmpty()) {
                     // Show existing data immediately for fast startup
-                    val categories = categoryManager.categorizeAll(existingTransactions)
+                    val categories = try {
+                        categoryManager.categorizeAll(existingTransactions)
+                    } catch (e: Exception) {
+                        val errorInfo = ErrorHandler.handleError(e, "Categorize existing transactions")
+                        ErrorHandler.logWarning(
+                            "Failed to categorize existing transactions: ${errorInfo.technicalMessage}",
+                            "loadSmsData"
+                        )
+                        emptyMap() // Continue with uncategorized transactions
+                    }
                     _categoryMap.value = categories
 
                     _uiState.value = _uiState.value.copy(
@@ -143,8 +152,27 @@ class MainViewModel : ViewModel() {
                 }
 
                 // Step 4: Parse and filter only new bank SMS
-                val newBankSms = parser.filterBankSms(newSms)
-                val newParsed = parser.parseAllBankSms(newBankSms)
+                val newBankSms = try {
+                    parser.filterBankSms(newSms)
+                } catch (e: Exception) {
+                    val errorInfo = ErrorHandler.handleError(e, "Filter bank SMS")
+                    ErrorHandler.logWarning(
+                        "Failed to filter bank SMS: ${errorInfo.technicalMessage}",
+                        "loadSmsData"
+                    )
+                    emptyList() // Continue with empty list
+                }
+
+                val newParsed = try {
+                    parser.parseAllBankSms(newBankSms)
+                } catch (e: Exception) {
+                    val errorInfo = ErrorHandler.handleError(e, "Parse bank SMS")
+                    ErrorHandler.logWarning(
+                        "Failed to parse bank SMS: ${errorInfo.technicalMessage}",
+                        "loadSmsData"
+                    )
+                    emptyList() // Continue with empty list
+                }
 
                 // Filter out transactions that already exist in database
                 val newTransactions = mutableListOf<ParsedTransaction>()
@@ -164,7 +192,17 @@ class MainViewModel : ViewModel() {
                         newTransactions.add(transaction)
                     }
                 }
-                val deduplicated = parser.removeDuplicates(newTransactions)
+
+                val deduplicated = try {
+                    parser.removeDuplicates(newTransactions)
+                } catch (e: Exception) {
+                    val errorInfo = ErrorHandler.handleError(e, "Remove duplicate transactions")
+                    ErrorHandler.logWarning(
+                        "Failed to remove duplicates: ${errorInfo.technicalMessage}, using all transactions",
+                        "loadSmsData"
+                    )
+                    newTransactions // Continue with potentially duplicate transactions
+                }
 
                 // Step 5: Save new transactions to database
                 if (deduplicated.isNotEmpty()) {
@@ -203,7 +241,16 @@ class MainViewModel : ViewModel() {
                     }
                     .getOrElse { emptyList() }
 
-                val categories = categoryManager.categorizeAll(allTransactions)
+                val categories = try {
+                    categoryManager.categorizeAll(allTransactions)
+                } catch (e: Exception) {
+                    val errorInfo = ErrorHandler.handleError(e, "Categorize all transactions")
+                    ErrorHandler.logWarning(
+                        "Failed to categorize all transactions: ${errorInfo.technicalMessage}",
+                        "loadSmsData"
+                    )
+                    emptyMap() // Continue with uncategorized transactions
+                }
                 _categoryMap.value = categories
 
                 // Calculate stats
