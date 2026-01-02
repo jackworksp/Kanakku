@@ -1,0 +1,7 @@
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio1\jbr"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+Set-Location "C:\Users\ADMIN\AndroidStudioProjects\Kanakku"
+Write-Host "JAVA_HOME: $env:JAVA_HOME"
+Write-Host "Starting build..."
+& .\gradlew.bat assembleDebug --no-daemon 2>&1 | Tee-Object -FilePath "build_log.txt"
+Write-Host "Build completed with exit code: $LASTEXITCODE"

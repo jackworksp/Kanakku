@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(./gradlew:*)",
+      "Bash(gradlew.bat:*)",
+      "Bash(git:*)",
+      "Bash(adb:*)",
+      "Bash(adb devices:*)",
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(powershell:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(cmd /c:*)",
+      "Bash(cmd.exe /c:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:developer.android.com)",
+      "WebFetch(domain:kotlinlang.org)",
+      "WebFetch(domain:gradle.org)"
+    ],
+    "deny": [
+      "Read(./local.properties)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(./app/google-services.json)",
+      "Read(./**/*keystore*)",
+      "Read(./**/credentials.json)"
+    ]
+  },
+  "env": {
+    "JAVA_HOME": "C:\\Program Files\\Android\\Android Studio1\\jbr",
+    "ANDROID_HOME": "C:\\Users\\ADMIN\\AppData\\Local\\Android\\Sdk",
+    "ANDROID_SDK_ROOT": "C:\\Users\\ADMIN\\AppData\\Local\\Android\\Sdk"
+  }
+}

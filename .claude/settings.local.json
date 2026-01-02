@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(adb devices:*)",
+      "Bash(adb:*)",
+      "Bash(where adb:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(cmd /c:*)",
+      "Bash(cmd.exe /c:*)",
+      "Bash(gradlew.bat:*)",
+      "Bash(./gradlew:*)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\.local\\\\bin\\\\claude.exe\" doctor)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\.local\\\\bin\\\\claude.exe\" --version)",
+      "Skill(lint)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell screencap -p /sdcard/kanakku_screenshot.png)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" pull /sdcard/kanakku_screenshot.png \"C:\\\\Users\\\\ADMIN\\\\AndroidStudioProjects\\\\Kanakku\\\\kanakku_screenshot.png\")",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" exec-out screencap -p)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell input swipe 500 1500 500 500)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell am start -n com.example.kanakku/.MainActivity)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell input tap 350 1950)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell input keyevent 4)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell input tap 350 300)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell input tap 350 2150)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell input swipe 350 700 350 2000 300)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell am force-stop com.example.kanakku)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell input tap 350 2280)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell wm size)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell input tap 350 2350)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell input tap 540 2400)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell input swipe 540 1800 540 800 300)",
+      "Bash(\"C:\\\\Users\\\\ADMIN\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell input tap 850 2400)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "github",
+    "filesystem"
+  ]
+}
