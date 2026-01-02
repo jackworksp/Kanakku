@@ -1,6 +1,7 @@
 package com.example.kanakku
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -19,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kanakku.ui.MainViewModel
+import com.example.kanakku.ui.components.PrivacyInfoDialog
 import com.example.kanakku.ui.navigation.KanakkuNavHost
 import com.example.kanakku.ui.theme.KanakkuTheme
 
@@ -40,6 +42,11 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val categoryMap by viewModel.categoryMap.collectAsState()
 
+    // Track whether to show the privacy dialog
+    var showPrivacyDialog by remember {
+        mutableStateOf(isFirstLaunch(context))
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -60,6 +67,16 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
         if (hasPermission) {
             viewModel.loadSmsData(context)
         }
+    }
+
+    // Show privacy dialog on first launch
+    if (showPrivacyDialog) {
+        PrivacyInfoDialog(
+            onDismiss = {
+                markPrivacyDialogShown(context)
+                showPrivacyDialog = false
+            }
+        )
     }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -144,4 +161,25 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
             Text("Reading SMS messages...")
         }
     }
+}
+
+/**
+ * Checks if this is the first time the app is being launched.
+ *
+ * @param context The application context
+ * @return true if the privacy dialog has not been shown before, false otherwise
+ */
+private fun isFirstLaunch(context: Context): Boolean {
+    val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+    return !prefs.getBoolean("privacy_dialog_shown", false)
+}
+
+/**
+ * Marks the privacy dialog as shown so it won't appear again.
+ *
+ * @param context The application context
+ */
+private fun markPrivacyDialogShown(context: Context) {
+    val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+    prefs.edit().putBoolean("privacy_dialog_shown", true).apply()
 }
