@@ -1,5 +1,6 @@
 package com.example.kanakku.data.repository
 
+import com.example.kanakku.core.error.ErrorHandler
 import com.example.kanakku.data.database.KanakkuDatabase
 import com.example.kanakku.data.database.entity.CategoryOverrideEntity
 import com.example.kanakku.data.database.entity.SyncMetadataEntity
@@ -9,6 +10,7 @@ import com.example.kanakku.data.database.toEntity
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.TransactionType
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 
 /**
@@ -46,9 +48,12 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * Converts the domain model to an entity before persisting.
      *
      * @param transaction The parsed transaction to save
+     * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun saveTransaction(transaction: ParsedTransaction) {
-        transactionDao.insert(transaction.toEntity())
+    suspend fun saveTransaction(transaction: ParsedTransaction): Result<Unit> {
+        return ErrorHandler.runSuspendCatching("Save transaction") {
+            transactionDao.insert(transaction.toEntity())
+        }
     }
 
     /**
@@ -56,35 +61,46 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * More efficient than saving individually for bulk imports.
      *
      * @param transactions List of parsed transactions to save
+     * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun saveTransactions(transactions: List<ParsedTransaction>) {
-        transactionDao.insertAll(transactions.map { it.toEntity() })
+    suspend fun saveTransactions(transactions: List<ParsedTransaction>): Result<Unit> {
+        return ErrorHandler.runSuspendCatching("Save transactions") {
+            transactionDao.insertAll(transactions.map { it.toEntity() })
+        }
     }
 
     /**
      * Retrieves all transactions as a reactive Flow.
      * Automatically converts entities to domain models.
+     * Errors are logged and an empty list is emitted on failure.
      *
      * @return Flow emitting list of parsed transactions, sorted by date (newest first)
      */
     fun getAllTransactions(): Flow<List<ParsedTransaction>> {
         return transactionDao.getAllTransactions()
             .map { entities -> entities.map { it.toDomain() } }
+            .catch { throwable ->
+                ErrorHandler.handleError(throwable as Exception, "Get all transactions")
+                emit(emptyList())
+            }
     }
 
     /**
      * Retrieves all transactions as a one-time snapshot.
      * Useful for non-reactive operations.
      *
-     * @return List of parsed transactions, sorted by date (newest first)
+     * @return Result<List<ParsedTransaction>> containing transactions or error information
      */
-    suspend fun getAllTransactionsSnapshot(): List<ParsedTransaction> {
-        return transactionDao.getAllTransactionsSnapshot()
-            .map { it.toDomain() }
+    suspend fun getAllTransactionsSnapshot(): Result<List<ParsedTransaction>> {
+        return ErrorHandler.runSuspendCatching("Get all transactions snapshot") {
+            transactionDao.getAllTransactionsSnapshot()
+                .map { it.toDomain() }
+        }
     }
 
     /**
      * Retrieves transactions filtered by type.
+     * Errors are logged and an empty list is emitted on failure.
      *
      * @param type The transaction type to filter by (DEBIT/CREDIT/UNKNOWN)
      * @return Flow emitting list of transactions matching the type
@@ -92,10 +108,15 @@ class TransactionRepository(private val database: KanakkuDatabase) {
     fun getTransactionsByType(type: TransactionType): Flow<List<ParsedTransaction>> {
         return transactionDao.getTransactionsByType(type)
             .map { entities -> entities.map { it.toDomain() } }
+            .catch { throwable ->
+                ErrorHandler.handleError(throwable as Exception, "Get transactions by type: $type")
+                emit(emptyList())
+            }
     }
 
     /**
      * Retrieves transactions within a specific date range.
+     * Errors are logged and an empty list is emitted on failure.
      *
      * @param startDate Start timestamp (inclusive)
      * @param endDate End timestamp (inclusive)
@@ -104,6 +125,10 @@ class TransactionRepository(private val database: KanakkuDatabase) {
     fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<ParsedTransaction>> {
         return transactionDao.getTransactionsByDateRange(startDate, endDate)
             .map { entities -> entities.map { it.toDomain() } }
+            .catch { throwable ->
+                ErrorHandler.handleError(throwable as Exception, "Get transactions by date range")
+                emit(emptyList())
+            }
     }
 
     /**
@@ -111,60 +136,72 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * Useful for incremental sync operations.
      *
      * @param timestamp The timestamp to query after
-     * @return List of transactions after the specified timestamp
+     * @return Result<List<ParsedTransaction>> containing transactions or error information
      */
-    suspend fun getTransactionsAfter(timestamp: Long): List<ParsedTransaction> {
-        return transactionDao.getTransactionsAfter(timestamp)
-            .map { it.toDomain() }
+    suspend fun getTransactionsAfter(timestamp: Long): Result<List<ParsedTransaction>> {
+        return ErrorHandler.runSuspendCatching("Get transactions after timestamp") {
+            transactionDao.getTransactionsAfter(timestamp)
+                .map { it.toDomain() }
+        }
     }
 
     /**
      * Checks if a transaction with the given SMS ID exists.
      *
      * @param smsId The SMS ID to check
-     * @return True if transaction exists, false otherwise
+     * @return Result<Boolean> indicating if transaction exists or error information
      */
-    suspend fun transactionExists(smsId: Long): Boolean {
-        return transactionDao.exists(smsId)
+    suspend fun transactionExists(smsId: Long): Result<Boolean> {
+        return ErrorHandler.runSuspendCatching("Check transaction exists") {
+            transactionDao.exists(smsId)
+        }
     }
 
     /**
      * Deletes a transaction by its SMS ID.
      *
      * @param smsId The SMS ID of the transaction to delete
-     * @return True if transaction was deleted, false if not found
+     * @return Result<Boolean> indicating if transaction was deleted or error information
      */
-    suspend fun deleteTransaction(smsId: Long): Boolean {
-        return transactionDao.deleteById(smsId) > 0
+    suspend fun deleteTransaction(smsId: Long): Result<Boolean> {
+        return ErrorHandler.runSuspendCatching("Delete transaction") {
+            transactionDao.deleteById(smsId) > 0
+        }
     }
 
     /**
      * Deletes all transactions from the database.
      * Use with caution - this cannot be undone.
      *
-     * @return Number of transactions deleted
+     * @return Result<Int> containing number of transactions deleted or error information
      */
-    suspend fun deleteAllTransactions(): Int {
-        return transactionDao.deleteAll()
+    suspend fun deleteAllTransactions(): Result<Int> {
+        return ErrorHandler.runSuspendCatching("Delete all transactions") {
+            transactionDao.deleteAll()
+        }
     }
 
     /**
      * Gets the total count of transactions in the database.
      *
-     * @return Total number of transactions
+     * @return Result<Int> containing total number of transactions or error information
      */
-    suspend fun getTransactionCount(): Int {
-        return transactionDao.getTransactionCount()
+    suspend fun getTransactionCount(): Result<Int> {
+        return ErrorHandler.runSuspendCatching("Get transaction count") {
+            transactionDao.getTransactionCount()
+        }
     }
 
     /**
      * Gets the most recent transaction date.
      * Useful for determining last sync time.
      *
-     * @return The timestamp of the most recent transaction, or null if no transactions exist
+     * @return Result<Long?> containing timestamp of most recent transaction or error information
      */
-    suspend fun getLatestTransactionDate(): Long? {
-        return transactionDao.getLatestTransactionDate()
+    suspend fun getLatestTransactionDate(): Result<Long?> {
+        return ErrorHandler.runSuspendCatching("Get latest transaction date") {
+            transactionDao.getLatestTransactionDate()
+        }
     }
 
     // ==================== Category Override Operations ====================
@@ -174,58 +211,74 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @param smsId The SMS ID of the transaction
      * @param categoryId The category ID to override with
+     * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun setCategoryOverride(smsId: Long, categoryId: String) {
-        categoryOverrideDao.insert(CategoryOverrideEntity(smsId, categoryId))
+    suspend fun setCategoryOverride(smsId: Long, categoryId: String): Result<Unit> {
+        return ErrorHandler.runSuspendCatching("Set category override") {
+            categoryOverrideDao.insert(CategoryOverrideEntity(smsId, categoryId))
+        }
     }
 
     /**
      * Gets the category override for a specific transaction.
      *
      * @param smsId The SMS ID of the transaction
-     * @return The category ID override, or null if no override exists
+     * @return Result<String?> containing category ID override or error information
      */
-    suspend fun getCategoryOverride(smsId: Long): String? {
-        return categoryOverrideDao.getOverride(smsId)?.categoryId
+    suspend fun getCategoryOverride(smsId: Long): Result<String?> {
+        return ErrorHandler.runSuspendCatching("Get category override") {
+            categoryOverrideDao.getOverride(smsId)?.categoryId
+        }
     }
 
     /**
      * Gets all category overrides as a Map.
      *
-     * @return Map of SMS ID to category ID
+     * @return Result<Map<Long, String>> containing map of SMS ID to category ID or error information
      */
-    suspend fun getAllCategoryOverrides(): Map<Long, String> {
-        return categoryOverrideDao.getAllOverridesSnapshot()
-            .associate { it.smsId to it.categoryId }
+    suspend fun getAllCategoryOverrides(): Result<Map<Long, String>> {
+        return ErrorHandler.runSuspendCatching("Get all category overrides") {
+            categoryOverrideDao.getAllOverridesSnapshot()
+                .associate { it.smsId to it.categoryId }
+        }
     }
 
     /**
      * Gets all category overrides as a reactive Flow.
+     * Errors are logged and an empty map is emitted on failure.
      *
      * @return Flow emitting Map of SMS ID to category ID
      */
     fun getAllCategoryOverridesFlow(): Flow<Map<Long, String>> {
         return categoryOverrideDao.getAllOverrides()
             .map { overrides -> overrides.associate { it.smsId to it.categoryId } }
+            .catch { throwable ->
+                ErrorHandler.handleError(throwable as Exception, "Get all category overrides flow")
+                emit(emptyMap())
+            }
     }
 
     /**
      * Removes a category override for a specific transaction.
      *
      * @param smsId The SMS ID of the transaction
-     * @return True if override was removed, false if no override existed
+     * @return Result<Boolean> indicating if override was removed or error information
      */
-    suspend fun removeCategoryOverride(smsId: Long): Boolean {
-        return categoryOverrideDao.deleteOverride(smsId) > 0
+    suspend fun removeCategoryOverride(smsId: Long): Result<Boolean> {
+        return ErrorHandler.runSuspendCatching("Remove category override") {
+            categoryOverrideDao.deleteOverride(smsId) > 0
+        }
     }
 
     /**
      * Removes all category overrides.
      *
-     * @return Number of overrides removed
+     * @return Result<Int> containing number of overrides removed or error information
      */
-    suspend fun removeAllCategoryOverrides(): Int {
-        return categoryOverrideDao.deleteAll()
+    suspend fun removeAllCategoryOverrides(): Result<Int> {
+        return ErrorHandler.runSuspendCatching("Remove all category overrides") {
+            categoryOverrideDao.deleteAll()
+        }
     }
 
     // ==================== Sync Metadata Operations ====================
@@ -234,10 +287,12 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * Gets the last sync timestamp.
      * This indicates when transactions were last synced from SMS.
      *
-     * @return The last sync timestamp in milliseconds, or null if never synced
+     * @return Result<Long?> containing last sync timestamp in milliseconds or error information
      */
-    suspend fun getLastSyncTimestamp(): Long? {
-        return syncMetadataDao.getValue(KEY_LAST_SYNC_TIMESTAMP)?.toLongOrNull()
+    suspend fun getLastSyncTimestamp(): Result<Long?> {
+        return ErrorHandler.runSuspendCatching("Get last sync timestamp") {
+            syncMetadataDao.getValue(KEY_LAST_SYNC_TIMESTAMP)?.toLongOrNull()
+        }
     }
 
     /**
@@ -245,21 +300,26 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * Should be called after successfully syncing transactions.
      *
      * @param timestamp The sync timestamp in milliseconds
+     * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun setLastSyncTimestamp(timestamp: Long) {
-        syncMetadataDao.insert(
-            SyncMetadataEntity(KEY_LAST_SYNC_TIMESTAMP, timestamp.toString())
-        )
+    suspend fun setLastSyncTimestamp(timestamp: Long): Result<Unit> {
+        return ErrorHandler.runSuspendCatching("Set last sync timestamp") {
+            syncMetadataDao.insert(
+                SyncMetadataEntity(KEY_LAST_SYNC_TIMESTAMP, timestamp.toString())
+            )
+        }
     }
 
     /**
      * Gets the last processed SMS ID.
      * This can be used to track which SMS messages have been parsed.
      *
-     * @return The last processed SMS ID, or null if none processed
+     * @return Result<Long?> containing last processed SMS ID or error information
      */
-    suspend fun getLastProcessedSmsId(): Long? {
-        return syncMetadataDao.getValue(KEY_LAST_PROCESSED_SMS_ID)?.toLongOrNull()
+    suspend fun getLastProcessedSmsId(): Result<Long?> {
+        return ErrorHandler.runSuspendCatching("Get last processed SMS ID") {
+            syncMetadataDao.getValue(KEY_LAST_PROCESSED_SMS_ID)?.toLongOrNull()
+        }
     }
 
     /**
@@ -267,20 +327,25 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * Should be called after successfully processing an SMS.
      *
      * @param smsId The SMS ID that was processed
+     * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun setLastProcessedSmsId(smsId: Long) {
-        syncMetadataDao.insert(
-            SyncMetadataEntity(KEY_LAST_PROCESSED_SMS_ID, smsId.toString())
-        )
+    suspend fun setLastProcessedSmsId(smsId: Long): Result<Unit> {
+        return ErrorHandler.runSuspendCatching("Set last processed SMS ID") {
+            syncMetadataDao.insert(
+                SyncMetadataEntity(KEY_LAST_PROCESSED_SMS_ID, smsId.toString())
+            )
+        }
     }
 
     /**
      * Clears all sync metadata.
      * Useful for forcing a full re-sync.
      *
-     * @return Number of metadata entries removed
+     * @return Result<Int> containing number of metadata entries removed or error information
      */
-    suspend fun clearSyncMetadata(): Int {
-        return syncMetadataDao.deleteAll()
+    suspend fun clearSyncMetadata(): Result<Int> {
+        return ErrorHandler.runSuspendCatching("Clear sync metadata") {
+            syncMetadataDao.deleteAll()
+        }
     }
 }
