@@ -125,4 +125,28 @@ interface TransactionDao {
      */
     @Query("SELECT MAX(date) FROM transactions")
     suspend fun getLatestTransactionDate(): Long?
+
+    // ==================== Widget-Optimized Queries ====================
+
+    /**
+     * Gets the sum of DEBIT transactions within a date range.
+     * Optimized for widget data fetching by calculating sum directly in SQL.
+     * This is more efficient than fetching all records and summing in Kotlin.
+     *
+     * @param startDate Start timestamp (inclusive)
+     * @param endDate End timestamp (inclusive)
+     * @return Sum of debit amounts in the range, or 0.0 if no debits exist
+     */
+    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE type = 'DEBIT' AND date BETWEEN :startDate AND :endDate")
+    suspend fun getDebitTotalInRange(startDate: Long, endDate: Long): Double
+
+    /**
+     * Retrieves the most recent N transactions.
+     * Optimized for widget display by limiting results at the database level.
+     *
+     * @param limit Maximum number of transactions to retrieve
+     * @return List of up to N most recent transactions, sorted by date descending
+     */
+    @Query("SELECT * FROM transactions ORDER BY date DESC LIMIT :limit")
+    suspend fun getRecentTransactionsSnapshot(limit: Int): List<TransactionEntity>
 }
