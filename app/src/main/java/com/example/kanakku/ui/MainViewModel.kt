@@ -75,4 +75,31 @@ class MainViewModel : ViewModel() {
             put(smsId, category)
         }
     }
+
+    /**
+     * Get all transactions for backup purposes.
+     *
+     * @return Current list of parsed transactions
+     */
+    fun getTransactionsForBackup(): List<ParsedTransaction> {
+        return _uiState.value.transactions
+    }
+
+    /**
+     * Get category overrides for backup purposes.
+     *
+     * @return Map of smsId to categoryId for all manual category overrides
+     */
+    fun getCategoryOverridesForBackup(): Map<Long, String> {
+        return categoryManager.exportCategoryOverrides()
+    }
+
+    /**
+     * Get the CategoryManager instance for backup operations.
+     *
+     * @return CategoryManager instance used by this ViewModel
+     */
+    fun getCategoryManager(): CategoryManager {
+        return categoryManager
+    }
 }
