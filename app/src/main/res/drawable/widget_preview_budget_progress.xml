@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Preview image for Budget Progress Widget.
+
+    This drawable is displayed in the widget picker when users browse available widgets.
+    It provides a visual representation of what the widget looks like on the home screen.
+
+    Size: 3x2 cells (180dp x 110dp minimum)
+    Displays sample data: "Weekly Budget" with ₹5,000 / ₹10,000 and progress bar
+
+    Note: This is a simplified visual representation using shapes. The actual widget
+    uses Glance composables with real text rendering and dynamic progress bars.
+    This preview helps users identify the widget in the picker.
+
+    See: BudgetProgressWidget, budget_progress_widget_info.xml
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Background with rounded corners and subtle shadow -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <corners android:radius="16dp" />
+            <stroke
+                android:width="1dp"
+                android:color="#E0E0E0" />
+        </shape>
+    </item>
+
+    <!-- Content layout matching widget appearance -->
+    <item
+        android:left="16dp"
+        android:right="16dp"
+        android:top="16dp"
+        android:bottom="16dp">
+        <layer-list>
+
+            <!-- Title text representation: "Weekly Budget" (top) -->
+            <item
+                android:gravity="top|start"
+                android:top="0dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#757575" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="85dp"
+                        android:height="2.5dp" />
+                </shape>
+            </item>
+
+            <!-- Amount representation: "₹5,000 / ₹10,000" (below title, prominent) -->
+            <item
+                android:gravity="top|start"
+                android:top="18dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#6200EE" />
+                    <corners android:radius="1.5dp" />
+                    <size
+                        android:width="110dp"
+                        android:height="4.5dp" />
+                </shape>
+            </item>
+
+            <!-- Progress bar background (gray background bar) -->
+            <item
+                android:gravity="top|start"
+                android:top="38dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#E0E0E0" />
+                    <corners android:radius="2dp" />
+                    <size
+                        android:width="140dp"
+                        android:height="12dp" />
+                </shape>
+            </item>
+
+            <!-- Progress bar fill (green showing ~60% progress) -->
+            <item
+                android:gravity="top|start"
+                android:top="38dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#43A047" />
+                    <corners android:radius="2dp" />
+                    <size
+                        android:width="84dp"
+                        android:height="12dp" />
+                </shape>
+            </item>
+
+            <!-- Status/percentage text representation (bottom) -->
+            <item
+                android:gravity="top|start"
+                android:top="58dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#43A047" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="60dp"
+                        android:height="2dp" />
+                </shape>
+            </item>
+
+        </layer-list>
+    </item>
+
+</layer-list>
