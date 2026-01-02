@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Preview image for Today's Spending Widget.
+
+    This drawable is displayed in the widget picker when users browse available widgets.
+    It provides a visual representation of what the widget looks like on the home screen.
+
+    Size: 2x1 cells (110dp x 40dp minimum)
+    Displays sample data: "Today's Spending" with ₹1,234 amount
+
+    Note: This is a simplified visual representation using shapes. The actual widget
+    uses Glance composables with real text rendering. This preview helps users
+    identify the widget in the picker.
+
+    See: TodaySpendingWidget, today_spending_widget_info.xml
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Background with rounded corners and subtle shadow -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <corners android:radius="16dp" />
+            <stroke
+                android:width="1dp"
+                android:color="#E0E0E0" />
+        </shape>
+    </item>
+
+    <!-- Content layout centered in widget -->
+    <item
+        android:gravity="center">
+        <layer-list>
+
+            <!-- Title text representation: "Today's Spending" (top) -->
+            <item
+                android:gravity="center_horizontal|top"
+                android:top="6dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#757575" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="90dp"
+                        android:height="2.5dp" />
+                </shape>
+            </item>
+
+            <!-- Amount representation: "₹1,234" (center, prominent) -->
+            <item
+                android:gravity="center"
+                android:top="4dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#6200EE" />
+                    <corners android:radius="1.5dp" />
+                    <size
+                        android:width="70dp"
+                        android:height="5dp" />
+                </shape>
+            </item>
+
+            <!-- Updated timestamp representation (bottom) -->
+            <item
+                android:gravity="center_horizontal|bottom"
+                android:bottom="6dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#BDBDBD" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="60dp"
+                        android:height="1.5dp" />
+                </shape>
+            </item>
+
+        </layer-list>
+    </item>
+
+</layer-list>
