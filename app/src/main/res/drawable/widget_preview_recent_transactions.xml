@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Preview image for Recent Transactions Widget.
+
+    This drawable is displayed in the widget picker when users browse available widgets.
+    It provides a visual representation of what the widget looks like on the home screen.
+
+    Size: 4x3 cells (250dp x 180dp minimum)
+    Displays sample data: "Recent Transactions" with a list of 5 transactions showing
+    merchant names, color-coded amounts (red for debits, green for credits), and dates
+
+    Note: This is a simplified visual representation using shapes. The actual widget
+    uses Glance composables with real text rendering and dynamic transaction data.
+    This preview helps users identify the widget in the picker.
+
+    See: RecentTransactionsWidget, recent_transactions_widget_info.xml
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Background with rounded corners and subtle shadow -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <corners android:radius="16dp" />
+            <stroke
+                android:width="1dp"
+                android:color="#E0E0E0" />
+        </shape>
+    </item>
+
+    <!-- Content layout matching widget appearance -->
+    <item
+        android:left="12dp"
+        android:right="12dp"
+        android:top="12dp"
+        android:bottom="12dp">
+        <layer-list>
+
+            <!-- Title text representation: "Recent Transactions" (top) -->
+            <item
+                android:gravity="top|start"
+                android:top="0dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#757575" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="110dp"
+                        android:height="3dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 1: Merchant name (left) -->
+            <item
+                android:gravity="top|start"
+                android:top="20dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#424242" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="70dp"
+                        android:height="2.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 1: Amount (right, red - debit) -->
+            <item
+                android:gravity="top|end"
+                android:top="20dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#D32F2F" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="45dp"
+                        android:height="2.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 1: Date (left, below merchant) -->
+            <item
+                android:gravity="top|start"
+                android:top="26dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#BDBDBD" />
+                    <corners android:radius="0.5dp" />
+                    <size
+                        android:width="50dp"
+                        android:height="1.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 2: Merchant name (left) -->
+            <item
+                android:gravity="top|start"
+                android:top="40dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#424242" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="85dp"
+                        android:height="2.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 2: Amount (right, green - credit) -->
+            <item
+                android:gravity="top|end"
+                android:top="40dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#43A047" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="40dp"
+                        android:height="2.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 2: Date (left, below merchant) -->
+            <item
+                android:gravity="top|start"
+                android:top="46dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#BDBDBD" />
+                    <corners android:radius="0.5dp" />
+                    <size
+                        android:width="50dp"
+                        android:height="1.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 3: Merchant name (left) -->
+            <item
+                android:gravity="top|start"
+                android:top="60dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#424242" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="65dp"
+                        android:height="2.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 3: Amount (right, red - debit) -->
+            <item
+                android:gravity="top|end"
+                android:top="60dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#D32F2F" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="50dp"
+                        android:height="2.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 3: Date (left, below merchant) -->
+            <item
+                android:gravity="top|start"
+                android:top="66dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#BDBDBD" />
+                    <corners android:radius="0.5dp" />
+                    <size
+                        android:width="50dp"
+                        android:height="1.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 4: Merchant name (left) -->
+            <item
+                android:gravity="top|start"
+                android:top="80dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#424242" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="75dp"
+                        android:height="2.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 4: Amount (right, red - debit) -->
+            <item
+                android:gravity="top|end"
+                android:top="80dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#D32F2F" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="42dp"
+                        android:height="2.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 4: Date (left, below merchant) -->
+            <item
+                android:gravity="top|start"
+                android:top="86dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#BDBDBD" />
+                    <corners android:radius="0.5dp" />
+                    <size
+                        android:width="50dp"
+                        android:height="1.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 5: Merchant name (left) -->
+            <item
+                android:gravity="top|start"
+                android:top="100dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#424242" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="80dp"
+                        android:height="2.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 5: Amount (right, green - credit) -->
+            <item
+                android:gravity="top|end"
+                android:top="100dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#43A047" />
+                    <corners android:radius="1dp" />
+                    <size
+                        android:width="38dp"
+                        android:height="2.5dp" />
+                </shape>
+            </item>
+
+            <!-- Transaction 5: Date (left, below merchant) -->
+            <item
+                android:gravity="top|start"
+                android:top="106dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#BDBDBD" />
+                    <corners android:radius="0.5dp" />
+                    <size
+                        android:width="50dp"
+                        android:height="1.5dp" />
+                </shape>
+            </item>
+
+        </layer-list>
+    </item>
+
+</layer-list>
