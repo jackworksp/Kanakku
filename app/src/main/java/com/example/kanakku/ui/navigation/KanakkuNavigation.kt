@@ -3,8 +3,12 @@ package com.example.kanakku.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -15,7 +19,9 @@ import androidx.navigation.compose.rememberNavController
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.ui.MainUiState
+import com.example.kanakku.ui.backup.BackupViewModel
 import com.example.kanakku.ui.screens.AnalyticsScreen
+import com.example.kanakku.ui.screens.BackupSettingsScreen
 import com.example.kanakku.ui.screens.CategoriesScreen
 import com.example.kanakku.ui.screens.TransactionsScreen
 
@@ -58,6 +64,35 @@ fun KanakkuNavHost(
                     transactions = uiState.transactions,
                     categoryMap = categoryMap,
                     onCategoryChange = onCategoryChange
+                )
+            }
+            composable(BottomNavItem.Settings.route) {
+                val context = LocalContext.current
+                val backupViewModel: BackupViewModel = viewModel()
+                val backupUiState by backupViewModel.uiState.collectAsState()
+
+                // Initialize BackupViewModel with required dependencies
+                // Note: CategoryManager will be properly wired in P5-S3
+                LaunchedEffect(Unit) {
+                    // TODO: Initialize with actual CategoryManager in P5-S3
+                    // backupViewModel.initialize(context, categoryManager)
+                }
+
+                BackupSettingsScreen(
+                    viewModel = backupViewModel,
+                    uiState = backupUiState,
+                    onCreateBackup = {
+                        // TODO: Implement SAF file creation in P5-S4
+                        // Will launch file picker intent for backup creation
+                    },
+                    onRestoreBackup = {
+                        // TODO: Implement SAF file opening in P5-S4
+                        // Will launch file picker intent for backup restore
+                    },
+                    onDriveSignIn = {
+                        // TODO: Implement Google Sign-In in P5-S4
+                        // Will launch Google Sign-In intent
+                    }
                 )
             }
         }
