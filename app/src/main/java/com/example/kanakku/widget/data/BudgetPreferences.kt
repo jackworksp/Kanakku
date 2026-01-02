@@ -2,6 +2,7 @@ package com.example.kanakku.widget.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 
 /**
  * SharedPreferences wrapper for storing and retrieving user's weekly budget amount.
@@ -82,9 +83,10 @@ object BudgetPreferences {
     fun setWeeklyBudget(context: Context, budget: Double): Boolean {
         val prefs = getPreferences(context)
         // SharedPreferences doesn't have putDouble, so we store as Float
-        return prefs.edit()
-            .putFloat(KEY_WEEKLY_BUDGET, budget.toFloat())
-            .commit()
+        prefs.edit(commit = true) {
+            putFloat(KEY_WEEKLY_BUDGET, budget.toFloat())
+        }
+        return true
     }
 
     /**
@@ -99,7 +101,10 @@ object BudgetPreferences {
     @Synchronized
     fun clear(context: Context): Boolean {
         val prefs = getPreferences(context)
-        return prefs.edit().clear().commit()
+        prefs.edit(commit = true) {
+            clear()
+        }
+        return true
     }
 
     /**

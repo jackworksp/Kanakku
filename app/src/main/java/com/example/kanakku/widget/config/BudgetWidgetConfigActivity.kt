@@ -12,9 +12,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.kanakku.R
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.updateAll
 import com.example.kanakku.ui.theme.KanakkuTheme
@@ -194,7 +196,7 @@ private fun BudgetConfigScreen(
         ) {
             // Title
             Text(
-                text = "Weekly Budget",
+                text = stringResource(R.string.budget_config_title),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -204,7 +206,7 @@ private fun BudgetConfigScreen(
 
             // Description
             Text(
-                text = "Set your weekly spending limit to track budget progress",
+                text = stringResource(R.string.budget_config_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -218,14 +220,14 @@ private fun BudgetConfigScreen(
                     budgetInput = it
                     isError = false
                 },
-                label = { Text("Budget Amount") },
-                placeholder = { Text("e.g., 10000") },
-                leadingIcon = { Text("₹", style = MaterialTheme.typography.titleMedium) },
+                label = { Text(stringResource(R.string.budget_config_amount_label)) },
+                placeholder = { Text(stringResource(R.string.budget_config_amount_placeholder)) },
+                leadingIcon = { Text(stringResource(R.string.currency_symbol), style = MaterialTheme.typography.titleMedium) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
                 isError = isError,
                 supportingText = if (isError) {
-                    { Text("Please enter a valid amount greater than 0") }
+                    { Text(stringResource(R.string.budget_config_error)) }
                 } else null,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -244,7 +246,7 @@ private fun BudgetConfigScreen(
                 enabled = budgetInput.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Save Budget")
+                Text(stringResource(R.string.budget_config_save))
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -254,7 +256,7 @@ private fun BudgetConfigScreen(
                 onClick = onCancel,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Cancel")
+                Text(stringResource(R.string.budget_config_cancel))
             }
         }
     }
