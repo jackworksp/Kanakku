@@ -1,5 +1,7 @@
 package com.example.kanakku.ui.navigation
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -78,20 +80,81 @@ fun KanakkuNavHost(
                     // backupViewModel.initialize(context, categoryManager)
                 }
 
+                // Activity result launcher for creating backup file
+                val createBackupLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+                ) { uri ->
+                    if (uri != null) {
+                        try {
+                            context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                                // TODO: Get actual transactions and category overrides from MainViewModel in P5-S3
+                                val transactions = emptyList<ParsedTransaction>()
+                                val categoryOverrides = emptyMap<Long, String>()
+                                backupViewModel.createBackup(
+                                    transactions = transactions,
+                                    categoryOverrides = categoryOverrides,
+                                    outputStream = outputStream
+                                )
+                            }
+                        } catch (e: Exception) {
+                            // Error will be handled by BackupViewModel and displayed in UI
+                            android.util.Log.e("BackupSettings", "Failed to create backup file", e)
+                        }
+                    }
+                }
+
+                // Activity result launcher for opening backup file to restore
+                val restoreBackupLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.OpenDocument()
+                ) { uri ->
+                    if (uri != null) {
+                        try {
+                            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                                backupViewModel.restoreBackup(
+                                    inputStream = inputStream,
+                                    onRestoreComplete = { transactions, categoryOverrides ->
+                                        // TODO: Apply restored data to MainViewModel in P5-S3
+                                        android.util.Log.d("BackupSettings", "Restore successful: ${transactions.size} transactions")
+                                    }
+                                )
+                            }
+                        } catch (e: Exception) {
+                            // Error will be handled by BackupViewModel and displayed in UI
+                            android.util.Log.e("BackupSettings", "Failed to open backup file", e)
+                        }
+                    }
+                }
+
+                // Activity result launcher for Google Drive sign-in
+                val driveSignInLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.StartActivityForResult()
+                ) { result ->
+                    if (result.resultCode == android.app.Activity.RESULT_OK) {
+                        backupViewModel.handleDriveSignIn(context)
+                    } else {
+                        android.util.Log.d("BackupSettings", "Google Sign-In cancelled or failed")
+                    }
+                }
+
                 BackupSettingsScreen(
                     viewModel = backupViewModel,
                     uiState = backupUiState,
                     onCreateBackup = {
-                        // TODO: Implement SAF file creation in P5-S4
-                        // Will launch file picker intent for backup creation
+                        // Launch SAF file picker for creating backup
+                        createBackupLauncher.launch("kanakku_backup_${System.currentTimeMillis()}.kbak")
                     },
                     onRestoreBackup = {
-                        // TODO: Implement SAF file opening in P5-S4
-                        // Will launch file picker intent for backup restore
+                        // Launch SAF file picker for opening backup file
+                        restoreBackupLauncher.launch(arrayOf("*/*"))
                     },
                     onDriveSignIn = {
-                        // TODO: Implement Google Sign-In in P5-S4
-                        // Will launch Google Sign-In intent
+                        // Launch Google Sign-In intent
+                        val signInIntent = backupViewModel.getGoogleSignInIntent()
+                        if (signInIntent != null) {
+                            driveSignInLauncher.launch(signInIntent)
+                        } else {
+                            android.util.Log.e("BackupSettings", "Failed to initialize Google Sign-In")
+                        }
                     }
                 )
             }
