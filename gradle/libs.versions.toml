@@ -16,6 +16,8 @@ materialIconsExtended = "1.7.5"
 room = "2.6.1"
 coroutines = "1.8.0"
 robolectric = "4.13"
+glance = "1.1.0"
+workManager = "2.9.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -43,6 +45,10 @@ androidx-room-testing = { group = "androidx.room", name = "room-testing", versio
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
+androidx-glance = { group = "androidx.glance", name = "glance", version.ref = "glance" }
+androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
+androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
+androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
