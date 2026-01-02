@@ -13,13 +13,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.kanakku.ui.backup.BackupType
 import com.example.kanakku.ui.backup.BackupUiState
 import com.example.kanakku.ui.backup.BackupViewModel
 import com.example.kanakku.ui.backup.OperationType
+import com.example.kanakku.ui.components.PasswordDialog
+import com.example.kanakku.ui.components.PasswordDialogMode
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -148,7 +148,7 @@ fun BackupSettingsScreen(
 
     // Password Dialog
     if (showPasswordDialog) {
-        PasswordInputDialog(
+        PasswordDialog(
             mode = passwordDialogMode,
             password = uiState.password,
             confirmPassword = uiState.confirmPassword,
@@ -475,122 +475,6 @@ private fun PrivacyInfoCard(
 }
 
 @Composable
-private fun PasswordInputDialog(
-    mode: PasswordDialogMode,
-    password: String,
-    confirmPassword: String,
-    passwordError: String?,
-    onPasswordChange: (String) -> Unit,
-    onConfirmPasswordChange: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    var passwordVisible by remember { mutableStateOf(false) }
-    var confirmPasswordVisible by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = when (mode) {
-                    PasswordDialogMode.CREATE -> "Create Backup Password"
-                    PasswordDialogMode.RESTORE -> "Enter Backup Password"
-                }
-            )
-        },
-        text = {
-            Column {
-                Text(
-                    text = when (mode) {
-                        PasswordDialogMode.CREATE -> "Create a strong password to encrypt your backup. You'll need this password to restore your data."
-                        PasswordDialogMode.RESTORE -> "Enter the password you used to create this backup."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = onPasswordChange,
-                    label = { Text("Password") },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                            )
-                        }
-                    },
-                    isError = passwordError != null,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                if (mode == PasswordDialogMode.CREATE) {
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = confirmPassword,
-                        onValueChange = onConfirmPasswordChange,
-                        label = { Text("Confirm Password") },
-                        visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
-                                Icon(
-                                    imageVector = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                    contentDescription = if (confirmPasswordVisible) "Hide password" else "Show password"
-                                )
-                            }
-                        },
-                        isError = passwordError != null,
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-
-                if (passwordError != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = passwordError,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                if (mode == PasswordDialogMode.CREATE) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Password must be at least 8 characters",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                enabled = password.isNotEmpty() &&
-                         (mode == PasswordDialogMode.RESTORE || confirmPassword.isNotEmpty())
-            ) {
-                Text(when (mode) {
-                    PasswordDialogMode.CREATE -> "Create Backup"
-                    PasswordDialogMode.RESTORE -> "Restore"
-                })
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-@Composable
 private fun PrivacyInfoDialog(
     onDismiss: () -> Unit
 ) {
@@ -648,11 +532,6 @@ private fun PrivacyInfoDialog(
             }
         }
     )
-}
-
-private enum class PasswordDialogMode {
-    CREATE,
-    RESTORE
 }
 
 private fun formatBackupDate(timestamp: Long): String {
