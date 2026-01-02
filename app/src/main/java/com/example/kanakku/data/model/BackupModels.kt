@@ -1,8 +1,11 @@
 package com.example.kanakku.data.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Metadata about a backup file
  */
+@Serializable
 data class BackupMetadata(
     val version: Int,                 // Backup format version for migration support
     val timestamp: Long,              // When the backup was created
@@ -15,6 +18,7 @@ data class BackupMetadata(
 /**
  * Complete backup data container
  */
+@Serializable
 data class BackupData(
     val metadata: BackupMetadata,
     val transactions: List<SerializableTransaction>,
@@ -26,6 +30,7 @@ data class BackupData(
  * Serializable version of ParsedTransaction
  * Uses primitive types and strings for JSON compatibility
  */
+@Serializable
 data class SerializableTransaction(
     val smsId: Long,
     val amount: Double,
@@ -88,6 +93,7 @@ data class SerializableTransaction(
  * Serializable version of Category
  * Converts Color to hex string for JSON compatibility
  */
+@Serializable
 data class SerializableCategory(
     val id: String,
     val name: String,
@@ -139,6 +145,7 @@ data class SerializableCategory(
  * Represents a manual category override
  * Maps transaction (by smsId) to a category (by categoryId)
  */
+@Serializable
 data class CategoryOverride(
     val smsId: Long,
     val categoryId: String
