@@ -186,33 +186,35 @@ object DatabaseProvider {
             val sqliteDb = database.openHelper.writableDatabase
 
             // Run PRAGMA quick_check - returns "ok" if database is healthy
-            sqliteDb.rawQuery("PRAGMA quick_check", null).use { cursor ->
+            val isHealthy = sqliteDb.query("PRAGMA quick_check").use { cursor ->
                 if (cursor.moveToFirst()) {
                     val result = cursor.getString(0)
-                    val isHealthy = result.equals("ok", ignoreCase = true)
+                    val healthy = result.equals("ok", ignoreCase = true)
 
-                    if (isHealthy) {
+                    if (healthy) {
                         Log.i(TAG, "Database integrity check passed: $result")
                     } else {
                         Log.w(TAG, "Database integrity check failed: $result")
                     }
 
-                    return isHealthy
+                    healthy
                 } else {
                     Log.w(TAG, "Database integrity check returned no results")
-                    return false
+                    false
                 }
             }
+
+            isHealthy
 
         } catch (e: SQLiteException) {
             // Database corruption or access error
             Log.e(TAG, "SQLiteException during integrity check: ${e.message}", e)
-            return false
+            false
 
         } catch (e: Exception) {
             // Unexpected error during integrity check
             Log.e(TAG, "Unexpected error during integrity check: ${e.message}", e)
-            return false
+            false
         }
     }
 

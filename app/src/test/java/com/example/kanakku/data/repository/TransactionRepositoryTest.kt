@@ -1027,7 +1027,8 @@ class TransactionRepositoryTest {
         // Then
         assertTrue(result.isSuccess)
         val loaded = repository.getAllTransactionsSnapshot().getOrNull()
-        assertEquals(0.0, loaded?.first()?.amount, 0.001)
+        val actualAmount = loaded?.first()?.amount ?: 0.0
+        assertEquals(0.0, actualAmount, 0.001)
     }
 
     @Test
@@ -1042,7 +1043,8 @@ class TransactionRepositoryTest {
         // Then
         assertTrue(result.isSuccess)
         val loaded = repository.getAllTransactionsSnapshot().getOrNull()
-        assertEquals(largeAmount, loaded?.first()?.amount, 0.001)
+        val actualAmount = loaded?.first()?.amount ?: 0.0
+        assertEquals(largeAmount, actualAmount, 0.001)
     }
 
     @Test
@@ -1057,7 +1059,8 @@ class TransactionRepositoryTest {
         // Then
         assertTrue(result.isSuccess)
         val loaded = repository.getAllTransactionsSnapshot().getOrNull()
-        assertEquals(smallAmount, loaded?.first()?.amount, 0.001)
+        val actualAmount = loaded?.first()?.amount ?: 0.0
+        assertEquals(smallAmount, actualAmount, 0.001)
     }
 
     @Test
@@ -1147,7 +1150,8 @@ class TransactionRepositoryTest {
         // Then - Should have only one transaction (replaced)
         val loaded = repository.getAllTransactionsSnapshot().getOrNull()
         assertEquals(1, loaded?.size)
-        assertEquals(200.0, loaded?.first()?.amount, 0.01)
+        val actualAmount = loaded?.first()?.amount ?: 0.0
+        assertEquals(200.0, actualAmount, 0.01)
     }
 
     @Test

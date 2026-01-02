@@ -107,7 +107,7 @@ class CategoryManager(
 
         // Remove from database
         return if (repository != null) {
-            repository!!.removeCategoryOverride(smsId)
+            repository!!.removeCategoryOverride(smsId).mapCatching { Unit }
         } else {
             // If no repository, still succeed (in-memory only)
             Result.success(Unit)
