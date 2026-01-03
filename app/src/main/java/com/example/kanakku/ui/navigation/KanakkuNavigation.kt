@@ -24,6 +24,7 @@ import com.example.kanakku.ui.screens.AnalyticsScreen
 import com.example.kanakku.ui.screens.CategoriesScreen
 import com.example.kanakku.ui.screens.CategoryEditorScreen
 import com.example.kanakku.ui.screens.CategoryManagementScreen
+import com.example.kanakku.ui.screens.SettingsScreen
 import com.example.kanakku.ui.screens.TransactionsScreen
 import com.example.kanakku.ui.viewmodel.CategoryEditorViewModel
 import com.example.kanakku.ui.viewmodel.CategoryManagementViewModel
@@ -67,6 +68,14 @@ fun KanakkuNavHost(
                     transactions = uiState.transactions,
                     categoryMap = categoryMap,
                     onCategoryChange = onCategoryChange,
+                    onManageCategoriesClick = {
+                        navController.navigate(NavRoutes.CATEGORY_MANAGEMENT)
+                    }
+                )
+            }
+
+            composable(BottomNavItem.Settings.route) {
+                SettingsScreen(
                     onManageCategoriesClick = {
                         navController.navigate(NavRoutes.CATEGORY_MANAGEMENT)
                     }
