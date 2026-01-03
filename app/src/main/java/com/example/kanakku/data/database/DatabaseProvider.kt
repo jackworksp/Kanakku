@@ -11,17 +11,63 @@ import java.io.File
 /**
  * Singleton provider for database instance and repository.
  *
- * This class manages the lifecycle of the Room database and provides
- * centralized access to database operations through the repository pattern.
+ * @deprecated This singleton pattern is deprecated in favor of Hilt dependency injection.
+ * Use Hilt to inject KanakkuDatabase and TransactionRepository instead.
  *
- * Thread-safe singleton implementation using double-checked locking.
- * Database is lazily initialized on first access.
+ * **Migration Guide:**
  *
- * Usage:
- * ```
+ * Old approach (DatabaseProvider):
+ * ```kotlin
  * val repository = DatabaseProvider.getRepository(context)
+ * val database = DatabaseProvider.getDatabase(context)
  * ```
+ *
+ * New approach (Hilt injection):
+ * ```kotlin
+ * // In ViewModel:
+ * @HiltViewModel
+ * class MyViewModel @Inject constructor(
+ *     private val repository: TransactionRepository,
+ *     private val database: KanakkuDatabase
+ * ) : ViewModel() {
+ *     // Use repository and database directly
+ * }
+ *
+ * // In Activity/Fragment:
+ * @AndroidEntryPoint
+ * class MyActivity : ComponentActivity() {
+ *     @Inject lateinit var repository: TransactionRepository
+ *     @Inject lateinit var database: KanakkuDatabase
+ * }
+ * ```
+ *
+ * **Benefits of Hilt:**
+ * - Better testability with easy mock injection
+ * - Compile-time dependency validation
+ * - Automatic lifecycle management
+ * - No manual context passing required
+ * - Follows Android best practices
+ *
+ * **See Also:**
+ * - [DatabaseModule] - Provides database dependencies via Hilt
+ * - [RepositoryModule] - Provides repository dependencies via Hilt
+ * - [AppModule] - Provides other app-level dependencies via Hilt
+ *
+ * This class is maintained for backward compatibility but should not be used in new code.
+ * All new features should use Hilt dependency injection.
+ *
+ * @see com.example.kanakku.di.DatabaseModule
+ * @see com.example.kanakku.di.RepositoryModule
  */
+@Deprecated(
+    message = "Use Hilt dependency injection instead. Inject KanakkuDatabase or TransactionRepository via constructor.",
+    replaceWith = ReplaceWith(
+        "Inject dependencies via Hilt. See DatabaseModule and RepositoryModule.",
+        "com.example.kanakku.di.DatabaseModule",
+        "com.example.kanakku.di.RepositoryModule"
+    ),
+    level = DeprecationLevel.WARNING
+)
 object DatabaseProvider {
 
     private const val TAG = "DatabaseProvider"
@@ -37,10 +83,19 @@ object DatabaseProvider {
      * Gets the singleton database instance.
      * Creates the database on first access using the provided context.
      *
+     * @deprecated Use Hilt to inject KanakkuDatabase instead.
+     * See [DatabaseModule.provideKanakkuDatabase] for the recommended approach.
+     *
      * @param context Application or Activity context (applicationContext is used internally)
      * @return The KanakkuDatabase instance
      * @throws DatabaseInitializationException if database cannot be created after recovery attempts
+     * @see com.example.kanakku.di.DatabaseModule.provideKanakkuDatabase
      */
+    @Deprecated(
+        message = "Use Hilt to inject KanakkuDatabase. Annotate your class with @AndroidEntryPoint and inject the database.",
+        replaceWith = ReplaceWith("Injected KanakkuDatabase via Hilt constructor or field injection"),
+        level = DeprecationLevel.WARNING
+    )
     fun getDatabase(context: Context): KanakkuDatabase {
         return database ?: synchronized(this) {
             database ?: buildDatabase(context.applicationContext).also {
@@ -54,10 +109,19 @@ object DatabaseProvider {
      * Gets the singleton repository instance.
      * Creates both database and repository on first access.
      *
+     * @deprecated Use Hilt to inject TransactionRepository instead.
+     * See [RepositoryModule.provideTransactionRepository] for the recommended approach.
+     *
      * @param context Application or Activity context (applicationContext is used internally)
      * @return The TransactionRepository instance
      * @throws DatabaseInitializationException if database cannot be created after recovery attempts
+     * @see com.example.kanakku.di.RepositoryModule.provideTransactionRepository
      */
+    @Deprecated(
+        message = "Use Hilt to inject TransactionRepository. Annotate your class with @AndroidEntryPoint and inject the repository.",
+        replaceWith = ReplaceWith("Injected TransactionRepository via Hilt constructor or field injection"),
+        level = DeprecationLevel.WARNING
+    )
     fun getRepository(context: Context): TransactionRepository {
         return repository ?: synchronized(this) {
             repository ?: TransactionRepository(getDatabase(context)).also {
@@ -285,9 +349,20 @@ object DatabaseProvider {
      * Clears the singleton instances.
      * Useful for testing or forcing a database reset.
      *
+     * @deprecated With Hilt, use Hilt testing utilities instead of manual instance management.
+     * For instrumented tests, use HiltAndroidTest and HiltAndroidRule.
+     * For unit tests, provide mock dependencies via Hilt test modules.
+     *
      * WARNING: This should only be used in tests or controlled scenarios.
      * Calling this while the database is in use may cause issues.
+     *
+     * @see dagger.hilt.android.testing.HiltAndroidTest
+     * @see dagger.hilt.android.testing.HiltAndroidRule
      */
+    @Deprecated(
+        message = "Use Hilt testing utilities for test dependency management instead of manual singleton resets.",
+        level = DeprecationLevel.WARNING
+    )
     @Synchronized
     fun resetInstance() {
         try {
