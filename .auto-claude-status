@@ -3,23 +3,23 @@
   "spec": "005-repository-pattern-implementation",
   "state": "building",
   "subtasks": {
-    "completed": 1,
+    "completed": 3,
     "total": 10,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Repository Interface & SMS Integration",
+    "current": "Refactor MainViewModel",
     "id": null,
-    "total": 3
+    "total": 2
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 3,
+    "number": 5,
     "started_at": "2026-01-03T17:28:57.752479"
   },
-  "last_update": "2026-01-03T17:47:49.072745"
+  "last_update": "2026-01-03T18:09:19.820534"
 }
