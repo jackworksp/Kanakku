@@ -3,23 +3,23 @@
   "spec": "002-persist-category-overrides",
   "state": "building",
   "subtasks": {
-    "completed": 8,
+    "completed": 9,
     "total": 12,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "UI - Reset Learned Mappings",
+    "current": "Testing",
     "id": null,
-    "total": 1
+    "total": 2
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 10,
+    "number": 11,
     "started_at": "2026-01-03T13:25:33.436757"
   },
-  "last_update": "2026-01-03T14:15:09.962469"
+  "last_update": "2026-01-03T14:27:06.598600"
 }
