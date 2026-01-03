@@ -62,6 +62,7 @@ class AppPreferences private constructor(context: Context) {
         private const val KEY_AUTO_CATEGORIZE = "auto_categorize"
         private const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
         private const val KEY_DEFAULT_ANALYTICS_PERIOD = "default_analytics_period"
+        private const val KEY_CURRENCY_SYMBOL = "currency_symbol"
         private const val KEY_LAST_APP_VERSION = "last_app_version"
 
         @Volatile
@@ -338,6 +339,25 @@ class AppPreferences private constructor(context: Context) {
     fun setDefaultAnalyticsPeriod(period: String) {
         sharedPreferences.edit().putString(KEY_DEFAULT_ANALYTICS_PERIOD, period).apply()
         Log.d(TAG, "Default analytics period set to: $period")
+    }
+
+    /**
+     * Gets the user's currency symbol preference for display.
+     *
+     * @return Currency symbol (default: ₹)
+     */
+    fun getCurrencySymbol(): String {
+        return sharedPreferences.getString(KEY_CURRENCY_SYMBOL, "₹") ?: "₹"
+    }
+
+    /**
+     * Sets the currency symbol preference for display.
+     *
+     * @param symbol Currency symbol to use in the app
+     */
+    fun setCurrencySymbol(symbol: String) {
+        sharedPreferences.edit().putString(KEY_CURRENCY_SYMBOL, symbol).apply()
+        Log.d(TAG, "Currency symbol set to: $symbol")
     }
 
     // ============================================
