@@ -14,9 +14,11 @@ import com.example.kanakku.data.preferences.AppPreferences
 import com.example.kanakku.data.repository.TransactionRepository
 import com.example.kanakku.data.sms.BankSmsParser
 import com.example.kanakku.data.sms.SmsReader
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 data class MainUiState(
@@ -40,6 +42,15 @@ data class MainUiState(
 
 class MainViewModel : ViewModel() {
 
+    companion object {
+        /**
+         * Batch size for processing large SMS histories during initial sync.
+         * Prevents overwhelming the database and causing ANRs by processing
+         * SMS in manageable chunks and updating UI progress between batches.
+         */
+        private const val SMS_BATCH_SIZE = 100
+    }
+
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
@@ -50,6 +61,12 @@ class MainViewModel : ViewModel() {
     private val categoryManager = CategoryManager()
 
     private var repository: TransactionRepository? = null
+
+    /**
+     * Active sync job for cancellation support.
+     * Allows users to cancel long-running initial sync operations.
+     */
+    private var syncJob: Job? = null
 
     fun updatePermissionStatus(hasPermission: Boolean) {
         _uiState.value = _uiState.value.copy(hasPermission = hasPermission)
@@ -73,7 +90,10 @@ class MainViewModel : ViewModel() {
      * - All errors provide user-friendly messages via ErrorHandler
      */
     fun loadSmsData(context: Context, daysAgo: Int = 30) {
-        viewModelScope.launch {
+        // Cancel any existing sync job
+        syncJob?.cancel()
+
+        syncJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
             try {
@@ -197,93 +217,242 @@ class MainViewModel : ViewModel() {
                     return@launch
                 }
 
-                // Step 5: Parse and filter bank SMS
-                val newBankSms = try {
-                    if (isInitialSync) {
-                        _uiState.value = _uiState.value.copy(
-                            syncStatusMessage = "Filtering bank SMS..."
-                        )
-                    }
-                    parser.filterBankSms(newSms)
-                } catch (e: Exception) {
-                    val errorInfo = ErrorHandler.handleError(e, "Filter bank SMS")
-                    ErrorHandler.logWarning(
-                        "Failed to filter bank SMS: ${errorInfo.technicalMessage}",
+                // Step 5: Process SMS based on sync mode
+                val newBankSms: List<SmsMessage>
+                val deduplicated: List<ParsedTransaction>
+
+                if (isInitialSync && newSms.size > SMS_BATCH_SIZE) {
+                    // Batch processing for large initial sync
+                    ErrorHandler.logInfo(
+                        "Starting batch processing of ${newSms.size} SMS messages in batches of $SMS_BATCH_SIZE",
                         "loadSmsData"
                     )
-                    emptyList() // Continue with empty list
-                }
 
-                val newParsed = try {
-                    if (isInitialSync) {
-                        _uiState.value = _uiState.value.copy(
-                            syncStatusMessage = "Parsing ${newBankSms.size} bank transactions..."
-                        )
-                    }
-                    parser.parseAllBankSms(newBankSms)
-                } catch (e: Exception) {
-                    val errorInfo = ErrorHandler.handleError(e, "Parse bank SMS")
-                    ErrorHandler.logWarning(
-                        "Failed to parse bank SMS: ${errorInfo.technicalMessage}",
-                        "loadSmsData"
-                    )
-                    emptyList() // Continue with empty list
-                }
+                    val allBankSms = mutableListOf<SmsMessage>()
+                    val allTransactions = mutableListOf<ParsedTransaction>()
+                    var totalProcessed = 0
 
-                // Step 6: Filter out transactions that already exist in database
-                if (isInitialSync) {
-                    _uiState.value = _uiState.value.copy(
-                        syncStatusMessage = "Checking for duplicates..."
-                    )
-                }
-
-                val newTransactions = mutableListOf<ParsedTransaction>()
-                for (transaction in newParsed) {
-                    val exists = repo.transactionExists(transaction.smsId)
-                        .onFailure { throwable ->
-                            val errorInfo = throwable.toErrorInfo()
-                            ErrorHandler.logWarning(
-                                "Failed to check transaction existence: ${errorInfo.technicalMessage}",
-                                "loadSmsData"
-                            )
-                            // Assume doesn't exist to avoid skipping
-                        }
-                        .getOrElse { false }
-
-                    if (!exists) {
-                        newTransactions.add(transaction)
-                    }
-                }
-
-                val deduplicated = try {
-                    parser.removeDuplicates(newTransactions)
-                } catch (e: Exception) {
-                    val errorInfo = ErrorHandler.handleError(e, "Remove duplicate transactions")
-                    ErrorHandler.logWarning(
-                        "Failed to remove duplicates: ${errorInfo.technicalMessage}, using all transactions",
-                        "loadSmsData"
-                    )
-                    newTransactions // Continue with potentially duplicate transactions
-                }
-
-                // Step 7: Save new transactions to database
-                if (deduplicated.isNotEmpty()) {
-                    if (isInitialSync) {
-                        _uiState.value = _uiState.value.copy(
-                            syncStatusMessage = "Saving ${deduplicated.size} transactions to database..."
-                        )
-                    }
-                    repo.saveTransactions(deduplicated)
-                        .onFailure { throwable ->
-                            val errorInfo = throwable.toErrorInfo()
+                    // Process SMS in batches
+                    newSms.chunked(SMS_BATCH_SIZE).forEachIndexed { batchIndex, smsBatch ->
+                        // Check for cancellation before processing each batch
+                        if (!isActive) {
+                            ErrorHandler.logInfo("Sync cancelled by user", "loadSmsData")
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 isInitialSync = false,
+                                syncProgress = 0,
+                                syncTotal = 0,
                                 syncStatusMessage = null,
-                                errorMessage = "Failed to save transactions: ${errorInfo.userMessage}"
+                                errorMessage = "Sync cancelled"
                             )
                             return@launch
                         }
+
+                        val batchNum = batchIndex + 1
+                        val totalBatches = (newSms.size + SMS_BATCH_SIZE - 1) / SMS_BATCH_SIZE
+
+                        ErrorHandler.logInfo(
+                            "Processing batch $batchNum/$totalBatches (${smsBatch.size} SMS)",
+                            "loadSmsData"
+                        )
+
+                        _uiState.value = _uiState.value.copy(
+                            syncStatusMessage = "Processing batch $batchNum of $totalBatches..."
+                        )
+
+                        // Filter bank SMS in this batch
+                        val batchBankSms = try {
+                            parser.filterBankSms(smsBatch)
+                        } catch (e: Exception) {
+                            val errorInfo = ErrorHandler.handleError(e, "Filter bank SMS batch $batchNum")
+                            ErrorHandler.logWarning(
+                                "Failed to filter bank SMS in batch $batchNum: ${errorInfo.technicalMessage}",
+                                "loadSmsData"
+                            )
+                            emptyList()
+                        }
+                        allBankSms.addAll(batchBankSms)
+
+                        // Parse bank SMS in this batch
+                        val batchParsed = try {
+                            parser.parseAllBankSms(batchBankSms)
+                        } catch (e: Exception) {
+                            val errorInfo = ErrorHandler.handleError(e, "Parse bank SMS batch $batchNum")
+                            ErrorHandler.logWarning(
+                                "Failed to parse bank SMS in batch $batchNum: ${errorInfo.technicalMessage}",
+                                "loadSmsData"
+                            )
+                            emptyList()
+                        }
+
+                        // Filter out transactions that already exist in database
+                        val batchNewTransactions = mutableListOf<ParsedTransaction>()
+                        for (transaction in batchParsed) {
+                            val exists = repo.transactionExists(transaction.smsId)
+                                .onFailure { throwable ->
+                                    val errorInfo = throwable.toErrorInfo()
+                                    ErrorHandler.logWarning(
+                                        "Failed to check transaction existence: ${errorInfo.technicalMessage}",
+                                        "loadSmsData"
+                                    )
+                                }
+                                .getOrElse { false }
+
+                            if (!exists) {
+                                batchNewTransactions.add(transaction)
+                            }
+                        }
+
+                        // Remove duplicates within this batch
+                        val batchDeduplicated = try {
+                            parser.removeDuplicates(batchNewTransactions)
+                        } catch (e: Exception) {
+                            val errorInfo = ErrorHandler.handleError(e, "Remove duplicates batch $batchNum")
+                            ErrorHandler.logWarning(
+                                "Failed to remove duplicates in batch $batchNum: ${errorInfo.technicalMessage}",
+                                "loadSmsData"
+                            )
+                            batchNewTransactions
+                        }
+
+                        // Save batch to database
+                        if (batchDeduplicated.isNotEmpty()) {
+                            _uiState.value = _uiState.value.copy(
+                                syncStatusMessage = "Saving batch $batchNum (${batchDeduplicated.size} transactions)..."
+                            )
+
+                            repo.saveTransactions(batchDeduplicated)
+                                .onFailure { throwable ->
+                                    val errorInfo = throwable.toErrorInfo()
+                                    ErrorHandler.logWarning(
+                                        "Failed to save batch $batchNum: ${errorInfo.technicalMessage}",
+                                        "loadSmsData"
+                                    )
+                                    // Continue with next batch instead of failing completely
+                                }
+                                .onSuccess {
+                                    allTransactions.addAll(batchDeduplicated)
+                                    ErrorHandler.logInfo(
+                                        "Batch $batchNum saved: ${batchDeduplicated.size} transactions",
+                                        "loadSmsData"
+                                    )
+                                }
+                        }
+
+                        // Update progress after each batch
+                        totalProcessed += smsBatch.size
+                        _uiState.value = _uiState.value.copy(
+                            syncProgress = totalProcessed
+                        )
+
+                        ErrorHandler.logInfo(
+                            "Batch $batchNum complete: ${batchBankSms.size} bank SMS, ${batchDeduplicated.size} new transactions. Total progress: $totalProcessed/${newSms.size}",
+                            "loadSmsData"
+                        )
+                    }
+
+                    newBankSms = allBankSms
+                    deduplicated = allTransactions
+
+                    ErrorHandler.logInfo(
+                        "Batch processing complete: ${newBankSms.size} total bank SMS, ${deduplicated.size} total new transactions",
+                        "loadSmsData"
+                    )
+                } else {
+                    // Single-pass processing for small initial sync or incremental sync
+                    ErrorHandler.logInfo(
+                        "Processing ${newSms.size} SMS messages in single pass",
+                        "loadSmsData"
+                    )
+
+                    // Step 5a: Filter bank SMS
+                    newBankSms = try {
+                        if (isInitialSync) {
+                            _uiState.value = _uiState.value.copy(
+                                syncStatusMessage = "Filtering bank SMS..."
+                            )
+                        }
+                        parser.filterBankSms(newSms)
+                    } catch (e: Exception) {
+                        val errorInfo = ErrorHandler.handleError(e, "Filter bank SMS")
+                        ErrorHandler.logWarning(
+                            "Failed to filter bank SMS: ${errorInfo.technicalMessage}",
+                            "loadSmsData"
+                        )
+                        emptyList()
+                    }
+
+                    // Step 5b: Parse bank SMS
+                    val newParsed = try {
+                        if (isInitialSync) {
+                            _uiState.value = _uiState.value.copy(
+                                syncStatusMessage = "Parsing ${newBankSms.size} bank transactions..."
+                            )
+                        }
+                        parser.parseAllBankSms(newBankSms)
+                    } catch (e: Exception) {
+                        val errorInfo = ErrorHandler.handleError(e, "Parse bank SMS")
+                        ErrorHandler.logWarning(
+                            "Failed to parse bank SMS: ${errorInfo.technicalMessage}",
+                            "loadSmsData"
+                        )
+                        emptyList()
+                    }
+
+                    // Step 6: Filter out transactions that already exist in database
+                    if (isInitialSync) {
+                        _uiState.value = _uiState.value.copy(
+                            syncStatusMessage = "Checking for duplicates..."
+                        )
+                    }
+
+                    val newTransactions = mutableListOf<ParsedTransaction>()
+                    for (transaction in newParsed) {
+                        val exists = repo.transactionExists(transaction.smsId)
+                            .onFailure { throwable ->
+                                val errorInfo = throwable.toErrorInfo()
+                                ErrorHandler.logWarning(
+                                    "Failed to check transaction existence: ${errorInfo.technicalMessage}",
+                                    "loadSmsData"
+                                )
+                            }
+                            .getOrElse { false }
+
+                        if (!exists) {
+                            newTransactions.add(transaction)
+                        }
+                    }
+
+                    deduplicated = try {
+                        parser.removeDuplicates(newTransactions)
+                    } catch (e: Exception) {
+                        val errorInfo = ErrorHandler.handleError(e, "Remove duplicate transactions")
+                        ErrorHandler.logWarning(
+                            "Failed to remove duplicates: ${errorInfo.technicalMessage}, using all transactions",
+                            "loadSmsData"
+                        )
+                        newTransactions
+                    }
+
+                    // Step 7: Save new transactions to database
+                    if (deduplicated.isNotEmpty()) {
+                        if (isInitialSync) {
+                            _uiState.value = _uiState.value.copy(
+                                syncStatusMessage = "Saving ${deduplicated.size} transactions to database..."
+                            )
+                        }
+                        repo.saveTransactions(deduplicated)
+                            .onFailure { throwable ->
+                                val errorInfo = throwable.toErrorInfo()
+                                _uiState.value = _uiState.value.copy(
+                                    isLoading = false,
+                                    isInitialSync = false,
+                                    syncStatusMessage = null,
+                                    errorMessage = "Failed to save transactions: ${errorInfo.userMessage}"
+                                )
+                                return@launch
+                            }
+                    }
                 }
 
                 // Step 8: Update sync timestamp and mark initial sync complete
@@ -414,6 +583,23 @@ class MainViewModel : ViewModel() {
                 )
             }
         }
+    }
+
+    /**
+     * Cancels the current sync operation if one is running.
+     * This allows users to abort long-running initial sync operations.
+     */
+    fun cancelSync() {
+        syncJob?.cancel()
+        syncJob = null
+        ErrorHandler.logInfo("Sync cancellation requested", "cancelSync")
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            isInitialSync = false,
+            syncProgress = 0,
+            syncTotal = 0,
+            syncStatusMessage = null
+        )
     }
 
     /**
