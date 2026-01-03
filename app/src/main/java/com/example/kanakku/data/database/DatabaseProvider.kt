@@ -165,7 +165,8 @@ object DatabaseProvider {
             KanakkuDatabase::class.java,
             DATABASE_NAME
         )
-            .fallbackToDestructiveMigration() // For development - TODO: implement proper migrations for production
+            .addMigrations(MIGRATION_1_2) // Migration from v1 to v2 for custom_categories table
+            .fallbackToDestructiveMigration() // Fallback for unmapped migrations during development
             .build()
     }
 
