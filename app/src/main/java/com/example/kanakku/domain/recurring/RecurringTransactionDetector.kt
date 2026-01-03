@@ -5,6 +5,7 @@ import com.example.kanakku.data.model.RecurringFrequency
 import com.example.kanakku.data.model.RecurringTransaction
 import com.example.kanakku.data.model.RecurringType
 import com.example.kanakku.data.model.TransactionType
+import java.util.Calendar
 import java.util.UUID
 import kotlin.math.abs
 
@@ -210,8 +211,13 @@ class RecurringTransactionDetector {
         // Get the most recent transaction
         val lastTransaction = transactions.maxByOrNull { it.date }!!
 
-        // Predict next expected date
-        val nextExpected = calculateNextExpectedDate(lastTransaction.date, averageInterval)
+        // Predict next expected date based on frequency and historical patterns
+        val nextExpected = calculateNextExpectedDate(
+            transactions = sorted,
+            frequency = frequency,
+            lastOccurrence = lastTransaction.date,
+            averageInterval = averageInterval
+        )
 
         // Determine recurring type based on amount and merchant pattern
         val type = inferRecurringType(merchantPattern, averageAmount, transactions.first().type)
@@ -314,14 +320,165 @@ class RecurringTransactionDetector {
     }
 
     /**
-     * Calculates the next expected transaction date based on the last occurrence and interval.
+     * Calculates the next expected transaction date based on frequency and historical patterns.
      *
+     * This method uses the detected frequency and analyzes historical transaction dates to
+     * make intelligent predictions:
+     * - MONTHLY: Preserves day-of-month pattern (e.g., always on 15th or last day)
+     * - WEEKLY: Preserves day-of-week pattern (e.g., always on Friday)
+     * - Others: Adds appropriate time period using Calendar
+     *
+     * Handles edge cases like month-end dates (e.g., Jan 31 → Feb 28/29).
+     *
+     * @param transactions List of transactions sorted by date (for pattern analysis)
+     * @param frequency Detected recurring frequency
      * @param lastOccurrence Timestamp of last transaction
-     * @param averageInterval Average days between transactions
+     * @param averageInterval Average days between transactions (fallback)
      * @return Predicted timestamp of next transaction
      */
-    private fun calculateNextExpectedDate(lastOccurrence: Long, averageInterval: Int): Long {
-        return lastOccurrence + (averageInterval * MILLIS_IN_DAY)
+    private fun calculateNextExpectedDate(
+        transactions: List<ParsedTransaction>,
+        frequency: RecurringFrequency,
+        lastOccurrence: Long,
+        averageInterval: Int
+    ): Long {
+        val calendar = Calendar.getInstance()
+        calendar.timeInMillis = lastOccurrence
+
+        when (frequency) {
+            RecurringFrequency.WEEKLY -> {
+                // Add 1 week, preserves day of week automatically
+                calendar.add(Calendar.WEEK_OF_YEAR, 1)
+            }
+
+            RecurringFrequency.BI_WEEKLY -> {
+                // Add 2 weeks, preserves day of week automatically
+                calendar.add(Calendar.WEEK_OF_YEAR, 2)
+            }
+
+            RecurringFrequency.MONTHLY -> {
+                // For monthly, analyze if there's a consistent day-of-month pattern
+                val dayOfMonthPattern = analyzeDayOfMonthPattern(transactions)
+
+                if (dayOfMonthPattern != null) {
+                    // Apply the detected day-of-month pattern
+                    calendar.add(Calendar.MONTH, 1)
+                    applyDayOfMonthPattern(calendar, dayOfMonthPattern)
+                } else {
+                    // No clear pattern, just add 1 month (preserves day-of-month when possible)
+                    calendar.add(Calendar.MONTH, 1)
+                }
+            }
+
+            RecurringFrequency.QUARTERLY -> {
+                // Add 3 months
+                calendar.add(Calendar.MONTH, 3)
+            }
+
+            RecurringFrequency.ANNUAL -> {
+                // Add 1 year, preserves day and month
+                calendar.add(Calendar.YEAR, 1)
+            }
+        }
+
+        return calendar.timeInMillis
+    }
+
+    /**
+     * Analyzes historical transactions to detect consistent day-of-month patterns.
+     *
+     * Patterns detected:
+     * - Specific day (e.g., always 1st, 15th, 25th)
+     * - Last day of month (e.g., always 28th-31st)
+     * - First few days (e.g., always 1st-5th)
+     *
+     * @param transactions List of transactions sorted by date
+     * @return DayOfMonthPattern if consistent pattern found, null otherwise
+     */
+    private fun analyzeDayOfMonthPattern(transactions: List<ParsedTransaction>): DayOfMonthPattern? {
+        if (transactions.size < 2) {
+            return null
+        }
+
+        val calendar = Calendar.getInstance()
+        val daysOfMonth = transactions.map { transaction ->
+            calendar.timeInMillis = transaction.date
+            calendar.get(Calendar.DAY_OF_MONTH)
+        }
+
+        // Check if all transactions occur on the same day of month
+        val uniqueDays = daysOfMonth.toSet()
+        if (uniqueDays.size == 1) {
+            return DayOfMonthPattern.SpecificDay(daysOfMonth.first())
+        }
+
+        // Check if all transactions occur on last few days of month (28-31)
+        val allLastDays = daysOfMonth.all { it >= 28 }
+        if (allLastDays) {
+            return DayOfMonthPattern.LastDayOfMonth
+        }
+
+        // Check if all transactions occur in first few days (1-5)
+        val allFirstDays = daysOfMonth.all { it <= 5 }
+        if (allFirstDays) {
+            // Use the most common day
+            val mostCommonDay = daysOfMonth.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+            if (mostCommonDay != null) {
+                return DayOfMonthPattern.SpecificDay(mostCommonDay)
+            }
+        }
+
+        // Check if there's a dominant day (appears in >50% of transactions)
+        val dayFrequency = daysOfMonth.groupingBy { it }.eachCount()
+        val dominantDay = dayFrequency.maxByOrNull { it.value }
+        if (dominantDay != null && dominantDay.value.toDouble() / daysOfMonth.size > 0.5) {
+            return DayOfMonthPattern.SpecificDay(dominantDay.key)
+        }
+
+        // No clear pattern detected
+        return null
+    }
+
+    /**
+     * Applies the detected day-of-month pattern to a calendar.
+     *
+     * Handles edge cases like:
+     * - Setting day 31 in months with only 30 days → sets to 30
+     * - Setting day 30 in February → sets to last day of February (28/29)
+     *
+     * @param calendar Calendar to modify (already set to target month/year)
+     * @param pattern Day-of-month pattern to apply
+     */
+    private fun applyDayOfMonthPattern(calendar: Calendar, pattern: DayOfMonthPattern) {
+        when (pattern) {
+            is DayOfMonthPattern.SpecificDay -> {
+                val targetDay = pattern.day
+                val maxDayInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+                // If target day doesn't exist in this month, use last day of month
+                calendar.set(Calendar.DAY_OF_MONTH, minOf(targetDay, maxDayInMonth))
+            }
+
+            is DayOfMonthPattern.LastDayOfMonth -> {
+                // Set to last day of the month
+                calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+            }
+        }
+    }
+
+    /**
+     * Sealed class representing day-of-month patterns for monthly recurring transactions.
+     */
+    private sealed class DayOfMonthPattern {
+        /**
+         * Transaction occurs on a specific day of month (e.g., always on 15th).
+         */
+        data class SpecificDay(val day: Int) : DayOfMonthPattern()
+
+        /**
+         * Transaction occurs on the last day of month (handles varying month lengths).
+         */
+        data object LastDayOfMonth : DayOfMonthPattern()
     }
 
     /**
