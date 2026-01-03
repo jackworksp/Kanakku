@@ -10,6 +10,7 @@ import com.example.kanakku.data.database.DatabaseProvider
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.SmsMessage
+import com.example.kanakku.data.preferences.AppPreferences
 import com.example.kanakku.data.repository.TransactionRepository
 import com.example.kanakku.data.sms.BankSmsParser
 import com.example.kanakku.data.sms.SmsReader
@@ -58,11 +59,12 @@ class MainViewModel : ViewModel() {
      * Loads transaction data with database-first approach for fast startup.
      *
      * Flow:
-     * 1. Load existing transactions from database immediately (fast)
-     * 2. Check last sync timestamp
-     * 3. Only parse SMS newer than last sync
-     * 4. Save new transactions to database
-     * 5. Update sync timestamp
+     * 1. Detect first launch vs subsequent launches
+     * 2. First launch: Parse ALL SMS history with progress tracking
+     * 3. Subsequent launches: Only parse SMS newer than last sync (incremental)
+     * 4. Load existing transactions from database immediately (fast)
+     * 5. Save new transactions to database
+     * 6. Update sync timestamp and initial sync status
      *
      * Error Handling:
      * - Database initialization failures
@@ -75,7 +77,7 @@ class MainViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
             try {
-                // Step 0: Initialize repository if not already done
+                // Step 0: Initialize repository and preferences if not already done
                 if (repository == null) {
                     try {
                         repository = DatabaseProvider.getRepository(context)
@@ -91,8 +93,20 @@ class MainViewModel : ViewModel() {
                     }
                 }
                 val repo = repository!!
+                val appPreferences = AppPreferences.getInstance(context)
 
-                // Step 1: Load existing transactions from database (FAST)
+                // Step 1: Detect if this is the first launch (initial full history sync needed)
+                val isInitialSync = !appPreferences.isInitialSyncComplete()
+
+                if (isInitialSync) {
+                    ErrorHandler.logInfo("Starting initial full history sync", "loadSmsData")
+                    _uiState.value = _uiState.value.copy(
+                        isInitialSync = true,
+                        syncStatusMessage = "Preparing to sync transaction history..."
+                    )
+                }
+
+                // Step 2: Load existing transactions from database (FAST)
                 val existingTransactions = repo.getAllTransactionsSnapshot()
                     .onFailure { throwable ->
                         val errorInfo = throwable.toErrorInfo()
@@ -104,7 +118,7 @@ class MainViewModel : ViewModel() {
                     }
                     .getOrElse { emptyList() }
 
-                // Step 2: Check last sync timestamp (before showing existing data)
+                // Step 3: Check last sync timestamp (before showing existing data)
                 val lastSyncTimestamp = repo.getLastSyncTimestamp()
                     .onFailure { throwable ->
                         val errorInfo = throwable.toErrorInfo()
@@ -116,8 +130,8 @@ class MainViewModel : ViewModel() {
                     }
                     .getOrNull()
 
-                if (existingTransactions.isNotEmpty()) {
-                    // Show existing data immediately for fast startup
+                if (existingTransactions.isNotEmpty() && !isInitialSync) {
+                    // Show existing data immediately for fast startup (only for incremental sync)
                     val categories = try {
                         categoryManager.categorizeAll(existingTransactions)
                     } catch (e: Exception) {
@@ -138,14 +152,37 @@ class MainViewModel : ViewModel() {
                     )
                 }
 
-                // Step 3: Read only new SMS since last sync
+                // Step 4: Read SMS based on sync mode
                 val smsReader = SmsReader(context)
-                val newSms = if (lastSyncTimestamp != null) {
+                val newSms = if (isInitialSync) {
+                    // Initial sync: Read ALL SMS history
+                    ErrorHandler.logInfo("Reading all SMS history for initial sync", "loadSmsData")
+                    _uiState.value = _uiState.value.copy(
+                        syncStatusMessage = "Reading SMS history..."
+                    )
+                    smsReader.readAllSms()
+                } else if (lastSyncTimestamp != null) {
                     // Incremental sync: only read SMS newer than last sync
+                    ErrorHandler.logInfo("Reading SMS since timestamp $lastSyncTimestamp", "loadSmsData")
                     smsReader.readSmsSince(lastSyncTimestamp)
                 } else {
-                    // First sync: read all SMS from last N days
+                    // Fallback: read SMS from last N days (shouldn't happen if initial sync is tracked)
+                    ErrorHandler.logWarning(
+                        "No initial sync flag and no timestamp - falling back to $daysAgo days",
+                        "loadSmsData"
+                    )
                     smsReader.readInboxSms(sinceDaysAgo = daysAgo)
+                }
+
+                // Update sync progress with total count
+                if (isInitialSync && newSms.isNotEmpty()) {
+                    appPreferences.setSyncTotalCount(newSms.size)
+                    _uiState.value = _uiState.value.copy(
+                        syncTotal = newSms.size,
+                        syncProgress = 0,
+                        syncStatusMessage = "Processing ${newSms.size} SMS messages..."
+                    )
+                    ErrorHandler.logInfo("Initial sync: Found ${newSms.size} total SMS messages", "loadSmsData")
                 }
 
                 // Check if SMS reading returned empty due to permission issues
@@ -153,13 +190,20 @@ class MainViewModel : ViewModel() {
                     // No existing data and no new SMS - likely permission issue
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isInitialSync = false,
+                        syncStatusMessage = null,
                         errorMessage = "No SMS messages found. Please ensure SMS permission is granted and you have bank SMS messages."
                     )
                     return@launch
                 }
 
-                // Step 4: Parse and filter only new bank SMS
+                // Step 5: Parse and filter bank SMS
                 val newBankSms = try {
+                    if (isInitialSync) {
+                        _uiState.value = _uiState.value.copy(
+                            syncStatusMessage = "Filtering bank SMS..."
+                        )
+                    }
                     parser.filterBankSms(newSms)
                 } catch (e: Exception) {
                     val errorInfo = ErrorHandler.handleError(e, "Filter bank SMS")
@@ -171,6 +215,11 @@ class MainViewModel : ViewModel() {
                 }
 
                 val newParsed = try {
+                    if (isInitialSync) {
+                        _uiState.value = _uiState.value.copy(
+                            syncStatusMessage = "Parsing ${newBankSms.size} bank transactions..."
+                        )
+                    }
                     parser.parseAllBankSms(newBankSms)
                 } catch (e: Exception) {
                     val errorInfo = ErrorHandler.handleError(e, "Parse bank SMS")
@@ -181,7 +230,13 @@ class MainViewModel : ViewModel() {
                     emptyList() // Continue with empty list
                 }
 
-                // Filter out transactions that already exist in database
+                // Step 6: Filter out transactions that already exist in database
+                if (isInitialSync) {
+                    _uiState.value = _uiState.value.copy(
+                        syncStatusMessage = "Checking for duplicates..."
+                    )
+                }
+
                 val newTransactions = mutableListOf<ParsedTransaction>()
                 for (transaction in newParsed) {
                     val exists = repo.transactionExists(transaction.smsId)
@@ -211,20 +266,27 @@ class MainViewModel : ViewModel() {
                     newTransactions // Continue with potentially duplicate transactions
                 }
 
-                // Step 5: Save new transactions to database
+                // Step 7: Save new transactions to database
                 if (deduplicated.isNotEmpty()) {
+                    if (isInitialSync) {
+                        _uiState.value = _uiState.value.copy(
+                            syncStatusMessage = "Saving ${deduplicated.size} transactions to database..."
+                        )
+                    }
                     repo.saveTransactions(deduplicated)
                         .onFailure { throwable ->
                             val errorInfo = throwable.toErrorInfo()
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
+                                isInitialSync = false,
+                                syncStatusMessage = null,
                                 errorMessage = "Failed to save transactions: ${errorInfo.userMessage}"
                             )
                             return@launch
                         }
                 }
 
-                // Step 6: Update sync timestamp
+                // Step 8: Update sync timestamp and mark initial sync complete
                 val currentTimestamp = System.currentTimeMillis()
                 repo.setLastSyncTimestamp(currentTimestamp)
                     .onFailure { throwable ->
@@ -236,12 +298,24 @@ class MainViewModel : ViewModel() {
                         // Continue - not critical
                     }
 
-                // Step 7: Load final state from database (includes both old and new)
+                // Mark initial sync as complete if this was the first launch
+                if (isInitialSync) {
+                    appPreferences.setInitialSyncComplete()
+                    appPreferences.clearSyncProgress()
+                    ErrorHandler.logInfo(
+                        "Initial sync complete: Processed ${newSms.size} SMS, found ${newBankSms.size} bank SMS, saved ${deduplicated.size} transactions",
+                        "loadSmsData"
+                    )
+                }
+
+                // Step 9: Load final state from database (includes both old and new)
                 val allTransactions = repo.getAllTransactionsSnapshot()
                     .onFailure { throwable ->
                         val errorInfo = throwable.toErrorInfo()
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
+                            isInitialSync = false,
+                            syncStatusMessage = null,
                             errorMessage = "Failed to load transactions: ${errorInfo.userMessage}"
                         )
                         return@launch
@@ -261,7 +335,9 @@ class MainViewModel : ViewModel() {
                 _categoryMap.value = categories
 
                 // Calculate stats
-                val totalSmsCount = if (lastSyncTimestamp != null) {
+                val totalSmsCount = if (isInitialSync) {
+                    newSms.size
+                } else if (lastSyncTimestamp != null) {
                     existingTransactions.size + newSms.size
                 } else {
                     newSms.size
@@ -269,6 +345,10 @@ class MainViewModel : ViewModel() {
 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
+                    isInitialSync = false,
+                    syncProgress = 0,
+                    syncTotal = 0,
+                    syncStatusMessage = null,
                     totalSmsCount = totalSmsCount,
                     bankSmsCount = newBankSms.size,
                     duplicatesRemoved = newParsed.size - deduplicated.size,
@@ -280,7 +360,7 @@ class MainViewModel : ViewModel() {
                 )
 
                 ErrorHandler.logInfo(
-                    "Successfully loaded ${allTransactions.size} transactions (${deduplicated.size} new)",
+                    "Successfully loaded ${allTransactions.size} transactions (${deduplicated.size} new)${if (isInitialSync) " - Initial sync complete" else ""}",
                     "loadSmsData"
                 )
             } catch (e: Exception) {
@@ -288,6 +368,10 @@ class MainViewModel : ViewModel() {
                 val errorInfo = ErrorHandler.handleError(e, "loadSmsData")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
+                    isInitialSync = false,
+                    syncProgress = 0,
+                    syncTotal = 0,
+                    syncStatusMessage = null,
                     errorMessage = errorInfo.userMessage
                 )
             }

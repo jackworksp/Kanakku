@@ -3,7 +3,7 @@
   "spec": "006-extended-transaction-history",
   "state": "building",
   "subtasks": {
-    "completed": 3,
+    "completed": 4,
     "total": 14,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 5,
+    "number": 6,
     "started_at": "2026-01-03T17:28:34.236463"
   },
-  "last_update": "2026-01-03T17:50:10.535670"
+  "last_update": "2026-01-03T17:53:39.810084"
 }
