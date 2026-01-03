@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kanakku.data.preferences.AppPreferences
+import com.example.kanakku.notification.TransactionNotificationManager
 import com.example.kanakku.ui.MainViewModel
 import com.example.kanakku.ui.components.PrivacyInfoDialog
 import com.example.kanakku.ui.navigation.KanakkuNavHost
@@ -31,6 +32,11 @@ class MainActivity : ComponentActivity() {
 
         // Initialize AppPreferences
         AppPreferences.getInstance(this)
+
+        // Initialize notification channel for transaction alerts
+        // Required for Android 8.0 (API 26) and above
+        val notificationManager = TransactionNotificationManager(this)
+        notificationManager.createNotificationChannel()
 
         setContent {
             KanakkuTheme {
