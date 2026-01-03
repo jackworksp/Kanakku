@@ -3,7 +3,7 @@
   "spec": "015-recurring-transaction-detection",
   "state": "building",
   "subtasks": {
-    "completed": 26,
+    "completed": 27,
     "total": 28,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 16,
+    "number": 17,
     "started_at": "2026-01-03T16:17:13.436857"
   },
-  "last_update": "2026-01-03T18:07:12.997012"
+  "last_update": "2026-01-03T18:12:06.695441"
 }
