@@ -10,6 +10,7 @@ import com.example.kanakku.core.error.ErrorHandler
 import com.example.kanakku.data.database.DatabaseProvider
 import com.example.kanakku.data.model.SmsMessage
 import com.example.kanakku.data.sms.BankSmsParser
+import com.example.kanakku.notification.TransactionNotificationManager
 
 /**
  * Background service for processing bank transaction SMS messages.
@@ -18,7 +19,7 @@ import com.example.kanakku.data.sms.BankSmsParser
  * - Parsing bank SMS using BankSmsParser
  * - Checking for duplicate transactions
  * - Saving parsed transactions to the database
- * - Preparing for notification triggering (Phase 3)
+ * - Showing rich notifications for new transactions
  *
  * WorkManager is used instead of IntentService (deprecated in API 30+) because:
  * - Automatically handles battery optimization and doze mode
@@ -30,7 +31,8 @@ import com.example.kanakku.data.sms.BankSmsParser
  * 1. Parse SMS message (regex matching)
  * 2. Check if transaction already exists (single DB query)
  * 3. Save transaction if new (single DB insert)
- * 4. Log results
+ * 4. Show notification with transaction details
+ * 5. Log results
  *
  * Thread Safety: WorkManager executes work on a background thread automatically.
  * Battery Efficiency: Event-driven (triggered by SMS), completes in < 1 second.
@@ -217,11 +219,27 @@ class SmsProcessingService(
                 "SmsProcessingService.doWork"
             )
 
-            // TODO (Phase 3): Trigger notification if enabled in preferences
-            // val notificationManager = TransactionNotificationManager(applicationContext)
-            // if (AppPreferences.getInstance(applicationContext).isNotificationsEnabled()) {
-            //     notificationManager.showTransactionNotification(parsedTransaction)
-            // }
+            // Show notification for the new transaction
+            // TransactionNotificationManager handles checking if notifications are enabled
+            try {
+                val notificationManager = TransactionNotificationManager(applicationContext)
+                val notificationShown = notificationManager.showTransactionNotification(parsedTransaction)
+
+                if (notificationShown) {
+                    ErrorHandler.logInfo(
+                        "Notification shown for transaction ${parsedTransaction.smsId}",
+                        "SmsProcessingService.doWork"
+                    )
+                } else {
+                    ErrorHandler.logInfo(
+                        "Notification not shown (disabled or error)",
+                        "SmsProcessingService.doWork"
+                    )
+                }
+            } catch (e: Exception) {
+                // Don't fail the entire work if notification fails
+                ErrorHandler.handleError(e, "SmsProcessingService.doWork - show notification")
+            }
 
             // TODO (Phase 5): Broadcast transaction update to UI if app is open
             // val intent = Intent(ACTION_NEW_TRANSACTION)
