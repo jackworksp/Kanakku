@@ -1,17 +1,17 @@
 {
   "active": true,
-  "spec": "001-room-database-for-transaction-persistence",
-  "state": "complete",
+  "spec": "020-expanded-bank-sms-pattern-support",
+  "state": "building",
   "subtasks": {
-    "completed": 18,
-    "total": 18,
-    "in_progress": 0,
+    "completed": 2,
+    "total": 52,
+    "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Testing and Verification",
+    "current": "Bank Registry Architecture",
     "id": null,
-    "total": 3
+    "total": 4
   },
   "workers": {
     "active": 0,
@@ -19,7 +19,7 @@
   },
   "session": {
     "number": 4,
-    "started_at": "2026-01-03T01:04:20.700076"
+    "started_at": "2026-01-03T08:13:01.602926"
   },
-  "last_update": "2026-01-03T01:42:56.116881"
+  "last_update": "2026-01-03T08:28:48.637353"
 }
