@@ -16,6 +16,9 @@
     <!-- SMS Permission for reading bank transaction messages (local-only operation) -->
     <uses-permission android:name="android.permission.READ_SMS" />
 
+    <!-- Notification permission for Android 13+ (API 33+) to send spending alerts -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Declare telephony feature as optional for ChromeOS/tablet compatibility -->
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
