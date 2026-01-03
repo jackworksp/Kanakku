@@ -1,10 +1,10 @@
 package com.example.kanakku.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 
 /**
  * Extension properties for accessing theme-aware custom colors.
@@ -18,7 +18,10 @@ import androidx.compose.ui.graphics.Color
 val MaterialTheme.colorScheme.incomeColor: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (isSystemInDarkTheme()) IncomeGreen80 else IncomeGreen40
+    get() {
+        val isDark = background.luminance() < 0.5f
+        return if (isDark) IncomeGreen80 else IncomeGreen40
+    }
 
 /**
  * Theme-aware color for expense/debit transactions.
@@ -27,7 +30,10 @@ val MaterialTheme.colorScheme.incomeColor: Color
 val MaterialTheme.colorScheme.expenseColor: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (isSystemInDarkTheme()) ExpenseRed80 else ExpenseRed40
+    get() {
+        val isDark = background.luminance() < 0.5f
+        return if (isDark) ExpenseRed80 else ExpenseRed40
+    }
 
 /**
  * Theme-aware background color for income transaction cards.
@@ -36,7 +42,10 @@ val MaterialTheme.colorScheme.expenseColor: Color
 val MaterialTheme.colorScheme.incomeBackground: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (isSystemInDarkTheme()) IncomeBackgroundGreen80 else IncomeBackgroundGreen40
+    get() {
+        val isDark = background.luminance() < 0.5f
+        return if (isDark) IncomeBackgroundGreen80 else IncomeBackgroundGreen40
+    }
 
 /**
  * Theme-aware background color for expense transaction cards.
@@ -45,7 +54,10 @@ val MaterialTheme.colorScheme.incomeBackground: Color
 val MaterialTheme.colorScheme.expenseBackground: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (isSystemInDarkTheme()) ExpenseBackgroundRed80 else ExpenseBackgroundRed40
+    get() {
+        val isDark = background.luminance() < 0.5f
+        return if (isDark) ExpenseBackgroundRed80 else ExpenseBackgroundRed40
+    }
 
 /**
  * Theme-aware blue color for analytics charts.
@@ -54,7 +66,10 @@ val MaterialTheme.colorScheme.expenseBackground: Color
 val MaterialTheme.colorScheme.chartBlue: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (isSystemInDarkTheme()) ChartBlue80 else ChartBlue40
+    get() {
+        val isDark = background.luminance() < 0.5f
+        return if (isDark) ChartBlue80 else ChartBlue40
+    }
 
 /**
  * Theme-aware purple color for analytics charts.
@@ -63,7 +78,10 @@ val MaterialTheme.colorScheme.chartBlue: Color
 val MaterialTheme.colorScheme.chartPurple: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (isSystemInDarkTheme()) ChartPurple80 else ChartPurple40
+    get() {
+        val isDark = background.luminance() < 0.5f
+        return if (isDark) ChartPurple80 else ChartPurple40
+    }
 
 /**
  * Theme-aware gold color for first place rankings.
@@ -72,7 +90,10 @@ val MaterialTheme.colorScheme.chartPurple: Color
 val MaterialTheme.colorScheme.goldRanking: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (isSystemInDarkTheme()) GoldDark else Gold
+    get() {
+        val isDark = background.luminance() < 0.5f
+        return if (isDark) GoldDark else Gold
+    }
 
 /**
  * Theme-aware silver color for second place rankings.
@@ -81,7 +102,10 @@ val MaterialTheme.colorScheme.goldRanking: Color
 val MaterialTheme.colorScheme.silverRanking: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (isSystemInDarkTheme()) SilverDark else Silver
+    get() {
+        val isDark = background.luminance() < 0.5f
+        return if (isDark) SilverDark else Silver
+    }
 
 /**
  * Theme-aware bronze color for third place rankings.
@@ -90,4 +114,7 @@ val MaterialTheme.colorScheme.silverRanking: Color
 val MaterialTheme.colorScheme.bronzeRanking: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (isSystemInDarkTheme()) BronzeDark else Bronze
+    get() {
+        val isDark = background.luminance() < 0.5f
+        return if (isDark) BronzeDark else Bronze
+    }
