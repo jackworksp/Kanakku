@@ -29,7 +29,8 @@ data class MainUiState(
     val errorMessage: String? = null,
     val isLoadedFromDatabase: Boolean = false,
     val newTransactionsSynced: Int = 0,
-    val lastSyncTimestamp: Long? = null
+    val lastSyncTimestamp: Long? = null,
+    val merchantMappingCount: Int = 0
 )
 
 class MainViewModel : ViewModel() {
@@ -87,6 +88,17 @@ class MainViewModel : ViewModel() {
                 }
                 val repo = repository!!
 
+                // Get merchant mapping count for UI display
+                val mappingCount = repo.getMerchantMappingCount()
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        ErrorHandler.logWarning(
+                            "Failed to get merchant mapping count: ${errorInfo.technicalMessage}",
+                            "loadSmsData"
+                        )
+                    }
+                    .getOrElse { 0 }
+
                 // Step 1: Load existing transactions from database (FAST)
                 val existingTransactions = repo.getAllTransactionsSnapshot()
                     .onFailure { throwable ->
@@ -129,7 +141,8 @@ class MainViewModel : ViewModel() {
                         isLoading = false,
                         transactions = existingTransactions,
                         isLoadedFromDatabase = true,
-                        lastSyncTimestamp = lastSyncTimestamp
+                        lastSyncTimestamp = lastSyncTimestamp,
+                        merchantMappingCount = mappingCount
                     )
                 }
 
@@ -271,7 +284,8 @@ class MainViewModel : ViewModel() {
                     rawBankSms = newBankSms,
                     isLoadedFromDatabase = true,
                     newTransactionsSynced = deduplicated.size,
-                    lastSyncTimestamp = currentTimestamp
+                    lastSyncTimestamp = currentTimestamp,
+                    merchantMappingCount = mappingCount
                 )
 
                 ErrorHandler.logInfo(
@@ -299,8 +313,13 @@ class MainViewModel : ViewModel() {
     fun updateTransactionCategory(smsId: Long, category: Category) {
         viewModelScope.launch {
             try {
+                // Look up the transaction to get merchant name for learning
+                val transaction = _uiState.value.transactions.find { it.smsId == smsId }
+                val merchant = transaction?.merchant
+
                 // Update in-memory state and persist to database
-                categoryManager.setManualOverride(smsId, category)
+                // Pass merchant to enable learning merchant-to-category mappings
+                categoryManager.setManualOverride(smsId, category, merchant)
                     .onSuccess {
                         // Update UI state only on successful save
                         _categoryMap.value = _categoryMap.value.toMutableMap().apply {
@@ -320,6 +339,61 @@ class MainViewModel : ViewModel() {
             } catch (e: Exception) {
                 // Catch-all for unexpected errors
                 val errorInfo = ErrorHandler.handleError(e, "updateTransactionCategory")
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = errorInfo.userMessage
+                )
+            }
+        }
+    }
+
+    /**
+     * Resets all learned merchant-to-category mappings.
+     * Clears the learned preferences and re-categorizes all transactions using default rules.
+     *
+     * Error Handling:
+     * - Database errors when deleting mappings
+     * - Errors are logged and shown to user with clear messages
+     */
+    fun resetLearnedMappings() {
+        viewModelScope.launch {
+            try {
+                categoryManager.resetAllMerchantMappings()
+                    .onSuccess { count ->
+                        // Re-categorize all transactions with default rules
+                        val transactions = _uiState.value.transactions
+                        if (transactions.isNotEmpty()) {
+                            val categories = try {
+                                categoryManager.categorizeAll(transactions)
+                            } catch (e: Exception) {
+                                val errorInfo = ErrorHandler.handleError(e, "Re-categorize after reset")
+                                ErrorHandler.logWarning(
+                                    "Failed to re-categorize after reset: ${errorInfo.technicalMessage}",
+                                    "resetLearnedMappings"
+                                )
+                                emptyMap() // Continue with uncategorized transactions
+                            }
+                            _categoryMap.value = categories
+                        }
+
+                        // Update UI state to reflect zero merchant mappings
+                        _uiState.value = _uiState.value.copy(
+                            merchantMappingCount = 0
+                        )
+
+                        ErrorHandler.logInfo(
+                            "Reset $count learned merchant mappings",
+                            "resetLearnedMappings"
+                        )
+                    }
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        _uiState.value = _uiState.value.copy(
+                            errorMessage = "Failed to reset learned preferences: ${errorInfo.userMessage}"
+                        )
+                    }
+            } catch (e: Exception) {
+                // Catch-all for unexpected errors
+                val errorInfo = ErrorHandler.handleError(e, "resetLearnedMappings")
                 _uiState.value = _uiState.value.copy(
                     errorMessage = errorInfo.userMessage
                 )

@@ -25,6 +25,7 @@ import kotlinx.coroutines.sync.withLock
  * Key responsibilities:
  * - Save and retrieve transactions
  * - Manage category overrides
+ * - Manage merchant-to-category mappings for automatic categorization
  * - Track sync metadata for incremental updates
  * - Provide reactive data streams via Flow
  * - Handle all database errors gracefully with comprehensive error handling
@@ -52,6 +53,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
     private val transactionDao = database.transactionDao()
     private val categoryOverrideDao = database.categoryOverrideDao()
     private val syncMetadataDao = database.syncMetadataDao()
+    private val merchantCategoryMappingDao = database.merchantCategoryMappingDao()
 
     // ==================== In-Memory Cache ====================
 
@@ -471,6 +473,135 @@ class TransactionRepository(private val database: KanakkuDatabase) {
     suspend fun clearSyncMetadata(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Clear sync metadata") {
             syncMetadataDao.deleteAll()
+        }
+    }
+
+    // ==================== Merchant Category Mapping Operations ====================
+
+    /**
+     * Normalizes a merchant name for consistent mapping storage.
+     * Converts to lowercase, trims whitespace, and removes special characters.
+     *
+     * @param merchantName The raw merchant name from transaction
+     * @return Normalized merchant name (lowercase, trimmed, alphanumeric + spaces only)
+     */
+    private fun normalizeMerchantName(merchantName: String): String {
+        return merchantName
+            .lowercase()
+            .trim()
+            .replace(Regex("[^a-z0-9\\s]"), "") // Keep only alphanumeric and spaces
+            .replace(Regex("\\s+"), " ") // Normalize multiple spaces to single space
+    }
+
+    /**
+     * Sets a merchant-to-category mapping.
+     * This learns the user's preference for categorizing transactions from a specific merchant.
+     * The merchant name is normalized before storing to ensure consistency.
+     *
+     * @param merchantName The merchant name to map
+     * @param categoryId The category ID to associate with this merchant
+     * @return Result<Unit> indicating success or failure with error information
+     */
+    suspend fun setMerchantCategoryMapping(merchantName: String, categoryId: String): Result<Unit> {
+        return ErrorHandler.runSuspendCatching("Set merchant category mapping") {
+            val normalizedName = normalizeMerchantName(merchantName)
+            if (normalizedName.isBlank()) {
+                throw IllegalArgumentException("Merchant name cannot be empty after normalization")
+            }
+            val mapping = com.example.kanakku.data.database.entity.MerchantCategoryMappingEntity(
+                merchantName = normalizedName,
+                categoryId = categoryId,
+                updatedAt = System.currentTimeMillis()
+            )
+            merchantCategoryMappingDao.insert(mapping)
+        }
+    }
+
+    /**
+     * Gets the learned category mapping for a specific merchant.
+     * The merchant name is normalized before lookup to ensure consistency.
+     *
+     * @param merchantName The merchant name to look up
+     * @return Result<String?> containing category ID if mapping exists, null otherwise, or error information
+     */
+    suspend fun getMerchantCategoryMapping(merchantName: String): Result<String?> {
+        return ErrorHandler.runSuspendCatching("Get merchant category mapping") {
+            val normalizedName = normalizeMerchantName(merchantName)
+            if (normalizedName.isBlank()) {
+                return@runSuspendCatching null
+            }
+            merchantCategoryMappingDao.getMapping(normalizedName)?.categoryId
+        }
+    }
+
+    /**
+     * Gets all merchant category mappings as a reactive Flow.
+     * Returns a map of normalized merchant names to category IDs.
+     * Errors are logged and an empty map is emitted on failure.
+     *
+     * @return Flow emitting Map of merchant name to category ID
+     */
+    fun getAllMerchantMappings(): Flow<Map<String, String>> {
+        return merchantCategoryMappingDao.getAllMappings()
+            .map { mappings -> mappings.associate { it.merchantName to it.categoryId } }
+            .catch { throwable ->
+                ErrorHandler.handleError(throwable as Exception, "Get all merchant mappings")
+                emit(emptyMap())
+            }
+    }
+
+    /**
+     * Gets all merchant category mappings as a one-time snapshot.
+     * Returns a map of normalized merchant names to category IDs.
+     * Useful for creating an in-memory cache in CategoryManager.
+     *
+     * @return Result<Map<String, String>> containing map of merchant name to category ID or error information
+     */
+    suspend fun getAllMerchantMappingsSnapshot(): Result<Map<String, String>> {
+        return ErrorHandler.runSuspendCatching("Get all merchant mappings snapshot") {
+            merchantCategoryMappingDao.getAllMappingsSnapshot()
+                .associate { it.merchantName to it.categoryId }
+        }
+    }
+
+    /**
+     * Removes a merchant category mapping.
+     * The merchant name is normalized before deletion to ensure consistency.
+     *
+     * @param merchantName The merchant name to remove mapping for
+     * @return Result<Boolean> indicating if mapping was removed or error information
+     */
+    suspend fun removeMerchantMapping(merchantName: String): Result<Boolean> {
+        return ErrorHandler.runSuspendCatching("Remove merchant mapping") {
+            val normalizedName = normalizeMerchantName(merchantName)
+            if (normalizedName.isBlank()) {
+                return@runSuspendCatching false
+            }
+            merchantCategoryMappingDao.deleteMapping(normalizedName) > 0
+        }
+    }
+
+    /**
+     * Removes all merchant category mappings.
+     * Use with caution - this clears all learned merchant preferences.
+     *
+     * @return Result<Int> containing number of mappings removed or error information
+     */
+    suspend fun removeAllMerchantMappings(): Result<Int> {
+        return ErrorHandler.runSuspendCatching("Remove all merchant mappings") {
+            merchantCategoryMappingDao.deleteAll()
+        }
+    }
+
+    /**
+     * Gets the total count of merchant category mappings.
+     * Useful for displaying how many merchants have been learned.
+     *
+     * @return Result<Int> containing total number of merchant mappings or error information
+     */
+    suspend fun getMerchantMappingCount(): Result<Int> {
+        return ErrorHandler.runSuspendCatching("Get merchant mapping count") {
+            merchantCategoryMappingDao.getMappingCount()
         }
     }
 }

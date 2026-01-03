@@ -8,10 +8,17 @@ import com.example.kanakku.data.repository.TransactionRepository
 /**
  * Manages transaction categorization and category overrides.
  *
- * This class handles automatic categorization based on keywords
- * and supports manual category overrides that persist to database.
+ * This class handles automatic categorization based on keywords,
+ * supports manual category overrides that persist to database,
+ * and learns merchant-to-category mappings from user corrections.
  *
- * @param repository Optional repository for persisting category overrides
+ * Categorization priority:
+ * 1. Manual per-transaction overrides (highest priority)
+ * 2. Learned merchant-to-category mappings
+ * 3. Keyword-based automatic categorization
+ * 4. Default "Other" category (fallback)
+ *
+ * @param repository Optional repository for persisting category overrides and merchant mappings
  */
 class CategoryManager(
     private var repository: TransactionRepository? = null
@@ -20,7 +27,13 @@ class CategoryManager(
     private val manualOverrides = mutableMapOf<Long, Category>()
 
     /**
-     * Initializes the CategoryManager by loading category overrides from database.
+     * In-memory cache of merchant-to-category mappings.
+     * Maps normalized merchant names to category IDs for fast lookups.
+     */
+    private val merchantMappings = mutableMapOf<String, String>()
+
+    /**
+     * Initializes the CategoryManager by loading category overrides and merchant mappings from database.
      * Should be called after repository is available and before categorizing transactions.
      *
      * @param repo The transaction repository to use for persistence
@@ -28,6 +41,7 @@ class CategoryManager(
     suspend fun initialize(repo: TransactionRepository) {
         repository = repo
         loadOverridesFromDatabase()
+        loadMerchantMappingsFromDatabase()
     }
 
     /**
@@ -55,9 +69,54 @@ class CategoryManager(
             }
     }
 
+    /**
+     * Loads all merchant-to-category mappings from database into memory cache.
+     * Enables fast merchant-based categorization without database lookups.
+     */
+    private suspend fun loadMerchantMappingsFromDatabase() {
+        val repo = repository ?: return
+
+        // Handle Result type from repository
+        repo.getAllMerchantMappingsSnapshot()
+            .onSuccess { mappings ->
+                merchantMappings.clear()
+                merchantMappings.putAll(mappings)
+            }
+            .onFailure {
+                // Silently fail - merchant mappings will be empty if database is unavailable
+                merchantMappings.clear()
+            }
+    }
+
+    /**
+     * Categorizes a transaction using a multi-tier approach.
+     *
+     * Priority order:
+     * 1. Manual per-transaction override (highest)
+     * 2. Learned merchant mapping (if merchant available)
+     * 3. Keyword-based categorization
+     * 4. Default "Other" category
+     *
+     * @param transaction The transaction to categorize
+     * @return The determined category
+     */
     fun categorizeTransaction(transaction: ParsedTransaction): Category {
+        // Priority 1: Check for manual override
         manualOverrides[transaction.smsId]?.let { return it }
 
+        // Priority 2: Check learned merchant mapping
+        transaction.merchant?.let { merchant ->
+            val normalizedMerchant = normalizeMerchantName(merchant)
+            merchantMappings[normalizedMerchant]?.let { categoryId ->
+                // Find category from DefaultCategories by ID
+                val category = DefaultCategories.ALL.find { it.id == categoryId }
+                if (category != null) {
+                    return category
+                }
+            }
+        }
+
+        // Priority 3: Keyword-based categorization
         val searchText = buildString {
             append(transaction.merchant?.lowercase() ?: "")
             append(" ")
@@ -70,28 +129,66 @@ class CategoryManager(
             }
         }
 
+        // Priority 4: Default fallback
         return DefaultCategories.OTHER
+    }
+
+    /**
+     * Normalizes a merchant name for consistent mapping lookups.
+     * Must match the normalization used in TransactionRepository.
+     *
+     * @param merchantName The raw merchant name
+     * @return Normalized merchant name (lowercase, trimmed, alphanumeric + spaces only)
+     */
+    private fun normalizeMerchantName(merchantName: String): String {
+        return merchantName
+            .lowercase()
+            .trim()
+            .replace(Regex("[^a-z0-9\\s]"), "") // Keep only alphanumeric and spaces
+            .replace(Regex("\\s+"), " ") // Normalize multiple spaces to single space
     }
 
     /**
      * Sets a manual category override for a transaction.
      * Persists to database if repository is available.
+     * If merchant name is provided, also learns the merchant-to-category mapping.
      *
      * @param smsId The SMS ID of the transaction
      * @param category The category to assign
+     * @param merchant Optional merchant name to learn mapping from (null if not available)
      * @return Result<Unit> indicating success or failure
      */
-    suspend fun setManualOverride(smsId: Long, category: Category): Result<Unit> {
+    suspend fun setManualOverride(
+        smsId: Long,
+        category: Category,
+        merchant: String? = null
+    ): Result<Unit> {
         // Update in-memory state first
         manualOverrides[smsId] = category
 
-        // Persist to database
-        return if (repository != null) {
-            repository!!.setCategoryOverride(smsId, category.id)
-        } else {
-            // If no repository, still succeed (in-memory only)
-            Result.success(Unit)
+        val repo = repository ?: return Result.success(Unit) // No repository, succeed in-memory only
+
+        // Persist per-transaction override to database
+        val overrideResult = repo.setCategoryOverride(smsId, category.id)
+        if (overrideResult.isFailure) {
+            return overrideResult
         }
+
+        // Learn merchant mapping if merchant is provided and not empty
+        if (!merchant.isNullOrBlank()) {
+            val normalizedMerchant = normalizeMerchantName(merchant)
+            if (normalizedMerchant.isNotBlank()) {
+                // Save merchant mapping to database
+                repo.setMerchantCategoryMapping(normalizedMerchant, category.id)
+                    .onSuccess {
+                        // Update in-memory cache
+                        merchantMappings[normalizedMerchant] = category.id
+                    }
+                    // Ignore merchant mapping errors - per-transaction override still succeeded
+            }
+        }
+
+        return Result.success(Unit)
     }
 
     /**
@@ -112,6 +209,26 @@ class CategoryManager(
             // If no repository, still succeed (in-memory only)
             Result.success(Unit)
         }
+    }
+
+    /**
+     * Resets all learned merchant-to-category mappings.
+     * Clears both in-memory cache and database records.
+     *
+     * @return Result<Int> containing the number of mappings deleted, or error information
+     */
+    suspend fun resetAllMerchantMappings(): Result<Int> {
+        val repo = repository ?: return Result.success(0) // No repository, nothing to delete
+
+        // Remove all mappings from database
+        return repo.removeAllMerchantMappings()
+            .onSuccess { count ->
+                // Clear in-memory cache on success
+                merchantMappings.clear()
+            }
+            .onFailure {
+                // Keep in-memory cache intact on failure
+            }
     }
 
     fun getManualOverride(smsId: Long): Category? = manualOverrides[smsId]
