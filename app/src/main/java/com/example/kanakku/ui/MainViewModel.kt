@@ -14,6 +14,8 @@ import com.example.kanakku.data.model.TransactionFilter
 import com.example.kanakku.data.repository.TransactionRepository
 import com.example.kanakku.data.sms.BankSmsParser
 import com.example.kanakku.data.sms.SmsReader
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -57,10 +59,14 @@ class MainViewModel : ViewModel() {
     private val _categoryMap = MutableStateFlow<Map<Long, Category>>(emptyMap())
     val categoryMap: StateFlow<Map<Long, Category>> = _categoryMap.asStateFlow()
 
+    private val _searchFilterState = MutableStateFlow(SearchFilterState())
+    val searchFilterState: StateFlow<SearchFilterState> = _searchFilterState.asStateFlow()
+
     private val parser = BankSmsParser()
     private val categoryManager = CategoryManager()
 
     private var repository: TransactionRepository? = null
+    private var searchDebounceJob: Job? = null
 
     fun updatePermissionStatus(hasPermission: Boolean) {
         _uiState.value = _uiState.value.copy(hasPermission = hasPermission)
@@ -147,6 +153,11 @@ class MainViewModel : ViewModel() {
                         transactions = existingTransactions,
                         isLoadedFromDatabase = true,
                         lastSyncTimestamp = lastSyncTimestamp
+                    )
+
+                    // Update filtered transactions with existing data
+                    _searchFilterState.value = _searchFilterState.value.copy(
+                        filteredTransactions = existingTransactions
                     )
                 }
 
@@ -291,6 +302,11 @@ class MainViewModel : ViewModel() {
                     lastSyncTimestamp = currentTimestamp
                 )
 
+                // Update filtered transactions with the loaded data
+                _searchFilterState.value = _searchFilterState.value.copy(
+                    filteredTransactions = allTransactions
+                )
+
                 ErrorHandler.logInfo(
                     "Successfully loaded ${allTransactions.size} transactions (${deduplicated.size} new)",
                     "loadSmsData"
@@ -350,5 +366,77 @@ class MainViewModel : ViewModel() {
      */
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    /**
+     * Updates the search query with debouncing for real-time filtering.
+     * The actual filtering is delayed by 300ms to avoid excessive computation.
+     *
+     * @param query The search query string to filter transactions
+     */
+    fun updateSearchQuery(query: String) {
+        // Cancel any pending search job
+        searchDebounceJob?.cancel()
+
+        // Update filter state immediately for UI responsiveness
+        val currentFilter = _searchFilterState.value.currentFilter
+        val updatedFilter = currentFilter.copy(searchQuery = query.takeIf { it.isNotBlank() })
+
+        // Launch new debounced search job
+        searchDebounceJob = viewModelScope.launch {
+            // Debounce: wait 300ms before applying filter
+            delay(300)
+
+            // Apply the filter after debounce
+            applyFilter(updatedFilter)
+        }
+    }
+
+    /**
+     * Updates the active filter and applies it immediately.
+     * Use this for non-search filters (category, type, date range, amount range).
+     *
+     * @param filter The new filter configuration to apply
+     */
+    fun updateFilter(filter: TransactionFilter) {
+        viewModelScope.launch {
+            applyFilter(filter)
+        }
+    }
+
+    /**
+     * Clears all active filters and shows all transactions.
+     */
+    fun clearFilters() {
+        viewModelScope.launch {
+            applyFilter(TransactionFilter())
+        }
+    }
+
+    /**
+     * Internal method to apply a filter and update the search/filter state.
+     * This method filters the transactions in-memory and updates the UI state.
+     *
+     * @param filter The filter to apply
+     */
+    private suspend fun applyFilter(filter: TransactionFilter) {
+        val allTransactions = _uiState.value.transactions
+
+        // Apply filtering logic (will be implemented in subtask 2.3)
+        // For now, just update the state with the filter
+        val filteredTransactions = if (filter.hasActiveFilters) {
+            // Filtering logic will be implemented in the next subtask
+            // For now, return all transactions as placeholder
+            allTransactions
+        } else {
+            allTransactions
+        }
+
+        _searchFilterState.value = _searchFilterState.value.copy(
+            currentFilter = filter,
+            filteredTransactions = filteredTransactions,
+            isSearchActive = filter.hasActiveFilters,
+            activeFilterCount = filter.activeFilterCount
+        )
     }
 }
