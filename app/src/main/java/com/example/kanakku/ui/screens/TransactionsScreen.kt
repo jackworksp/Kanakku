@@ -19,6 +19,7 @@ import com.example.kanakku.ui.MainUiState
 import com.example.kanakku.ui.SearchFilterState
 import com.example.kanakku.ui.components.ActiveFilterChips
 import com.example.kanakku.ui.components.CategoryPickerSheet
+import com.example.kanakku.ui.components.EmptySearchState
 import com.example.kanakku.ui.components.FilterSheet
 import com.example.kanakku.ui.components.HighlightedText
 import com.example.kanakku.ui.components.SearchBar
@@ -42,7 +43,11 @@ fun TransactionsScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TransactionsHeader(uiState = uiState, onRefresh = onRefresh)
+        TransactionsHeader(
+            uiState = uiState,
+            searchFilterState = searchFilterState,
+            onRefresh = onRefresh
+        )
 
         // Search bar
         SearchBar(
@@ -63,36 +68,49 @@ fun TransactionsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (uiState.transactions.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No bank transactions found in the last 30 days",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(uiState.transactions) { transaction ->
-                    TransactionCard(
-                        transaction = transaction,
-                        category = categoryMap[transaction.smsId],
-                        onClick = {
-                            selectedTransaction = transaction
-                            showCategoryPicker = true
-                        }
+        when {
+            // No transactions at all - show original empty state
+            uiState.transactions.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No bank transactions found in the last 30 days",
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
-                item { Spacer(modifier = Modifier.height(16.dp)) }
+            }
+            // Filters active but no results - show EmptySearchState
+            searchFilterState.filteredTransactions.isEmpty() && uiState.transactions.isNotEmpty() -> {
+                EmptySearchState(
+                    currentFilter = searchFilterState.currentFilter,
+                    onClearFilters = onClearFilters
+                )
+            }
+            // Show filtered transactions
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(searchFilterState.filteredTransactions) { transaction ->
+                        TransactionCard(
+                            transaction = transaction,
+                            category = categoryMap[transaction.smsId],
+                            onClick = {
+                                selectedTransaction = transaction
+                                showCategoryPicker = true
+                            },
+                            searchQuery = searchFilterState.currentFilter.searchQuery
+                        )
+                    }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                }
             }
         }
     }
@@ -129,6 +147,7 @@ fun TransactionsScreen(
 @Composable
 private fun TransactionsHeader(
     uiState: MainUiState,
+    searchFilterState: SearchFilterState,
     onRefresh: () -> Unit
 ) {
     val totalDebit = uiState.transactions
@@ -206,9 +225,14 @@ private fun TransactionsHeader(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // Show filtered count when filters are active, otherwise show total count
         Text(
-            text = "${uiState.transactions.size} transactions from ${uiState.bankSmsCount} bank SMS" +
-                    if (uiState.duplicatesRemoved > 0) " (${uiState.duplicatesRemoved} duplicates removed)" else "",
+            text = if (searchFilterState.isSearchActive) {
+                "Showing ${searchFilterState.filteredTransactions.size} of ${uiState.transactions.size} transactions"
+            } else {
+                "${uiState.transactions.size} transactions from ${uiState.bankSmsCount} bank SMS" +
+                        if (uiState.duplicatesRemoved > 0) " (${uiState.duplicatesRemoved} duplicates removed)" else ""
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
