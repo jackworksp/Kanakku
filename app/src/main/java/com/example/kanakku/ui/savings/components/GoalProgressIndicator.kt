@@ -95,7 +95,7 @@ fun CircularGoalProgressIndicator(
                     text = "${(animatedProgress * 100).toInt()}%",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    fontSize = (size.value / 6).sp.coerceAtLeast(16.sp)
+                    fontSize = (size.value / 6).coerceAtLeast(16f).sp
                 )
             }
         }

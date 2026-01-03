@@ -342,6 +342,7 @@ class SavingsGoalsViewModel : ViewModel() {
     /**
      * Loads savings suggestions based on recent transaction history.
      * Analyzes income and spending patterns to suggest achievable savings amounts.
+     * Observes transaction changes reactively to keep suggestions up-to-date.
      *
      * @param period The time period to analyze (defaults to MONTH)
      */
@@ -350,15 +351,15 @@ class SavingsGoalsViewModel : ViewModel() {
             try {
                 val repository = transactionRepository ?: return@launch
 
-                // Get recent transactions
-                val transactions = repository.getAllTransactionsSnapshot()
+                // Observe transactions reactively to update suggestions when data changes
+                repository.getAllTransactions().collectLatest { transactions ->
+                    // Calculate savings suggestion based on real transaction data
+                    val suggestion = savingsCalculator.calculateSavingsSuggestion(transactions, period)
 
-                // Calculate savings suggestion
-                val suggestion = savingsCalculator.calculateSavingsSuggestion(transactions, period)
-
-                _uiState.value = _uiState.value.copy(
-                    savingsSuggestion = suggestion
-                )
+                    _uiState.value = _uiState.value.copy(
+                        savingsSuggestion = suggestion
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = "Error calculating savings suggestion: ${e.message}"

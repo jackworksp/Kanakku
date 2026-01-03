@@ -63,7 +63,7 @@ fun SavingsGoalsScreen(
                 SavingsGoalsHeader(
                     activeGoalsCount = uiState.activeGoals.size,
                     completedGoalsCount = uiState.completedGoals.size,
-                    totalSaved = uiState.aggregateStats?.totalAmountSaved ?: 0.0
+                    totalSaved = uiState.aggregateStats?.totalCurrentAmount ?: 0.0
                 )
 
                 // Loading State
