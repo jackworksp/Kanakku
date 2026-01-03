@@ -5,11 +5,12 @@ import android.database.SQLException
 import android.database.sqlite.SQLiteException
 import android.util.Log
 import androidx.room.Room
+import com.example.kanakku.data.repository.CategoryRepository
 import com.example.kanakku.data.repository.TransactionRepository
 import java.io.File
 
 /**
- * Singleton provider for database instance and repository.
+ * Singleton provider for database instance and repositories.
  *
  * This class manages the lifecycle of the Room database and provides
  * centralized access to database operations through the repository pattern.
@@ -17,9 +18,14 @@ import java.io.File
  * Thread-safe singleton implementation using double-checked locking.
  * Database is lazily initialized on first access.
  *
+ * Provides:
+ * - TransactionRepository for transaction operations
+ * - CategoryRepository for category management operations
+ *
  * Usage:
  * ```
- * val repository = DatabaseProvider.getRepository(context)
+ * val transactionRepo = DatabaseProvider.getRepository(context)
+ * val categoryRepo = DatabaseProvider.getCategoryRepository(context)
  * ```
  */
 object DatabaseProvider {
@@ -32,6 +38,9 @@ object DatabaseProvider {
 
     @Volatile
     private var repository: TransactionRepository? = null
+
+    @Volatile
+    private var categoryRepository: CategoryRepository? = null
 
     /**
      * Gets the singleton database instance.
@@ -63,6 +72,23 @@ object DatabaseProvider {
             repository ?: TransactionRepository(getDatabase(context)).also {
                 repository = it
                 Log.i(TAG, "Repository initialized successfully")
+            }
+        }
+    }
+
+    /**
+     * Gets the singleton category repository instance.
+     * Creates both database and category repository on first access.
+     *
+     * @param context Application or Activity context (applicationContext is used internally)
+     * @return The CategoryRepository instance
+     * @throws DatabaseInitializationException if database cannot be created after recovery attempts
+     */
+    fun getCategoryRepository(context: Context): CategoryRepository {
+        return categoryRepository ?: synchronized(this) {
+            categoryRepository ?: CategoryRepository(getDatabase(context)).also {
+                categoryRepository = it
+                Log.i(TAG, "CategoryRepository initialized successfully")
             }
         }
     }
@@ -299,6 +325,7 @@ object DatabaseProvider {
         }
         database = null
         repository = null
+        categoryRepository = null
     }
 }
 

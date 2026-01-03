@@ -41,7 +41,7 @@ class MainViewModel : ViewModel() {
     val categoryMap: StateFlow<Map<Long, Category>> = _categoryMap.asStateFlow()
 
     private val parser = BankSmsParser()
-    private val categoryManager = CategoryManager()
+    private var categoryManager: CategoryManager? = null
 
     private var repository: TransactionRepository? = null
 
@@ -70,12 +70,18 @@ class MainViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
             try {
-                // Step 0: Initialize repository if not already done
-                if (repository == null) {
+                // Step 0: Initialize repositories and CategoryManager if not already done
+                if (repository == null || categoryManager == null) {
                     try {
                         repository = DatabaseProvider.getRepository(context)
-                        // Initialize CategoryManager with repository and load overrides
-                        categoryManager.initialize(repository!!)
+                        val categoryRepo = DatabaseProvider.getCategoryRepository(context)
+
+                        // Create and initialize CategoryManager with both repositories
+                        categoryManager = CategoryManager(
+                            categoryRepository = categoryRepo,
+                            transactionRepository = repository
+                        )
+                        categoryManager!!.initialize(repository!!)
                     } catch (e: Exception) {
                         val errorInfo = ErrorHandler.handleError(e, "Database initialization")
                         _uiState.value = _uiState.value.copy(
@@ -86,6 +92,7 @@ class MainViewModel : ViewModel() {
                     }
                 }
                 val repo = repository!!
+                val catManager = categoryManager!!
 
                 // Step 1: Load existing transactions from database (FAST)
                 val existingTransactions = repo.getAllTransactionsSnapshot()
@@ -114,7 +121,7 @@ class MainViewModel : ViewModel() {
                 if (existingTransactions.isNotEmpty()) {
                     // Show existing data immediately for fast startup
                     val categories = try {
-                        categoryManager.categorizeAll(existingTransactions)
+                        catManager.categorizeAll(existingTransactions)
                     } catch (e: Exception) {
                         val errorInfo = ErrorHandler.handleError(e, "Categorize existing transactions")
                         ErrorHandler.logWarning(
@@ -244,7 +251,7 @@ class MainViewModel : ViewModel() {
                     .getOrElse { emptyList() }
 
                 val categories = try {
-                    categoryManager.categorizeAll(allTransactions)
+                    catManager.categorizeAll(allTransactions)
                 } catch (e: Exception) {
                     val errorInfo = ErrorHandler.handleError(e, "Categorize all transactions")
                     ErrorHandler.logWarning(
@@ -299,8 +306,16 @@ class MainViewModel : ViewModel() {
     fun updateTransactionCategory(smsId: Long, category: Category) {
         viewModelScope.launch {
             try {
+                val catManager = categoryManager
+                if (catManager == null) {
+                    _uiState.value = _uiState.value.copy(
+                        errorMessage = "Category manager not initialized. Please try again."
+                    )
+                    return@launch
+                }
+
                 // Update in-memory state and persist to database
-                categoryManager.setManualOverride(smsId, category)
+                catManager.setManualOverride(smsId, category)
                     .onSuccess {
                         // Update UI state only on successful save
                         _categoryMap.value = _categoryMap.value.toMutableMap().apply {
