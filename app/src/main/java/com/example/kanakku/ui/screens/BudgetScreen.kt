@@ -628,3 +628,19 @@ private fun getMonthName(month: Int): String {
     calendar.set(Calendar.MONTH, month - 1)
     return SimpleDateFormat("MMMM", Locale.getDefault()).format(calendar.time)
 }
+
+private fun getBudgetStatusColor(status: BudgetStatus): Color {
+    return when (status) {
+        BudgetStatus.UNDER_BUDGET -> Color(0xFF2E7D32)  // Green
+        BudgetStatus.APPROACHING -> Color(0xFFF57F17)   // Amber/Yellow
+        BudgetStatus.EXCEEDED -> Color(0xFFC62828)      // Red
+    }
+}
+
+private fun formatAmount(amount: Double): String {
+    return when {
+        amount >= 100000 -> String.format(Locale.getDefault(), "%.1fL", amount / 100000)
+        amount >= 1000 -> String.format(Locale.getDefault(), "%.1fK", amount / 1000)
+        else -> String.format(Locale.getDefault(), "%.0f", amount)
+    }
+}

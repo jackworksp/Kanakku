@@ -2,6 +2,7 @@ package com.example.kanakku.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -23,6 +24,12 @@ sealed class BottomNavItem(
         icon = Icons.Default.Analytics
     )
 
+    data object Budget : BottomNavItem(
+        route = "budget",
+        title = "Budget",
+        icon = Icons.Default.AccountBalance
+    )
+
     data object Categories : BottomNavItem(
         route = "categories",
         title = "Categories",
@@ -30,6 +37,6 @@ sealed class BottomNavItem(
     )
 
     companion object {
-        val items = listOf(Transactions, Analytics, Categories)
+        val items = listOf(Transactions, Analytics, Budget, Categories)
     }
 }

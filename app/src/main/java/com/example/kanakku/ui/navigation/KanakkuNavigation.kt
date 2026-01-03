@@ -3,8 +3,13 @@ package com.example.kanakku.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -15,7 +20,9 @@ import androidx.navigation.compose.rememberNavController
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.ui.MainUiState
+import com.example.kanakku.ui.budget.BudgetViewModel
 import com.example.kanakku.ui.screens.AnalyticsScreen
+import com.example.kanakku.ui.screens.BudgetScreen
 import com.example.kanakku.ui.screens.CategoriesScreen
 import com.example.kanakku.ui.screens.TransactionsScreen
 
@@ -53,7 +60,48 @@ fun KanakkuNavHost(
                     categoryMap = categoryMap,
                     budgetSummary = uiState.budgetSummary,
                     onNavigateToBudget = {
-                        // TODO: Navigate to budget screen when navigation is implemented
+                        navController.navigate(BottomNavItem.Budget.route) {
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+            composable(BottomNavItem.Budget.route) {
+                val context = LocalContext.current
+                val budgetViewModel: BudgetViewModel = viewModel()
+                val budgetUiState by budgetViewModel.uiState.collectAsState()
+
+                LaunchedEffect(Unit) {
+                    budgetViewModel.initialize(context)
+                    budgetViewModel.updateCategoryMap(categoryMap)
+                    budgetViewModel.loadBudgets()
+                }
+
+                BudgetScreen(
+                    uiState = budgetUiState,
+                    onEditBudget = { budget ->
+                        budgetViewModel.startEditBudget(
+                            budget = budget,
+                            isOverallBudget = budget == null || budget.categoryId == null
+                        )
+                    },
+                    onDeleteBudget = { budget ->
+                        budgetViewModel.deleteBudget(budget)
+                    },
+                    onAddCategoryBudget = {
+                        budgetViewModel.startEditBudget(
+                            budget = null,
+                            isOverallBudget = false
+                        )
+                    },
+                    onMonthChange = { month, year ->
+                        budgetViewModel.changeMonth(month, year)
+                    },
+                    onSaveBudget = { amount, categoryId ->
+                        budgetViewModel.saveBudgetFromDialog(amount, categoryId)
+                    },
+                    onCancelEdit = {
+                        budgetViewModel.cancelEdit()
                     }
                 )
             }
