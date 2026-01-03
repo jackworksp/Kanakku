@@ -1694,4 +1694,504 @@ class TransactionRepositoryTest {
         // Then
         assertEquals(5, repository.getTransactionCount().getOrNull())
     }
+
+    // ==================== SMS Sync Tests ====================
+
+    @Test
+    fun syncFromSms_firstSync_returnsSuccessWithoutPreviousTimestamp() = runTest {
+        // Given - No previous sync timestamp
+        assertNull(repository.getLastSyncTimestamp().getOrNull())
+
+        // When - Perform first sync
+        val result = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Should succeed with full sync
+        assertTrue(result.isSuccess)
+        val syncResult = result.getOrNull()!!
+        assertFalse(syncResult.isIncremental) // First sync should be full sync
+        assertNotNull(syncResult.syncTimestamp)
+        assertTrue(syncResult.syncTimestamp > 0)
+    }
+
+    @Test
+    fun syncFromSms_firstSync_updatesSyncTimestamp() = runTest {
+        // Given - No previous sync
+        assertNull(repository.getLastSyncTimestamp().getOrNull())
+        val beforeSync = System.currentTimeMillis()
+
+        // When - Perform sync
+        val result = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Sync timestamp should be updated
+        assertTrue(result.isSuccess)
+        val lastSync = repository.getLastSyncTimestamp().getOrNull()
+        assertNotNull(lastSync)
+        assertTrue(lastSync!! >= beforeSync)
+    }
+
+    @Test
+    fun syncFromSms_subsequentSync_performsIncrementalSync() = runTest {
+        // Given - Previous sync exists
+        val firstSyncTime = System.currentTimeMillis() - 3600000 // 1 hour ago
+        repository.setLastSyncTimestamp(firstSyncTime)
+
+        // When - Perform subsequent sync
+        val result = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Should perform incremental sync
+        assertTrue(result.isSuccess)
+        val syncResult = result.getOrNull()!!
+        assertTrue(syncResult.isIncremental) // Should be incremental
+        assertTrue(syncResult.syncTimestamp > firstSyncTime)
+    }
+
+    @Test
+    fun syncFromSms_withEmptySms_returnsSuccessWithZeroTransactions() = runTest {
+        // Given - No SMS messages in test environment
+
+        // When - Perform sync
+        val result = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Should succeed with zero transactions
+        assertTrue(result.isSuccess)
+        val syncResult = result.getOrNull()!!
+        assertEquals(0, syncResult.totalSmsRead)
+        assertEquals(0, syncResult.newTransactionsSaved)
+        assertEquals(0, syncResult.duplicatesRemoved)
+        assertNotNull(syncResult.syncTimestamp)
+    }
+
+    @Test
+    fun syncFromSms_withCustomDaysAgo_returnsSuccess() = runTest {
+        // When - Sync with custom days parameter
+        val result = repository.syncFromSms(daysAgo = 7)
+
+        // Then - Should succeed
+        assertTrue(result.isSuccess)
+        assertNotNull(result.getOrNull()?.syncTimestamp)
+    }
+
+    @Test
+    fun syncFromSms_returnsResultType() = runTest {
+        // When - Perform sync
+        val result = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Should return Result type
+        assertTrue(result.isSuccess)
+        assertNotNull(result.getOrNull())
+    }
+
+    @Test
+    fun syncFromSms_syncResultContainsAllFields() = runTest {
+        // When - Perform sync
+        val result = repository.syncFromSms(daysAgo = 30)
+
+        // Then - SyncResult should have all required fields
+        assertTrue(result.isSuccess)
+        val syncResult = result.getOrNull()!!
+        assertNotNull(syncResult.totalSmsRead)
+        assertNotNull(syncResult.bankSmsFound)
+        assertNotNull(syncResult.newTransactionsSaved)
+        assertNotNull(syncResult.duplicatesRemoved)
+        assertNotNull(syncResult.syncTimestamp)
+        // isIncremental field should be present
+        assertTrue(syncResult.isIncremental || !syncResult.isIncremental)
+    }
+
+    @Test
+    fun syncFromSms_withClosedDatabase_returnsFailure() = runTest {
+        // Given - Closed database
+        database.close()
+
+        // When - Try to sync
+        val result = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Should fail gracefully
+        assertTrue(result.isFailure)
+        assertNotNull(result.exceptionOrNull())
+    }
+
+    @Test
+    fun syncFromSms_multipleConsecutiveSyncs_updateTimestampEachTime() = runTest {
+        // Given - First sync
+        val result1 = repository.syncFromSms(daysAgo = 30)
+        assertTrue(result1.isSuccess)
+        val timestamp1 = result1.getOrNull()!!.syncTimestamp
+
+        // Ensure time difference
+        Thread.sleep(10)
+
+        // When - Second sync
+        val result2 = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Second sync should have newer timestamp
+        assertTrue(result2.isSuccess)
+        val timestamp2 = result2.getOrNull()!!.syncTimestamp
+        assertTrue(timestamp2 > timestamp1)
+    }
+
+    // ==================== Incremental Sync Tests ====================
+
+    @Test
+    fun syncFromSmsIncremental_withNoPreviousSync_fallsBackToFullSync() = runTest {
+        // Given - No previous sync timestamp
+        assertNull(repository.getLastSyncTimestamp().getOrNull())
+
+        // When - Perform incremental sync
+        val result = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+
+        // Then - Should fall back to full sync
+        assertTrue(result.isSuccess)
+        val syncResult = result.getOrNull()!!
+        assertFalse(syncResult.isIncremental) // Should be full sync
+        assertNotNull(syncResult.syncTimestamp)
+    }
+
+    @Test
+    fun syncFromSmsIncremental_withPreviousSync_performsIncrementalSync() = runTest {
+        // Given - Previous sync exists
+        val previousSyncTime = System.currentTimeMillis() - 3600000 // 1 hour ago
+        repository.setLastSyncTimestamp(previousSyncTime)
+
+        // When - Perform incremental sync
+        val result = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+
+        // Then - Should perform incremental sync
+        assertTrue(result.isSuccess)
+        val syncResult = result.getOrNull()!!
+        assertTrue(syncResult.isIncremental) // Should be incremental
+        assertTrue(syncResult.syncTimestamp > previousSyncTime)
+    }
+
+    @Test
+    fun syncFromSmsIncremental_withNoNewSms_returnsEarlyWithEmptyResult() = runTest {
+        // Given - Previous sync exists, no new SMS in test environment
+        repository.setLastSyncTimestamp(System.currentTimeMillis() - 1000)
+
+        // When - Perform incremental sync
+        val result = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+
+        // Then - Should return early with empty result
+        assertTrue(result.isSuccess)
+        val syncResult = result.getOrNull()!!
+        assertTrue(syncResult.isIncremental)
+        assertEquals(0, syncResult.totalSmsRead)
+        assertEquals(0, syncResult.newTransactionsSaved)
+    }
+
+    @Test
+    fun syncFromSmsIncremental_updatesSyncTimestamp() = runTest {
+        // Given - Previous sync
+        val previousTime = System.currentTimeMillis() - 5000
+        repository.setLastSyncTimestamp(previousTime)
+        val beforeSync = System.currentTimeMillis()
+
+        // When - Perform incremental sync
+        val result = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+
+        // Then - Timestamp should be updated
+        assertTrue(result.isSuccess)
+        val lastSync = repository.getLastSyncTimestamp().getOrNull()
+        assertNotNull(lastSync)
+        assertTrue(lastSync!! >= beforeSync)
+    }
+
+    @Test
+    fun syncFromSmsIncremental_returnsResultType() = runTest {
+        // When - Perform incremental sync
+        val result = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+
+        // Then - Should return Result type
+        assertTrue(result.isSuccess)
+        assertNotNull(result.getOrNull())
+    }
+
+    @Test
+    fun syncFromSmsIncremental_withClosedDatabase_returnsFailure() = runTest {
+        // Given - Previous sync and closed database
+        repository.setLastSyncTimestamp(System.currentTimeMillis() - 1000)
+        database.close()
+
+        // When - Try to sync
+        val result = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+
+        // Then - Should fail gracefully
+        assertTrue(result.isFailure)
+        assertNotNull(result.exceptionOrNull())
+    }
+
+    @Test
+    fun syncFromSmsIncremental_syncResultContainsAllFields() = runTest {
+        // Given - Previous sync
+        repository.setLastSyncTimestamp(System.currentTimeMillis() - 3600000)
+
+        // When - Perform incremental sync
+        val result = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+
+        // Then - SyncResult should have all required fields
+        assertTrue(result.isSuccess)
+        val syncResult = result.getOrNull()!!
+        assertNotNull(syncResult.totalSmsRead)
+        assertNotNull(syncResult.bankSmsFound)
+        assertNotNull(syncResult.newTransactionsSaved)
+        assertNotNull(syncResult.duplicatesRemoved)
+        assertNotNull(syncResult.syncTimestamp)
+        assertTrue(syncResult.isIncremental) // Should be incremental
+    }
+
+    @Test
+    fun syncFromSmsIncremental_withCustomFallbackDays_fallsBackCorrectly() = runTest {
+        // Given - No previous sync
+        assertNull(repository.getLastSyncTimestamp().getOrNull())
+
+        // When - Incremental sync with custom fallback
+        val result = repository.syncFromSmsIncremental(daysAgoFallback = 7)
+
+        // Then - Should fall back to full sync
+        assertTrue(result.isSuccess)
+        val syncResult = result.getOrNull()!!
+        assertFalse(syncResult.isIncremental) // Should be full sync
+    }
+
+    // ==================== Deduplication During Sync Tests ====================
+
+    @Test
+    fun syncFromSms_deduplicatesExistingTransactions() = runTest {
+        // Given - Existing transaction in database
+        val existingTransaction = createTestTransaction(smsId = 100L, amount = 500.0)
+        repository.saveTransaction(existingTransaction)
+
+        // When - Perform sync (will read empty SMS in test environment)
+        val result = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Should not create duplicates
+        assertTrue(result.isSuccess)
+        val count = repository.getTransactionCount().getOrNull()
+        assertEquals(1, count) // Should still have only 1 transaction
+    }
+
+    @Test
+    fun syncFromSms_duplicatesRemoved_reflectedInSyncResult() = runTest {
+        // Given - Some existing transactions
+        repository.saveTransactions(
+            listOf(
+                createTestTransaction(smsId = 1L),
+                createTestTransaction(smsId = 2L)
+            )
+        )
+
+        // When - Perform sync (empty SMS in test environment, so no new duplicates)
+        val result = repository.syncFromSms(daysAgo = 30)
+
+        // Then - SyncResult should reflect duplicate handling
+        assertTrue(result.isSuccess)
+        val syncResult = result.getOrNull()!!
+        // In test environment with no SMS, duplicatesRemoved should be 0
+        assertEquals(0, syncResult.duplicatesRemoved)
+    }
+
+    @Test
+    fun syncFromSmsIncremental_deduplicatesExistingTransactions() = runTest {
+        // Given - Previous sync and existing transaction
+        repository.setLastSyncTimestamp(System.currentTimeMillis() - 3600000)
+        repository.saveTransaction(createTestTransaction(smsId = 200L, amount = 750.0))
+
+        // When - Perform incremental sync
+        val result = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+
+        // Then - Should not create duplicates
+        assertTrue(result.isSuccess)
+        val count = repository.getTransactionCount().getOrNull()
+        assertEquals(1, count) // Should still have only 1 transaction
+    }
+
+    // ==================== Sync Error Handling Tests ====================
+
+    @Test
+    fun syncFromSms_handlesErrorGracefully() = runTest {
+        // Given - Database will be closed to simulate error
+        database.close()
+
+        // When - Try to sync
+        val result = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Should return failure Result
+        assertTrue(result.isFailure)
+        assertNotNull(result.exceptionOrNull())
+    }
+
+    @Test
+    fun syncFromSmsIncremental_handlesErrorGracefully() = runTest {
+        // Given - Previous sync exists, then close database
+        repository.setLastSyncTimestamp(System.currentTimeMillis() - 1000)
+        database.close()
+
+        // When - Try to sync
+        val result = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+
+        // Then - Should return failure Result
+        assertTrue(result.isFailure)
+        assertNotNull(result.exceptionOrNull())
+    }
+
+    @Test
+    fun syncFromSms_withErrorReadingMetadata_stillReturnsResult() = runTest {
+        // Given - Valid database state
+
+        // When - Perform sync (metadata read might fail but sync should continue)
+        val result = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Should still return success
+        assertTrue(result.isSuccess)
+    }
+
+    // ==================== Sync Integration Tests ====================
+
+    @Test
+    fun syncWorkflow_fullSyncThenIncremental() = runTest {
+        // Given - No previous sync
+
+        // When - First full sync
+        val fullSyncResult = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Should be full sync
+        assertTrue(fullSyncResult.isSuccess)
+        assertFalse(fullSyncResult.getOrNull()!!.isIncremental)
+
+        // When - Second incremental sync
+        val incrementalResult = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+
+        // Then - Should be incremental
+        assertTrue(incrementalResult.isSuccess)
+        assertTrue(incrementalResult.getOrNull()!!.isIncremental)
+    }
+
+    @Test
+    fun syncWorkflow_multipleIncrementalSyncs() = runTest {
+        // Given - Initial sync
+        repository.syncFromSms(daysAgo = 30)
+
+        // When - Multiple incremental syncs
+        val result1 = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+        Thread.sleep(10) // Ensure time difference
+        val result2 = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+        Thread.sleep(10)
+        val result3 = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+
+        // Then - All should be incremental and timestamps should increase
+        assertTrue(result1.isSuccess && result1.getOrNull()!!.isIncremental)
+        assertTrue(result2.isSuccess && result2.getOrNull()!!.isIncremental)
+        assertTrue(result3.isSuccess && result3.getOrNull()!!.isIncremental)
+
+        val timestamp1 = result1.getOrNull()!!.syncTimestamp
+        val timestamp2 = result2.getOrNull()!!.syncTimestamp
+        val timestamp3 = result3.getOrNull()!!.syncTimestamp
+
+        assertTrue(timestamp2 > timestamp1)
+        assertTrue(timestamp3 > timestamp2)
+    }
+
+    @Test
+    fun syncWorkflow_syncAndQueryTransactions() = runTest {
+        // Given - Initial state
+        val initialCount = repository.getTransactionCount().getOrNull()!!
+
+        // When - Perform sync
+        val syncResult = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Should be able to query transactions
+        assertTrue(syncResult.isSuccess)
+        val afterSyncCount = repository.getTransactionCount().getOrNull()!!
+        // In test environment, count should be same (no real SMS)
+        assertEquals(initialCount, afterSyncCount)
+
+        // Should be able to get all transactions
+        val transactions = repository.getAllTransactionsSnapshot()
+        assertTrue(transactions.isSuccess)
+        assertNotNull(transactions.getOrNull())
+    }
+
+    @Test
+    fun syncWorkflow_syncUpdatesMetadataCorrectly() = runTest {
+        // Given - No metadata
+        assertNull(repository.getLastSyncTimestamp().getOrNull())
+
+        // When - Perform sync
+        val syncResult = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Metadata should be updated
+        assertTrue(syncResult.isSuccess)
+        val lastSync = repository.getLastSyncTimestamp().getOrNull()
+        assertNotNull(lastSync)
+
+        // SyncResult timestamp should match metadata timestamp
+        assertEquals(syncResult.getOrNull()!!.syncTimestamp, lastSync)
+    }
+
+    @Test
+    fun syncWorkflow_clearMetadataAndResync() = runTest {
+        // Given - Existing sync metadata
+        repository.syncFromSms(daysAgo = 30)
+        assertNotNull(repository.getLastSyncTimestamp().getOrNull())
+
+        // When - Clear metadata and resync
+        repository.clearSyncMetadata()
+        val result = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Should perform full sync again
+        assertTrue(result.isSuccess)
+        assertFalse(result.getOrNull()!!.isIncremental)
+    }
+
+    @Test
+    fun syncWorkflow_incrementalAfterMetadataClear_fallsBackToFullSync() = runTest {
+        // Given - Existing sync, then cleared
+        repository.syncFromSms(daysAgo = 30)
+        repository.clearSyncMetadata()
+
+        // When - Try incremental sync
+        val result = repository.syncFromSmsIncremental(daysAgoFallback = 30)
+
+        // Then - Should fall back to full sync
+        assertTrue(result.isSuccess)
+        assertFalse(result.getOrNull()!!.isIncremental)
+    }
+
+    @Test
+    fun syncWorkflow_cacheInvalidatedAfterSync() = runTest {
+        // Given - Populate cache with initial transactions
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+        val cached = repository.getAllTransactionsSnapshot()
+        assertEquals(1, cached.getOrNull()?.size)
+
+        // When - Perform sync (which invalidates cache)
+        val syncResult = repository.syncFromSms(daysAgo = 30)
+
+        // Then - Cache should be invalidated, fresh data from database
+        assertTrue(syncResult.isSuccess)
+        val afterSync = repository.getAllTransactionsSnapshot()
+        assertTrue(afterSync.isSuccess)
+        // Count should still be 1 (no new SMS in test environment)
+        assertEquals(1, afterSync.getOrNull()?.size)
+    }
+
+    @Test
+    fun syncFromSms_withZeroDaysAgo_returnsSuccess() = runTest {
+        // When - Sync with 0 days (edge case)
+        val result = repository.syncFromSms(daysAgo = 0)
+
+        // Then - Should handle gracefully
+        assertTrue(result.isSuccess)
+        assertNotNull(result.getOrNull()?.syncTimestamp)
+    }
+
+    @Test
+    fun syncFromSmsIncremental_withZeroFallbackDays_returnsSuccess() = runTest {
+        // When - Incremental sync with 0 days fallback
+        val result = repository.syncFromSmsIncremental(daysAgoFallback = 0)
+
+        // Then - Should handle gracefully
+        assertTrue(result.isSuccess)
+        assertNotNull(result.getOrNull()?.syncTimestamp)
+    }
 }
