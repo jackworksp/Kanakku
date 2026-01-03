@@ -3,7 +3,7 @@
   "spec": "021-upi-transaction-detection-enhancement",
   "state": "building",
   "subtasks": {
-    "completed": 8,
+    "completed": 10,
     "total": 24,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 10,
+    "number": 12,
     "started_at": "2026-01-03T08:12:55.133052"
   },
-  "last_update": "2026-01-03T08:45:01.476766"
+  "last_update": "2026-01-03T08:52:03.826862"
 }

@@ -196,6 +196,50 @@ class BankSmsParser {
     }
 
     /**
+     * Extract merchant name from VPA (Virtual Payment Address).
+     *
+     * Extracts a human-readable merchant name from a UPI VPA by taking
+     * the username part (before @) and converting it to title case.
+     *
+     * Examples:
+     * - "swiggy@axisbank" → "Swiggy"
+     * - "amazon.pay@icici" → "Amazon Pay"
+     * - "john.doe@paytm" → "John Doe"
+     * - "phonepe_user123@ybl" → "Phonepe User123"
+     *
+     * @param vpa The VPA string (e.g., "merchant@handle")
+     * @return Normalized merchant name extracted from VPA, or null if extraction fails
+     */
+    fun extractMerchantFromVpa(vpa: String?): String? {
+        if (vpa.isNullOrBlank()) {
+            return null
+        }
+
+        // Extract username part before @
+        val username = vpa.substringBefore('@').trim()
+
+        if (username.isBlank() || username.length < 3) {
+            // Too short to be meaningful (e.g., "ab@paytm")
+            return null
+        }
+
+        // Replace dots, underscores, and hyphens with spaces
+        var merchantName = username
+            .replace('.', ' ')
+            .replace('_', ' ')
+            .replace('-', ' ')
+
+        // Remove numbers if the result would still be meaningful
+        val withoutNumbers = merchantName.replace(Regex("""\d+"""), "").trim()
+        if (withoutNumbers.length >= 3) {
+            merchantName = withoutNumbers
+        }
+
+        // Normalize and return
+        return normalizeMerchantName(merchantName)
+    }
+
+    /**
      * Extract merchant/payee name from UPI transaction SMS.
      *
      * Uses UPI-specific patterns to extract merchant names from messages:
@@ -207,8 +251,9 @@ class BankSmsParser {
      * - "transferred to GHI" (transfer to person)
      *
      * This method prioritizes UPI-specific context keywords over generic merchant patterns,
-     * providing better accuracy for UPI transactions. The extracted merchant name is
-     * normalized (cleaned and formatted) before being returned.
+     * providing better accuracy for UPI transactions. If direct extraction fails, falls back
+     * to extracting merchant name from VPA (e.g., "swiggy@axisbank" → "Swiggy").
+     * The extracted merchant name is normalized (cleaned and formatted) before being returned.
      *
      * @param smsBody The SMS message body
      * @return Normalized merchant/payee name or null if not found
@@ -218,13 +263,23 @@ class BankSmsParser {
         val upiMerchantMatch = UPI_MERCHANT_PATTERN.find(smsBody)
         if (upiMerchantMatch != null) {
             val rawMerchant = upiMerchantMatch.groupValues.getOrNull(1)
-            return normalizeMerchantName(rawMerchant)
+            val merchant = normalizeMerchantName(rawMerchant)
+            if (!merchant.isNullOrBlank()) {
+                return merchant
+            }
         }
 
         // Fallback to generic merchant pattern
         val merchantMatch = MERCHANT_PATTERN.find(smsBody)
         val rawMerchant = merchantMatch?.groupValues?.getOrNull(1)
-        return normalizeMerchantName(rawMerchant)
+        val merchant = normalizeMerchantName(rawMerchant)
+        if (!merchant.isNullOrBlank()) {
+            return merchant
+        }
+
+        // Final fallback: Extract merchant from VPA if available
+        val vpa = extractVpa(smsBody)
+        return extractMerchantFromVpa(vpa)
     }
 
     /**
