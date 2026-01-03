@@ -62,6 +62,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
     private var transactionsCache: List<ParsedTransaction>? = null
     private var transactionCountCache: Int? = null
     private var latestTransactionDateCache: Long? = null
+    private var oldestTransactionDateCache: Long? = null
 
     /**
      * Mutex for thread-safe cache access.
@@ -78,6 +79,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
             transactionsCache = null
             transactionCountCache = null
             latestTransactionDateCache = null
+            oldestTransactionDateCache = null
         }
         ErrorHandler.logDebug("Cache invalidated", "TransactionRepository")
     }
@@ -326,6 +328,48 @@ class TransactionRepository(private val database: KanakkuDatabase) {
             cacheMutex.withLock { latestTransactionDateCache = latestDate }
 
             latestDate
+        }
+    }
+
+    /**
+     * Gets the oldest transaction date.
+     * Useful for determining the start of transaction history.
+     * Uses in-memory cache to reduce database reads - falls back to database on cache miss.
+     *
+     * @return Result<Long?> containing timestamp of oldest transaction or error information
+     */
+    suspend fun getOldestTransactionDate(): Result<Long?> {
+        return ErrorHandler.runSuspendCatching("Get oldest transaction date") {
+            // Check cache first
+            val cached = cacheMutex.withLock { oldestTransactionDateCache }
+            if (cached != null) {
+                ErrorHandler.logDebug("Cache hit: getOldestTransactionDate", "TransactionRepository")
+                return@runSuspendCatching cached
+            }
+
+            // Cache miss - fetch from database
+            ErrorHandler.logDebug("Cache miss: getOldestTransactionDate", "TransactionRepository")
+            val oldestDate = transactionDao.getOldestTransactionDate()
+
+            // Update cache
+            cacheMutex.withLock { oldestTransactionDateCache = oldestDate }
+
+            oldestDate
+        }
+    }
+
+    /**
+     * Gets the count of transactions within a specific date range.
+     * Useful for analytics and statistics on historical data.
+     * Uses indexed date column for optimal performance on large datasets.
+     *
+     * @param startDate Start timestamp (inclusive)
+     * @param endDate End timestamp (inclusive)
+     * @return Result<Int> containing count of transactions in date range or error information
+     */
+    suspend fun getTransactionCountByDateRange(startDate: Long, endDate: Long): Result<Int> {
+        return ErrorHandler.runSuspendCatching("Get transaction count by date range") {
+            transactionDao.getTransactionCountByDateRange(startDate, endDate)
         }
     }
 

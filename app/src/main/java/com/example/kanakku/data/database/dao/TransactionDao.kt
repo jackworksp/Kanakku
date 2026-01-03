@@ -125,4 +125,25 @@ interface TransactionDao {
      */
     @Query("SELECT MAX(date) FROM transactions")
     suspend fun getLatestTransactionDate(): Long?
+
+    /**
+     * Gets the oldest transaction date.
+     * Useful for determining the start of transaction history.
+     *
+     * @return The timestamp of the oldest transaction, or null if no transactions exist
+     */
+    @Query("SELECT MIN(date) FROM transactions")
+    suspend fun getOldestTransactionDate(): Long?
+
+    /**
+     * Gets the count of transactions within a specific date range.
+     * Both start and end timestamps are inclusive.
+     * Uses the indexed date column for optimal performance.
+     *
+     * @param startDate Start timestamp (inclusive)
+     * @param endDate End timestamp (inclusive)
+     * @return Count of transactions within the date range
+     */
+    @Query("SELECT COUNT(*) FROM transactions WHERE date BETWEEN :startDate AND :endDate")
+    suspend fun getTransactionCountByDateRange(startDate: Long, endDate: Long): Int
 }
