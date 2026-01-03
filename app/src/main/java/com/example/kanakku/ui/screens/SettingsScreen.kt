@@ -6,11 +6,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Circle
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,9 +43,22 @@ fun SettingsScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
 
+    // Dialog state
+    var showClearDataDialog by remember { mutableStateOf(false) }
+    var showSuccessMessage by remember { mutableStateOf(false) }
+
     // Initialize ViewModel on first composition
     LaunchedEffect(Unit) {
         viewModel.initialize(context)
+    }
+
+    // Track when data clearing completes successfully
+    LaunchedEffect(uiState.isClearing) {
+        if (!uiState.isClearing && showClearDataDialog && uiState.errorMessage == null) {
+            // Data cleared successfully
+            showClearDataDialog = false
+            showSuccessMessage = true
+        }
     }
 
     Column(
@@ -145,9 +162,49 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Data Management Section
+        SettingsSection(title = "Data Management") {
+            SettingsActionItem(
+                title = "Clear All Data",
+                description = "Delete all transactions and reset app data",
+                icon = Icons.Default.DeleteForever,
+                iconTint = MaterialTheme.colorScheme.error,
+                isLoading = uiState.isClearing,
+                onClick = { showClearDataDialog = true }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         // Placeholder for remaining sections
-        // - Data Management (4.5)
         // - About (4.6)
+    }
+
+    // Clear Data Confirmation Dialog
+    if (showClearDataDialog) {
+        ClearDataConfirmationDialog(
+            isClearing = uiState.isClearing,
+            onConfirm = { viewModel.clearAllData() },
+            onDismiss = {
+                if (!uiState.isClearing) {
+                    showClearDataDialog = false
+                }
+            }
+        )
+    }
+
+    // Success Snackbar
+    if (showSuccessMessage) {
+        Snackbar(
+            modifier = Modifier.padding(16.dp),
+            action = {
+                TextButton(onClick = { showSuccessMessage = false }) {
+                    Text("OK")
+                }
+            }
+        ) {
+            Text("All data cleared successfully")
+        }
     }
 
     // Error Snackbar
@@ -364,4 +421,173 @@ private fun SettingsTimePeriodItem(
             }
         }
     }
+}
+
+/**
+ * Settings action item for clickable actions (not toggles).
+ *
+ * @param title The main title for the action
+ * @param description Optional description text explaining the action
+ * @param icon Optional icon to display at the start
+ * @param iconTint Optional tint color for the icon
+ * @param isLoading Whether the action is currently loading
+ * @param onClick Callback when the item is clicked
+ */
+@Composable
+private fun SettingsActionItem(
+    title: String,
+    description: String? = null,
+    icon: ImageVector? = null,
+    iconTint: androidx.compose.ui.graphics.Color? = null,
+    isLoading: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !isLoading) { onClick() }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Icon (if provided)
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint ?: MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        }
+
+        // Text content
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = iconTint ?: MaterialTheme.colorScheme.onSurface
+            )
+            if (description != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Loading indicator or chevron
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                strokeWidth = 2.dp
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
+ * Confirmation dialog for clearing all app data.
+ *
+ * Displays a warning message and requires explicit user confirmation before
+ * proceeding with the destructive data clearing operation.
+ *
+ * @param isClearing Whether the clearing operation is in progress
+ * @param onConfirm Callback when user confirms the clear action
+ * @param onDismiss Callback when user dismisses the dialog
+ */
+@Composable
+private fun ClearDataConfirmationDialog(
+    isClearing: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isClearing) onDismiss() },
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(48.dp)
+            )
+        },
+        title = {
+            Text(
+                text = "Clear All Data?",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "This will permanently delete:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "• All transactions\n• Category overrides\n• Sync metadata",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Your theme preferences will be preserved.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "This action cannot be undone.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !isClearing,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                if (isClearing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onError
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(if (isClearing) "Clearing..." else "Clear Data")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isClearing
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
 }
