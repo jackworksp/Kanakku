@@ -125,4 +125,58 @@ interface TransactionDao {
      */
     @Query("SELECT MAX(date) FROM transactions")
     suspend fun getLatestTransactionDate(): Long?
+
+    // ==================== Search and Filter Operations ====================
+
+    /**
+     * Searches transactions by query string across multiple fields.
+     * Performs case-insensitive search on merchant name, raw SMS content, and reference number.
+     *
+     * @param searchQuery The search term to match (case-insensitive, partial matching)
+     * @return List of transactions matching the search query, sorted by date (newest first)
+     */
+    @Query("""
+        SELECT * FROM transactions
+        WHERE merchant LIKE '%' || :searchQuery || '%'
+           OR rawSms LIKE '%' || :searchQuery || '%'
+           OR referenceNumber LIKE '%' || :searchQuery || '%'
+        ORDER BY date DESC
+    """)
+    suspend fun searchTransactions(searchQuery: String): List<TransactionEntity>
+
+    /**
+     * Comprehensive filter query that combines search, type, date range, and amount range filters.
+     * All parameters are optional - null values are ignored in the filter.
+     * Uses dynamic query building with SQL NULL checks for flexible filtering.
+     *
+     * @param searchQuery Optional search term for merchant, rawSms, or referenceNumber (case-insensitive)
+     * @param type Optional transaction type filter (DEBIT/CREDIT/UNKNOWN)
+     * @param startDate Optional start date for date range filter (inclusive)
+     * @param endDate Optional end date for date range filter (inclusive)
+     * @param minAmount Optional minimum amount for amount range filter (inclusive)
+     * @param maxAmount Optional maximum amount for amount range filter (inclusive)
+     * @return List of transactions matching all active filters, sorted by date (newest first)
+     */
+    @Query("""
+        SELECT * FROM transactions
+        WHERE
+            (:searchQuery IS NULL OR
+             merchant LIKE '%' || :searchQuery || '%' OR
+             rawSms LIKE '%' || :searchQuery || '%' OR
+             referenceNumber LIKE '%' || :searchQuery || '%')
+            AND (:type IS NULL OR type = :type)
+            AND (:startDate IS NULL OR date >= :startDate)
+            AND (:endDate IS NULL OR date <= :endDate)
+            AND (:minAmount IS NULL OR amount >= :minAmount)
+            AND (:maxAmount IS NULL OR amount <= :maxAmount)
+        ORDER BY date DESC
+    """)
+    suspend fun searchAndFilterTransactions(
+        searchQuery: String?,
+        type: TransactionType?,
+        startDate: Long?,
+        endDate: Long?,
+        minAmount: Double?,
+        maxAmount: Double?
+    ): List<TransactionEntity>
 }

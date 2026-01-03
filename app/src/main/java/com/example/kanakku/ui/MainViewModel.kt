@@ -8,6 +8,7 @@ import com.example.kanakku.data.category.CategoryManager
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.SmsMessage
+import com.example.kanakku.data.model.TransactionFilter
 import com.example.kanakku.data.repository.TransactionRepository
 import com.example.kanakku.data.sms.BankSmsParser
 import com.example.kanakku.data.sms.SmsReader
@@ -162,6 +163,11 @@ class MainViewModel @Inject constructor(
                         lastSyncTimestamp = lastSyncTimestamp,
                         merchantMappingCount = mappingCount
                     )
+
+                    // Update filtered transactions with existing data
+                    _searchFilterState.value = _searchFilterState.value.copy(
+                        filteredTransactions = existingTransactions
+                    )
                 }
 
                 // Step 3: Read only new SMS since last sync
@@ -303,6 +309,11 @@ class MainViewModel @Inject constructor(
                     newTransactionsSynced = deduplicated.size,
                     lastSyncTimestamp = currentTimestamp,
                     merchantMappingCount = mappingCount
+                )
+
+                // Update filtered transactions with the loaded data
+                _searchFilterState.value = _searchFilterState.value.copy(
+                    filteredTransactions = allTransactions
                 )
 
                 ErrorHandler.logInfo(

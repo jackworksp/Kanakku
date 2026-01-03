@@ -20,6 +20,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
+import com.example.kanakku.data.model.TransactionFilter
 import com.example.kanakku.ui.MainUiState
 import com.example.kanakku.ui.backup.BackupViewModel
 import com.example.kanakku.ui.screens.AnalyticsScreen
@@ -31,6 +32,7 @@ import com.example.kanakku.ui.screens.TransactionsScreen
 fun KanakkuNavHost(
     uiState: MainUiState,
     categoryMap: Map<Long, Category>,
+    searchFilterState: SearchFilterState,
     onRefresh: () -> Unit,
     onCategoryChange: (Long, Category) -> Unit,
     onResetLearnedMappings: () -> Unit,
@@ -52,8 +54,12 @@ fun KanakkuNavHost(
                 TransactionsScreen(
                     uiState = uiState,
                     categoryMap = categoryMap,
+                    searchFilterState = searchFilterState,
                     onRefresh = onRefresh,
-                    onCategoryChange = onCategoryChange
+                    onCategoryChange = onCategoryChange,
+                    onSearchQueryChange = onSearchQueryChange,
+                    onFilterChange = onFilterChange,
+                    onClearFilters = onClearFilters
                 )
             }
             composable(BottomNavItem.Analytics.route) {

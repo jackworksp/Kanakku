@@ -47,6 +47,7 @@ fun KanakkuApp(viewModel: MainViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val categoryMap by viewModel.categoryMap.collectAsState()
+    val searchFilterState by viewModel.searchFilterState.collectAsState()
     val appPrefs = remember { AppPreferences.getInstance(context) }
 
     // Track whether to show the privacy dialog

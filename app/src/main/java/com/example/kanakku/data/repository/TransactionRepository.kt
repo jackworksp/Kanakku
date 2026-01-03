@@ -8,6 +8,7 @@ import com.example.kanakku.data.database.entity.TransactionEntity
 import com.example.kanakku.data.database.toDomain
 import com.example.kanakku.data.database.toEntity
 import com.example.kanakku.data.model.ParsedTransaction
+import com.example.kanakku.data.model.TransactionFilter
 import com.example.kanakku.data.model.TransactionType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -328,6 +329,41 @@ class TransactionRepository(private val database: KanakkuDatabase) {
             cacheMutex.withLock { latestTransactionDateCache = latestDate }
 
             latestDate
+        }
+    }
+
+    // ==================== Search and Filter Operations ====================
+
+    /**
+     * Retrieves transactions filtered by the provided filter criteria.
+     * Supports filtering by search query, transaction type, category, date range, and amount range.
+     * All filter parameters are optional - only active filters are applied.
+     *
+     * @param filter The TransactionFilter containing all filter parameters
+     * @return Result<List<ParsedTransaction>> containing filtered transactions or error information
+     */
+    suspend fun getFilteredTransactions(filter: TransactionFilter): Result<List<ParsedTransaction>> {
+        return ErrorHandler.runSuspendCatching("Get filtered transactions") {
+            // Extract filter parameters
+            val searchQuery = filter.searchQuery?.takeIf { it.isNotBlank() }
+            val type = filter.transactionType
+            val startDate = filter.dateRange?.first
+            val endDate = filter.dateRange?.second
+            val minAmount = filter.amountRange?.first
+            val maxAmount = filter.amountRange?.second
+
+            // Call DAO with extracted parameters
+            val entities = transactionDao.searchAndFilterTransactions(
+                searchQuery = searchQuery,
+                type = type,
+                startDate = startDate,
+                endDate = endDate,
+                minAmount = minAmount,
+                maxAmount = maxAmount
+            )
+
+            // Map entities to domain models
+            entities.map { it.toDomain() }
         }
     }
 
