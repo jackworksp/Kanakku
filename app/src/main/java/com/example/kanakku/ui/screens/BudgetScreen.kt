@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.example.kanakku.data.model.*
 import com.example.kanakku.ui.budget.BudgetUiState
 import com.example.kanakku.ui.components.BudgetEditDialog
+import com.example.kanakku.ui.components.BudgetProgressBar
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -478,48 +479,12 @@ private fun BudgetProgressContent(budgetProgress: BudgetProgress) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Progress bar
-        Column {
-            LinearProgressIndicator(
-                progress = { (budgetProgress.percentage / 100.0).toFloat().coerceIn(0f, 1f) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp),
-                color = getBudgetStatusColor(budgetProgress.status),
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${String.format("%.1f", budgetProgress.percentage)}% used",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                val remainingColor = if (budgetProgress.remaining >= 0) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.error
-                }
-
-                Text(
-                    text = if (budgetProgress.remaining >= 0) {
-                        "₹${formatAmount(budgetProgress.remaining)} left"
-                    } else {
-                        "₹${formatAmount(-budgetProgress.remaining)} over"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    color = remainingColor
-                )
-            }
-        }
+        // Progress bar using reusable component
+        BudgetProgressBar(
+            budgetProgress = budgetProgress,
+            showPercentageText = true,
+            showRemainingAmount = true
+        )
     }
 }
 
@@ -658,22 +623,6 @@ private fun DeleteConfirmationDialog(
 }
 
 // Helper functions
-private fun getBudgetStatusColor(status: BudgetStatus): Color {
-    return when (status) {
-        BudgetStatus.UNDER_BUDGET -> Color(0xFF2E7D32) // Green
-        BudgetStatus.APPROACHING -> Color(0xFFF57F17) // Amber/Yellow
-        BudgetStatus.EXCEEDED -> Color(0xFFC62828) // Red
-    }
-}
-
-private fun formatAmount(amount: Double): String {
-    return when {
-        amount >= 100000 -> String.format(Locale.getDefault(), "%.1fL", amount / 100000)
-        amount >= 1000 -> String.format(Locale.getDefault(), "%.1fK", amount / 1000)
-        else -> String.format(Locale.getDefault(), "%.0f", amount)
-    }
-}
-
 private fun getMonthName(month: Int): String {
     val calendar = Calendar.getInstance()
     calendar.set(Calendar.MONTH, month - 1)
