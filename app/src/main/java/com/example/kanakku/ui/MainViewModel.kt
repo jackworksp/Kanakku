@@ -29,7 +29,8 @@ data class MainUiState(
     val errorMessage: String? = null,
     val isLoadedFromDatabase: Boolean = false,
     val newTransactionsSynced: Int = 0,
-    val lastSyncTimestamp: Long? = null
+    val lastSyncTimestamp: Long? = null,
+    val merchantMappingCount: Int = 0
 )
 
 class MainViewModel : ViewModel() {
@@ -87,6 +88,17 @@ class MainViewModel : ViewModel() {
                 }
                 val repo = repository!!
 
+                // Get merchant mapping count for UI display
+                val mappingCount = repo.getMerchantMappingCount()
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        ErrorHandler.logWarning(
+                            "Failed to get merchant mapping count: ${errorInfo.technicalMessage}",
+                            "loadSmsData"
+                        )
+                    }
+                    .getOrElse { 0 }
+
                 // Step 1: Load existing transactions from database (FAST)
                 val existingTransactions = repo.getAllTransactionsSnapshot()
                     .onFailure { throwable ->
@@ -129,7 +141,8 @@ class MainViewModel : ViewModel() {
                         isLoading = false,
                         transactions = existingTransactions,
                         isLoadedFromDatabase = true,
-                        lastSyncTimestamp = lastSyncTimestamp
+                        lastSyncTimestamp = lastSyncTimestamp,
+                        merchantMappingCount = mappingCount
                     )
                 }
 
@@ -271,7 +284,8 @@ class MainViewModel : ViewModel() {
                     rawBankSms = newBankSms,
                     isLoadedFromDatabase = true,
                     newTransactionsSynced = deduplicated.size,
-                    lastSyncTimestamp = currentTimestamp
+                    lastSyncTimestamp = currentTimestamp,
+                    merchantMappingCount = mappingCount
                 )
 
                 ErrorHandler.logInfo(
@@ -355,6 +369,11 @@ class MainViewModel : ViewModel() {
                             }
                             _categoryMap.value = categories
                         }
+
+                        // Update UI state to reflect zero merchant mappings
+                        _uiState.value = _uiState.value.copy(
+                            merchantMappingCount = 0
+                        )
 
                         ErrorHandler.logInfo(
                             "Reset $count learned merchant mappings",
