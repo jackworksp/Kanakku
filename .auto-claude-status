@@ -3,7 +3,7 @@
   "spec": "008-export-to-csv-and-pdf",
   "state": "building",
   "subtasks": {
-    "completed": 5,
+    "completed": 6,
     "total": 16,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 7,
+    "number": 8,
     "started_at": "2026-01-03T17:28:18.354573"
   },
-  "last_update": "2026-01-03T18:12:02.284402"
+  "last_update": "2026-01-03T18:18:28.834607"
 }
