@@ -13,6 +13,13 @@ class BankSmsParser {
             RegexOption.IGNORE_CASE
         )
 
+        // UPI app sender ID patterns
+        // Matches Google Pay, PhonePe, Paytm, Amazon Pay, BHIM, and bank UPI apps
+        private val UPI_SENDER_PATTERN = Regex(
+            """(?:^[A-Z]{2}-)?(?:GOOGL(?:E)?PAY|GPAY|G-?PAY|PHONEPE|PHONPE|PAYTM|PYTMPA|AMAZONP|AZNPAY|AMAZON-?PAY|BHIM|NPCI(?:UPI)?|UPIAPP|IMOBILE|IMOBL|YONO(?:SBI)?|SBIYONO|SBIPAY|SBIUPI|HDFCUPI|HDFCPAY|ICICIM(?:OBILE)?|ICICIPAY|ICICIBK|AXISBK|AXISBNK|AXISPAY|IDFCPAY|IDFC|KOTAKUPI|KOTAKBK|INDUSIND|YESBANK|YESBK|PNB(?:PAY|UPI)?|BOBUPI|BOB(?:MOBILE)?|UNION(?:UPI|PAY)?|CANARA(?:UPI)?|CBIN)""",
+            RegexOption.IGNORE_CASE
+        )
+
         // Amount patterns: Rs.500, Rs 500, INR 500, Rs.5,00,000.00, ₹500
         private val AMOUNT_PATTERN = Regex(
             """(?:Rs\.?|₹|INR)\s*([\d,]+(?:\.\d{1,2})?)""",
