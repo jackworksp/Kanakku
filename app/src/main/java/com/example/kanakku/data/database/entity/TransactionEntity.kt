@@ -28,5 +28,7 @@ data class TransactionEntity(
     val rawSms: String,
     val senderAddress: String,
     val balanceAfter: Double?,
-    val location: String?
+    val location: String?,
+    val upiId: String?,         // UPI VPA (Virtual Payment Address) like user@paytm
+    val paymentMethod: String?  // Payment method (e.g., "UPI", "Card", "Net Banking")
 )
