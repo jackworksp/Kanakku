@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.kanakku.data.model.*
 import com.example.kanakku.ui.budget.BudgetUiState
+import com.example.kanakku.ui.components.BudgetEditDialog
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -32,6 +33,8 @@ import java.util.*
  * @param onDeleteBudget Callback when user wants to delete a budget
  * @param onAddCategoryBudget Callback when user wants to add a new category budget
  * @param onMonthChange Callback when user changes the displayed month
+ * @param onSaveBudget Callback when user saves a budget with amount and categoryId
+ * @param onCancelEdit Callback when user cancels editing
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +43,9 @@ fun BudgetScreen(
     onEditBudget: (Budget?) -> Unit,
     onDeleteBudget: (Budget) -> Unit,
     onAddCategoryBudget: () -> Unit,
-    onMonthChange: (Int, Int) -> Unit
+    onMonthChange: (Int, Int) -> Unit,
+    onSaveBudget: (amount: Double, categoryId: String?) -> Unit,
+    onCancelEdit: () -> Unit
 ) {
     var showDeleteConfirmation by remember { mutableStateOf<Budget?>(null) }
 
@@ -92,6 +97,20 @@ fun BudgetScreen(
                 onDismiss = {
                     showDeleteConfirmation = null
                 }
+            )
+        }
+
+        // Budget edit dialog
+        if (uiState.isEditMode) {
+            BudgetEditDialog(
+                existingBudget = uiState.editingBudget,
+                isOverallBudget = uiState.isEditingOverallBudget,
+                currentMonth = uiState.currentMonth,
+                currentYear = uiState.currentYear,
+                onSave = { amount, categoryId ->
+                    onSaveBudget(amount, categoryId)
+                },
+                onDismiss = onCancelEdit
             )
         }
     }

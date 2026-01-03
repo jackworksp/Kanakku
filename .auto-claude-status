@@ -3,7 +3,7 @@
   "spec": "007-budget-setting-and-tracking",
   "state": "building",
   "subtasks": {
-    "completed": 8,
+    "completed": 10,
     "total": 21,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 10,
+    "number": 12,
     "started_at": "2026-01-03T17:28:36.498633"
   },
-  "last_update": "2026-01-03T18:30:45.303158"
+  "last_update": "2026-01-03T18:43:06.573938"
 }
