@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "019-offline-first-architecture",
+  "spec": "003-implement-hilt-dependency-injection",
   "state": "building",
   "subtasks": {
-    "completed": 0,
-    "total": 19,
+    "completed": 2,
+    "total": 16,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Final Polish and Documentation",
+    "current": "Setup Hilt Dependencies",
     "id": null,
-    "total": 2
+    "total": 3
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 19,
-    "started_at": "2026-01-03T02:29:00.143235"
+    "number": 4,
+    "started_at": "2026-01-03T13:25:30.864414"
   },
-  "last_update": "2026-01-03T04:14:23.878111"
+  "last_update": "2026-01-03T13:40:11.796214"
 }
