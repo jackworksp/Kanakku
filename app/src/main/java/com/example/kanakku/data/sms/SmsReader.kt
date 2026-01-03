@@ -122,6 +122,99 @@ class SmsReader(private val context: Context) {
     }
 
     /**
+     * Reads ALL SMS messages from inbox without any time filter.
+     *
+     * This method:
+     * - Queries entire SMS inbox without date filtering
+     * - Handles permission errors gracefully
+     * - Returns partial results if cursor fails mid-read
+     * - Logs all errors for debugging
+     * - Used for initial full history parsing
+     *
+     * @return List of all SMS messages, or empty list on permission/error
+     */
+    fun readAllSms(): List<SmsMessage> {
+        val messages = mutableListOf<SmsMessage>()
+        val contentResolver: ContentResolver = context.contentResolver
+
+        val projection = arrayOf(
+            Telephony.Sms._ID,
+            Telephony.Sms.ADDRESS,
+            Telephony.Sms.BODY,
+            Telephony.Sms.DATE,
+            Telephony.Sms.READ
+        )
+
+        // No selection/selectionArgs - read ALL SMS
+        val sortOrder = "${Telephony.Sms.DATE} DESC"
+
+        try {
+            // Query SMS inbox without date filter
+            val cursor = contentResolver.query(
+                Telephony.Sms.Inbox.CONTENT_URI,
+                projection,
+                null,  // No selection filter
+                null,  // No selection args
+                sortOrder
+            )
+
+            // Handle null cursor (permission denied or content provider unavailable)
+            if (cursor == null) {
+                ErrorHandler.logWarning(
+                    "SMS query returned null cursor - permission may be denied or content provider unavailable",
+                    "readAllSms"
+                )
+                return emptyList()
+            }
+
+            try {
+                cursor.use {
+                    // Get column indexes with error handling
+                    val columnIndexes = getColumnIndexes(cursor)
+                    if (columnIndexes == null) {
+                        ErrorHandler.logWarning(
+                            "Failed to get column indexes - cursor may be corrupted",
+                            "readAllSms"
+                        )
+                        return emptyList()
+                    }
+
+                    // Read messages with per-row error handling
+                    while (cursor.moveToNext()) {
+                        try {
+                            val sms = extractSmsFromCursor(cursor, columnIndexes)
+                            if (sms != null) {
+                                messages.add(sms)
+                            }
+                        } catch (e: Exception) {
+                            // Log error but continue reading other messages (partial results)
+                            ErrorHandler.handleError(e, "Reading individual SMS")
+                            // Continue to next message
+                        }
+                    }
+                }
+            } catch (e: IllegalStateException) {
+                // Cursor closed or invalid state
+                ErrorHandler.handleError(e, "readAllSms cursor processing")
+                // Return partial results
+            }
+        } catch (e: SecurityException) {
+            // Permission denied - log and return empty list
+            ErrorHandler.handleError(e, "readAllSms - SMS permission denied")
+        } catch (e: IllegalArgumentException) {
+            // Invalid arguments to query
+            ErrorHandler.handleError(e, "readAllSms - invalid query arguments")
+        } catch (e: Exception) {
+            // Catch-all for unexpected errors
+            ErrorHandler.handleError(e, "readAllSms - unexpected error")
+        }
+
+        // Log success with count
+        ErrorHandler.logDebug("Successfully read ${messages.size} SMS messages (all history)", "readAllSms")
+        return messages
+    }
+
+    /**
      * Reads SMS messages since a specific timestamp.
      *
      * This method:
