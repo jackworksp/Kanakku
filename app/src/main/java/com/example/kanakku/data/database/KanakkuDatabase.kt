@@ -15,9 +15,13 @@ import com.example.kanakku.data.database.entity.TransactionEntity
  * Manages all entities and provides access to DAOs for database operations.
  *
  * This database stores:
- * - Parsed transactions from SMS messages
+ * - Parsed transactions from SMS messages and manual entries
  * - User's manual category assignments
  * - Synchronization metadata for incremental updates
+ *
+ * Version History:
+ * - v1: Initial schema with transactions, category overrides, and sync metadata
+ * - v2: Added source (SMS/MANUAL) and notes fields to transactions table
  */
 @Database(
     entities = [
@@ -25,7 +29,7 @@ import com.example.kanakku.data.database.entity.TransactionEntity
         CategoryOverrideEntity::class,
         SyncMetadataEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
