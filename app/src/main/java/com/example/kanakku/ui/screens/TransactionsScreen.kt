@@ -17,6 +17,10 @@ import androidx.compose.ui.unit.dp
 import com.example.kanakku.data.model.*
 import com.example.kanakku.ui.MainUiState
 import com.example.kanakku.ui.components.CategoryPickerSheet
+import com.example.kanakku.ui.theme.expenseBackground
+import com.example.kanakku.ui.theme.expenseColor
+import com.example.kanakku.ui.theme.incomeBackground
+import com.example.kanakku.ui.theme.incomeColor
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -125,38 +129,38 @@ private fun TransactionsHeader(
         ) {
             Card(
                 modifier = Modifier.weight(1f),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.expenseBackground)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
                         text = "Spent",
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFFC62828)
+                        color = MaterialTheme.colorScheme.expenseColor
                     )
                     Text(
                         text = "₹${formatAmount(totalDebit)}",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFC62828)
+                        color = MaterialTheme.colorScheme.expenseColor
                     )
                 }
             }
 
             Card(
                 modifier = Modifier.weight(1f),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.incomeBackground)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
                         text = "Received",
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFF2E7D32)
+                        color = MaterialTheme.colorScheme.incomeColor
                     )
                     Text(
                         text = "₹${formatAmount(totalCredit)}",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2E7D32)
+                        color = MaterialTheme.colorScheme.incomeColor
                     )
                 }
             }
@@ -191,7 +195,7 @@ fun TransactionCard(
     onClick: () -> Unit
 ) {
     val isDebit = transaction.type == TransactionType.DEBIT
-    val amountColor = if (isDebit) Color(0xFFC62828) else Color(0xFF2E7D32)
+    val amountColor = if (isDebit) MaterialTheme.colorScheme.expenseColor else MaterialTheme.colorScheme.incomeColor
     val amountPrefix = if (isDebit) "-" else "+"
 
     Card(
@@ -247,7 +251,7 @@ fun TransactionCard(
                     Box(
                         modifier = Modifier
                             .background(
-                                color = if (isDebit) Color(0xFFFFCDD2) else Color(0xFFC8E6C9),
+                                color = if (isDebit) MaterialTheme.colorScheme.expenseBackground else MaterialTheme.colorScheme.incomeBackground,
                                 shape = RoundedCornerShape(4.dp)
                             )
                             .padding(horizontal = 8.dp, vertical = 2.dp)

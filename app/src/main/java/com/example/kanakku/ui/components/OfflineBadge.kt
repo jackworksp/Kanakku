@@ -8,9 +8,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.kanakku.ui.theme.OfflineGreen
+import com.example.kanakku.ui.theme.OfflineGreenDark
 
 /**
  * A composable badge that indicates the app operates in offline-first mode
@@ -69,16 +72,17 @@ fun OfflineBadge(
 /**
  * An alternative offline badge variant with custom color scheme
  * for use in different contexts (e.g., dark backgrounds).
+ * Automatically adapts colors for light/dark mode.
  *
  * @param modifier Optional modifier for customizing the badge appearance and position
- * @param backgroundColor The background color of the badge
- * @param contentColor The color for text and icons
+ * @param backgroundColor The background color of the badge (defaults to theme-aware offline green)
+ * @param contentColor The color for text and icons (defaults to theme-aware offline green dark)
  */
 @Composable
 fun OfflineBadgeColored(
     modifier: Modifier = Modifier,
-    backgroundColor: Color = Color(0xFF4CAF50).copy(alpha = 0.15f),
-    contentColor: Color = Color(0xFF2E7D32)
+    backgroundColor: Color = if (isSystemInDarkTheme()) OfflineGreenDark.copy(alpha = 0.2f) else OfflineGreen.copy(alpha = 0.15f),
+    contentColor: Color = if (isSystemInDarkTheme()) OfflineGreen else OfflineGreenDark
 ) {
     Surface(
         modifier = modifier,
