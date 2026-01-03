@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.kanakku.data.preferences.AppPreferences
+import com.example.kanakku.notification.NotificationChannelManager
 import com.example.kanakku.ui.MainViewModel
 import com.example.kanakku.ui.components.InitialSyncProgress
 import com.example.kanakku.ui.components.PrivacyInfoDialog
@@ -36,6 +37,9 @@ class MainActivity : ComponentActivity() {
 
         // Initialize AppPreferences
         AppPreferences.getInstance(this)
+
+        // Register notification channels (Android O+ only, safe to call on all versions)
+        NotificationChannelManager.createNotificationChannels(this)
 
         setContent {
             KanakkuAppWithTheme()

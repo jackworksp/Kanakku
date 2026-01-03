@@ -108,6 +108,7 @@ class MainViewModel @Inject constructor(
                 // Step 1: Initialize repository if not already done
                 if (repository == null) {
                     try {
+                        val database = DatabaseProvider.getDatabase(context)
                         repository = DatabaseProvider.getRepository(context)
                         budgetRepository = DatabaseProvider.getBudgetRepository(context)
                         // Initialize CategoryManager with repository and load overrides

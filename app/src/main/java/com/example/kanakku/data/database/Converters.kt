@@ -1,6 +1,7 @@
 package com.example.kanakku.data.database
 
 import androidx.room.TypeConverter
+import com.example.kanakku.data.model.BudgetPeriod
 import com.example.kanakku.data.model.TransactionType
 import com.example.kanakku.data.model.TransactionSource
 
