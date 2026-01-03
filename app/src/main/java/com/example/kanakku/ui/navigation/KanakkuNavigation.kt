@@ -50,7 +50,11 @@ fun KanakkuNavHost(
             composable(BottomNavItem.Analytics.route) {
                 AnalyticsScreen(
                     transactions = uiState.transactions,
-                    categoryMap = categoryMap
+                    categoryMap = categoryMap,
+                    budgetSummary = uiState.budgetSummary,
+                    onNavigateToBudget = {
+                        // TODO: Navigate to budget screen when navigation is implemented
+                    }
                 )
             }
             composable(BottomNavItem.Categories.route) {

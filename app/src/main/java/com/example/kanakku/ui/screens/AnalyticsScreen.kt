@@ -15,13 +15,17 @@ import com.example.kanakku.domain.analytics.AnalyticsCalculator
 import com.example.kanakku.ui.charts.CategoryPieChart
 import com.example.kanakku.ui.charts.SpendingBarChart
 import com.example.kanakku.ui.charts.SpendingLineChart
+import com.example.kanakku.ui.components.BudgetOverviewCard
+import com.example.kanakku.ui.components.CategoryBudgetCard
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(
     transactions: List<ParsedTransaction>,
-    categoryMap: Map<Long, Category>
+    categoryMap: Map<Long, Category>,
+    budgetSummary: BudgetSummary? = null,
+    onNavigateToBudget: () -> Unit = {}
 ) {
     var selectedPeriod by remember { mutableStateOf(TimePeriod.MONTH) }
     val calculator = remember { AnalyticsCalculator() }
@@ -93,6 +97,41 @@ fun AnalyticsScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
+
+        // Budget Overview Section
+        if (budgetSummary != null && (budgetSummary.overallProgress != null || budgetSummary.categoryProgresses.isNotEmpty())) {
+            Text(
+                text = "Budget Overview",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Overall budget card
+            if (budgetSummary.overallProgress != null) {
+                BudgetOverviewCard(
+                    budgetProgress = budgetSummary.overallProgress,
+                    onNavigateToBudget = onNavigateToBudget
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // Category budgets
+            if (budgetSummary.categoryProgresses.isNotEmpty()) {
+                budgetSummary.categoryProgresses.forEach { categoryProgress ->
+                    CategoryBudgetCard(
+                        categoryBudgetProgress = categoryProgress,
+                        onEdit = onNavigateToBudget
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+        }
 
         // Summary Cards
         Row(
