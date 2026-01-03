@@ -149,6 +149,48 @@ class BankSmsParserTest {
         body = "UPI refund of Rs.299 from flipkart@axisbank credited to your account. PhonePe Txn ID PP999888777"
     )
 
+    private val phonePeP2PSms = createSms(
+        id = 13L,
+        address = "VM-PHONEPE",
+        body = "You sent Rs.1,500.00 to brother@ybl via PhonePe UPI. PhonePe Txn ID PP246813579. Available Balance: Rs.8500.00"
+    )
+
+    private val phonePeLargeAmountSms = createSms(
+        id = 14L,
+        address = "AD-PHONEPE",
+        body = "Rs.45,000 debited from A/c XX3456 on 02-Jan-26. UPI paid to furniture.store@okaxis. PhonePe Txn ID PP111222333. Avl Bal Rs.55000"
+    )
+
+    private val phonePeMinimalSms = createSms(
+        id = 15L,
+        address = "PHONPE",
+        body = "Paid Rs.25 to Tea Shop via PhonePe. Ref PP789"
+    )
+
+    private val phonePeWithDateAndBalanceSms = createSms(
+        id = 16L,
+        address = "PHONEPE",
+        body = "A/c XX6789 debited Rs.899.50 on 02-Jan-26. UPI payment to swiggy@paytm successful. PhonePe Txn ID PP369258147. Balance Rs.7200.50"
+    )
+
+    private val phonePeCreditWithDecimalSms = createSms(
+        id = 17L,
+        address = "VM-PHONPE",
+        body = "Rs.2,750.75 UPI credited from client@hdfcbank to A/c XX4321 on 02-Jan-26. PhonePe Txn ID PP987123654. Avl Bal Rs.12750.75"
+    )
+
+    private val phonePeTransferredSms = createSms(
+        id = 18L,
+        address = "PHONEPE",
+        body = "You transferred Rs.3,200 to mom@oksbi using PhonePe for Monthly support. PhonePe Txn ID PP555444333"
+    )
+
+    private val phonePeWithCommaSms = createSms(
+        id = 19L,
+        address = "AD-PHONPE",
+        body = "Rs.1,999.00 paid to amazon.pay@icici using PhonePe UPI. PhonePe Txn ID PP654987321. Bal: Rs.5001"
+    )
+
     // ==================== Test Fixtures: Paytm SMS ====================
 
     private val paytmDebitSms = createSms(
@@ -1154,6 +1196,140 @@ class BankSmsParserTest {
         assertEquals("flipkart@axisbank", result.upiId)
         assertEquals("Flipkart", result.merchant)
         assertEquals("PP999888777", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPhonePeP2P() {
+        // Given
+        val sms = phonePeP2PSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(1500.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("brother@ybl", result.upiId)
+        assertEquals("Brother", result.merchant)
+        assertEquals("PP246813579", result.referenceNumber)
+        assertEquals(8500.0, result.balanceAfter, 0.01)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPhonePeLargeAmount() {
+        // Given
+        val sms = phonePeLargeAmountSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(45000.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("furniture.store@okaxis", result.upiId)
+        assertEquals("Furniture Store", result.merchant)
+        assertEquals("3456", result.accountNumber)
+        assertEquals("PP111222333", result.referenceNumber)
+        assertEquals(55000.0, result.balanceAfter, 0.01)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPhonePeMinimal() {
+        // Given
+        val sms = phonePeMinimalSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(25.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("Tea Shop", result.merchant)
+        assertEquals("PP789", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+        assertNull(result.upiId) // No VPA in minimal message
+    }
+
+    @Test
+    fun parseUpiSms_parsesPhonePeWithDateAndBalance() {
+        // Given
+        val sms = phonePeWithDateAndBalanceSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(899.50, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("swiggy@paytm", result.upiId)
+        assertEquals("Swiggy", result.merchant)
+        assertEquals("6789", result.accountNumber)
+        assertEquals("PP369258147", result.referenceNumber)
+        assertEquals(7200.50, result.balanceAfter, 0.01)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPhonePeCreditWithDecimal() {
+        // Given
+        val sms = phonePeCreditWithDecimalSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(2750.75, result!!.amount, 0.01)
+        assertEquals(TransactionType.CREDIT, result.type)
+        assertEquals("client@hdfcbank", result.upiId)
+        assertEquals("Client", result.merchant)
+        assertEquals("4321", result.accountNumber)
+        assertEquals("PP987123654", result.referenceNumber)
+        assertEquals(12750.75, result.balanceAfter, 0.01)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPhonePeTransferred() {
+        // Given
+        val sms = phonePeTransferredSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(3200.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("mom@oksbi", result.upiId)
+        assertEquals("Mom", result.merchant)
+        assertEquals("PP555444333", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPhonePeWithCommaAmount() {
+        // Given
+        val sms = phonePeWithCommaSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(1999.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("amazon.pay@icici", result.upiId)
+        assertEquals("Amazon Pay", result.merchant)
+        assertEquals("PP654987321", result.referenceNumber)
+        assertEquals(5001.0, result.balanceAfter, 0.01)
         assertEquals("UPI", result.paymentMethod)
     }
 
