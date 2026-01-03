@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.kanakku.core.error.ErrorHandler
 import com.example.kanakku.core.error.toErrorInfo
 import com.example.kanakku.data.category.CategoryManager
+import com.example.kanakku.data.category.CategorySuggestion
+import com.example.kanakku.data.category.CategorySuggestionEngine
 import com.example.kanakku.data.database.DatabaseProvider
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
@@ -18,6 +20,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/**
+ * UI State for the main screen.
+ *
+ * @property isLoading Whether the screen is currently loading data
+ * @property hasPermission Whether SMS permission is granted
+ * @property totalSmsCount Total number of SMS messages scanned
+ * @property bankSmsCount Number of bank SMS messages found
+ * @property duplicatesRemoved Number of duplicate transactions removed
+ * @property transactions List of all parsed transactions
+ * @property rawBankSms List of raw bank SMS messages
+ * @property errorMessage User-friendly error message to display (null if no error)
+ * @property isLoadedFromDatabase Whether data was loaded from database
+ * @property newTransactionsSynced Number of new transactions synced in last operation
+ * @property lastSyncTimestamp Timestamp of last successful sync
+ * @property categorySuggestions Map of transaction SMS ID to list of category suggestions
+ * @property isSuggestionsLoading Whether category suggestions are being generated
+ * @property applyingCategoryToMultiple Whether a bulk category application is in progress
+ */
 data class MainUiState(
     val isLoading: Boolean = false,
     val hasPermission: Boolean = false,
@@ -29,9 +49,34 @@ data class MainUiState(
     val errorMessage: String? = null,
     val isLoadedFromDatabase: Boolean = false,
     val newTransactionsSynced: Int = 0,
-    val lastSyncTimestamp: Long? = null
+    val lastSyncTimestamp: Long? = null,
+    val categorySuggestions: Map<Long, List<CategorySuggestion>> = emptyMap(),
+    val isSuggestionsLoading: Boolean = false,
+    val applyingCategoryToMultiple: Boolean = false
 )
 
+/**
+ * ViewModel for the main screen.
+ *
+ * This ViewModel manages the state and business logic for:
+ * - Loading and displaying transactions from SMS
+ * - Categorizing transactions automatically and manually
+ * - Generating category suggestions for uncategorized transactions
+ * - Applying categories to single or multiple transactions
+ * - Syncing transactions with incremental updates
+ *
+ * Error Handling Strategy:
+ * - All repository operations return Result<T> for explicit error handling
+ * - Errors are caught and converted to user-friendly messages via ErrorHandler
+ * - Loading states are managed to prevent UI inconsistencies
+ * - Graceful degradation when subsystems fail (e.g., suggestions unavailable)
+ *
+ * Architecture:
+ * - Follows offline-first principles with database-backed storage
+ * - Uses CategoryManager for auto-categorization based on keywords
+ * - Uses CategorySuggestionEngine for smart suggestions based on patterns
+ * - Manages in-memory state with StateFlow for reactive UI updates
+ */
 class MainViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -42,6 +87,7 @@ class MainViewModel : ViewModel() {
 
     private val parser = BankSmsParser()
     private var categoryManager: CategoryManager? = null
+    private var suggestionEngine: CategorySuggestionEngine? = null
 
     private var repository: TransactionRepository? = null
 
@@ -70,8 +116,8 @@ class MainViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
             try {
-                // Step 0: Initialize repositories and CategoryManager if not already done
-                if (repository == null || categoryManager == null) {
+                // Step 0: Initialize repositories, CategoryManager, and CategorySuggestionEngine if not already done
+                if (repository == null || categoryManager == null || suggestionEngine == null) {
                     try {
                         repository = DatabaseProvider.getRepository(context)
                         val categoryRepo = DatabaseProvider.getCategoryRepository(context)
@@ -82,6 +128,13 @@ class MainViewModel : ViewModel() {
                             transactionRepository = repository
                         )
                         categoryManager!!.initialize(repository!!)
+
+                        // Create and initialize CategorySuggestionEngine for smart suggestions
+                        suggestionEngine = CategorySuggestionEngine(
+                            categoryRepository = categoryRepo,
+                            transactionRepository = repository!!
+                        )
+                        suggestionEngine!!.initialize()
                     } catch (e: Exception) {
                         val errorInfo = ErrorHandler.handleError(e, "Database initialization")
                         _uiState.value = _uiState.value.copy(
@@ -298,10 +351,12 @@ class MainViewModel : ViewModel() {
 
     /**
      * Updates a transaction's category and persists the override to database.
+     * Also records the categorization in the suggestion engine for pattern learning.
      *
      * Error Handling:
      * - Database write failures when saving category override
      * - Errors are logged and shown to user with clear messages
+     * - Suggestion engine unavailable (continues without recording patterns)
      */
     fun updateTransactionCategory(smsId: Long, category: Category) {
         viewModelScope.launch {
@@ -321,6 +376,21 @@ class MainViewModel : ViewModel() {
                         _categoryMap.value = _categoryMap.value.toMutableMap().apply {
                             put(smsId, category)
                         }
+
+                        // Record categorization for pattern learning
+                        val engine = suggestionEngine
+                        if (engine != null) {
+                            val transaction = _uiState.value.transactions.find { it.smsId == smsId }
+                            if (transaction != null) {
+                                engine.recordCategorization(transaction, category.id)
+                            }
+                        }
+
+                        // Clear suggestions for this transaction since it's now categorized
+                        val updatedSuggestions = _uiState.value.categorySuggestions.toMutableMap()
+                        updatedSuggestions.remove(smsId)
+                        _uiState.value = _uiState.value.copy(categorySuggestions = updatedSuggestions)
+
                         ErrorHandler.logInfo(
                             "Category updated for transaction $smsId to ${category.name}",
                             "updateTransactionCategory"
@@ -340,6 +410,233 @@ class MainViewModel : ViewModel() {
                 )
             }
         }
+    }
+
+    /**
+     * Generates category suggestions for uncategorized transactions.
+     *
+     * This method analyzes transactions that don't have a manual category override
+     * and generates smart suggestions based on:
+     * - Historical merchant patterns
+     * - Keyword matching
+     * - Pattern learning from past categorizations
+     *
+     * Suggestions are stored in the UI state and can be displayed to the user
+     * for quick categorization.
+     *
+     * @param transactionIds Optional list of specific transaction IDs to get suggestions for.
+     *                       If null, generates suggestions for all uncategorized transactions.
+     * @param maxSuggestionsPerTransaction Maximum suggestions to generate per transaction (default: 3)
+     *
+     * Error Handling:
+     * - Suggestion engine not initialized (logs warning, doesn't fail)
+     * - Suggestion generation failures (logs error, continues for remaining transactions)
+     * - Missing category overrides (treats as uncategorized)
+     */
+    fun generateCategorySuggestions(
+        transactionIds: List<Long>? = null,
+        maxSuggestionsPerTransaction: Int = 3
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSuggestionsLoading = true)
+
+            try {
+                val engine = suggestionEngine
+                if (engine == null) {
+                    ErrorHandler.logWarning(
+                        "Suggestion engine not initialized. Cannot generate suggestions.",
+                        "generateCategorySuggestions"
+                    )
+                    _uiState.value = _uiState.value.copy(isSuggestionsLoading = false)
+                    return@launch
+                }
+
+                val repo = repository
+                if (repo == null) {
+                    ErrorHandler.logWarning(
+                        "Repository not initialized. Cannot generate suggestions.",
+                        "generateCategorySuggestions"
+                    )
+                    _uiState.value = _uiState.value.copy(isSuggestionsLoading = false)
+                    return@launch
+                }
+
+                // Get all category overrides to identify uncategorized transactions
+                val overrides = repo.getAllCategoryOverrides()
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        ErrorHandler.logWarning(
+                            "Failed to load category overrides: ${errorInfo.technicalMessage}",
+                            "generateCategorySuggestions"
+                        )
+                    }
+                    .getOrElse { emptyMap() }
+
+                // Determine which transactions need suggestions
+                val currentTransactions = _uiState.value.transactions
+                val transactionsToAnalyze = if (transactionIds != null) {
+                    currentTransactions.filter { it.smsId in transactionIds }
+                } else {
+                    // Only suggest for uncategorized transactions (no manual override)
+                    currentTransactions.filter { it.smsId !in overrides.keys }
+                }
+
+                // Generate suggestions for each transaction
+                val suggestionsMap = mutableMapOf<Long, List<CategorySuggestion>>()
+                for (transaction in transactionsToAnalyze) {
+                    engine.suggestCategories(transaction, maxSuggestionsPerTransaction)
+                        .onSuccess { suggestions ->
+                            if (suggestions.isNotEmpty()) {
+                                suggestionsMap[transaction.smsId] = suggestions
+                            }
+                        }
+                        .onFailure { throwable ->
+                            val errorInfo = throwable.toErrorInfo()
+                            ErrorHandler.logWarning(
+                                "Failed to generate suggestions for transaction ${transaction.smsId}: ${errorInfo.technicalMessage}",
+                                "generateCategorySuggestions"
+                            )
+                            // Continue processing other transactions
+                        }
+                }
+
+                _uiState.value = _uiState.value.copy(
+                    categorySuggestions = suggestionsMap,
+                    isSuggestionsLoading = false
+                )
+
+                ErrorHandler.logInfo(
+                    "Generated suggestions for ${suggestionsMap.size} transactions",
+                    "generateCategorySuggestions"
+                )
+            } catch (e: Exception) {
+                val errorInfo = ErrorHandler.handleError(e, "generateCategorySuggestions")
+                _uiState.value = _uiState.value.copy(
+                    isSuggestionsLoading = false,
+                    errorMessage = "Failed to generate suggestions: ${errorInfo.userMessage}"
+                )
+            }
+        }
+    }
+
+    /**
+     * Applies a category to multiple transactions at once.
+     *
+     * This is useful for:
+     * - Bulk categorization from suggestions (e.g., "Apply to all similar")
+     * - Batch updates from category management screen
+     * - Correcting multiple miscategorized transactions
+     *
+     * The method updates the category override for each transaction and refreshes
+     * the UI state to reflect the changes. It also records the categorization in
+     * the suggestion engine for pattern learning.
+     *
+     * @param transactionIds List of transaction SMS IDs to update
+     * @param category The category to apply to all transactions
+     *
+     * Error Handling:
+     * - CategoryManager not initialized (shows error to user)
+     * - Individual transaction update failures (logs warning, continues)
+     * - Suggestion engine unavailable (continues without recording patterns)
+     */
+    fun applyCategoryToMultiple(transactionIds: List<Long>, category: Category) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(applyingCategoryToMultiple = true, errorMessage = null)
+
+            try {
+                val catManager = categoryManager
+                if (catManager == null) {
+                    _uiState.value = _uiState.value.copy(
+                        applyingCategoryToMultiple = false,
+                        errorMessage = "Category manager not initialized. Please try again."
+                    )
+                    return@launch
+                }
+
+                val engine = suggestionEngine
+                var successCount = 0
+                var failureCount = 0
+
+                // Get current transactions for pattern learning
+                val currentTransactions = _uiState.value.transactions
+
+                // Apply category to each transaction
+                val updatedCategoryMap = _categoryMap.value.toMutableMap()
+                for (smsId in transactionIds) {
+                    catManager.setManualOverride(smsId, category)
+                        .onSuccess {
+                            // Update in-memory state
+                            updatedCategoryMap[smsId] = category
+                            successCount++
+
+                            // Record categorization for pattern learning
+                            if (engine != null) {
+                                val transaction = currentTransactions.find { it.smsId == smsId }
+                                if (transaction != null) {
+                                    engine.recordCategorization(transaction, category.id)
+                                }
+                            }
+                        }
+                        .onFailure { throwable ->
+                            val errorInfo = throwable.toErrorInfo()
+                            ErrorHandler.logWarning(
+                                "Failed to update category for transaction $smsId: ${errorInfo.technicalMessage}",
+                                "applyCategoryToMultiple"
+                            )
+                            failureCount++
+                        }
+                }
+
+                // Update category map if any succeeded
+                if (successCount > 0) {
+                    _categoryMap.value = updatedCategoryMap
+
+                    // Clear suggestions for successfully categorized transactions
+                    val updatedSuggestions = _uiState.value.categorySuggestions.toMutableMap()
+                    transactionIds.forEach { updatedSuggestions.remove(it) }
+
+                    _uiState.value = _uiState.value.copy(
+                        categorySuggestions = updatedSuggestions
+                    )
+                }
+
+                _uiState.value = _uiState.value.copy(
+                    applyingCategoryToMultiple = false,
+                    errorMessage = if (failureCount > 0) {
+                        "Updated $successCount transactions. $failureCount failed."
+                    } else null
+                )
+
+                ErrorHandler.logInfo(
+                    "Applied category '${category.name}' to $successCount of ${transactionIds.size} transactions",
+                    "applyCategoryToMultiple"
+                )
+            } catch (e: Exception) {
+                val errorInfo = ErrorHandler.handleError(e, "applyCategoryToMultiple")
+                _uiState.value = _uiState.value.copy(
+                    applyingCategoryToMultiple = false,
+                    errorMessage = errorInfo.userMessage
+                )
+            }
+        }
+    }
+
+    /**
+     * Clears category suggestions for specific transactions.
+     * Useful when user dismisses suggestions or manually categorizes a transaction.
+     *
+     * @param transactionIds List of transaction SMS IDs to clear suggestions for.
+     *                       If null, clears all suggestions.
+     */
+    fun clearCategorySuggestions(transactionIds: List<Long>? = null) {
+        val updatedSuggestions = if (transactionIds == null) {
+            emptyMap()
+        } else {
+            _uiState.value.categorySuggestions.toMutableMap().apply {
+                transactionIds.forEach { remove(it) }
+            }
+        }
+        _uiState.value = _uiState.value.copy(categorySuggestions = updatedSuggestions)
     }
 
     /**
