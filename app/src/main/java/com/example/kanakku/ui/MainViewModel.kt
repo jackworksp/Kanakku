@@ -10,6 +10,7 @@ import com.example.kanakku.data.database.DatabaseProvider
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.SmsMessage
+import com.example.kanakku.data.model.TransactionFilter
 import com.example.kanakku.data.repository.TransactionRepository
 import com.example.kanakku.data.sms.BankSmsParser
 import com.example.kanakku.data.sms.SmsReader
@@ -30,6 +31,22 @@ data class MainUiState(
     val isLoadedFromDatabase: Boolean = false,
     val newTransactionsSynced: Int = 0,
     val lastSyncTimestamp: Long? = null
+)
+
+/**
+ * State class for search and filter functionality.
+ * Kept separate from MainUiState to isolate search/filter concerns.
+ *
+ * @property currentFilter The currently active filter configuration
+ * @property filteredTransactions The list of transactions after applying filters
+ * @property isSearchActive Whether search/filter is currently active
+ * @property activeFilterCount Number of active filters (computed from currentFilter)
+ */
+data class SearchFilterState(
+    val currentFilter: TransactionFilter = TransactionFilter(),
+    val filteredTransactions: List<ParsedTransaction> = emptyList(),
+    val isSearchActive: Boolean = false,
+    val activeFilterCount: Int = 0
 )
 
 class MainViewModel : ViewModel() {
