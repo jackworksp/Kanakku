@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,11 +28,14 @@ import java.util.*
 fun CategoriesScreen(
     transactions: List<ParsedTransaction>,
     categoryMap: Map<Long, Category>,
-    onCategoryChange: (Long, Category) -> Unit
+    merchantMappingCount: Int,
+    onCategoryChange: (Long, Category) -> Unit,
+    onResetLearnedMappings: () -> Unit
 ) {
     var selectedCategory by remember { mutableStateOf<Category?>(null) }
     var selectedTransaction by remember { mutableStateOf<ParsedTransaction?>(null) }
     var showCategoryPicker by remember { mutableStateOf(false) }
+    var showResetConfirmation by remember { mutableStateOf(false) }
 
     val categoryTotals = remember(transactions, categoryMap) {
         val debitTransactions = transactions.filter { it.type == TransactionType.DEBIT }
@@ -80,6 +84,16 @@ fun CategoriesScreen(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Show reset learned preferences card if mappings exist
+                if (merchantMappingCount > 0) {
+                    item {
+                        LearnedPreferencesCard(
+                            mappingCount = merchantMappingCount,
+                            onResetClick = { showResetConfirmation = true }
+                        )
+                    }
+                }
+
                 items(categoryTotals) { categoryTotal ->
                     CategoryCard(
                         categoryTotal = categoryTotal,
@@ -101,6 +115,19 @@ fun CategoriesScreen(
             onDismiss = {
                 showCategoryPicker = false
                 selectedTransaction = null
+            }
+        )
+    }
+
+    if (showResetConfirmation) {
+        ResetConfirmationDialog(
+            mappingCount = merchantMappingCount,
+            onConfirm = {
+                onResetLearnedMappings()
+                showResetConfirmation = false
+            },
+            onDismiss = {
+                showResetConfirmation = false
             }
         )
     }
@@ -277,6 +304,117 @@ private fun CategoryTransactionCard(
             )
         }
     }
+}
+
+@Composable
+private fun LearnedPreferencesCard(
+    mappingCount: Int,
+    onResetClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Learned Preferences",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "$mappingCount merchant ${if (mappingCount == 1) "mapping" else "mappings"} learned",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedButton(
+                onClick = onResetClick,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Text("Reset Learned Preferences")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResetConfirmationDialog(
+    mappingCount: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = androidx.compose.material.icons.Icons.Default.Warning,
+                contentDescription = "Warning",
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(32.dp)
+            )
+        },
+        title = {
+            Text(
+                text = "Reset Learned Preferences?",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "This will remove $mappingCount learned merchant-to-category ${if (mappingCount == 1) "mapping" else "mappings"}.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Future transactions will be categorized using only the automatic rules until you manually categorize them again.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Reset")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 private fun formatDate(timestamp: Long): String {

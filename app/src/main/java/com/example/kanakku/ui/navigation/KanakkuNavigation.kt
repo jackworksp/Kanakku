@@ -25,6 +25,7 @@ fun KanakkuNavHost(
     categoryMap: Map<Long, Category>,
     onRefresh: () -> Unit,
     onCategoryChange: (Long, Category) -> Unit,
+    onResetLearnedMappings: () -> Unit,
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController()
 ) {
@@ -57,7 +58,9 @@ fun KanakkuNavHost(
                 CategoriesScreen(
                     transactions = uiState.transactions,
                     categoryMap = categoryMap,
-                    onCategoryChange = onCategoryChange
+                    merchantMappingCount = uiState.merchantMappingCount,
+                    onCategoryChange = onCategoryChange,
+                    onResetLearnedMappings = onResetLearnedMappings
                 )
             }
         }

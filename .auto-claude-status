@@ -3,23 +3,23 @@
   "spec": "002-persist-category-overrides",
   "state": "building",
   "subtasks": {
-    "completed": 7,
+    "completed": 8,
     "total": 12,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "ViewModel Integration",
+    "current": "UI - Reset Learned Mappings",
     "id": null,
-    "total": 2
+    "total": 1
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 9,
+    "number": 10,
     "started_at": "2026-01-03T13:25:33.436757"
   },
-  "last_update": "2026-01-03T14:09:27.098678"
+  "last_update": "2026-01-03T14:15:09.962469"
 }

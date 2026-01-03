@@ -105,6 +105,9 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
                     onCategoryChange = { smsId, category ->
                         viewModel.updateTransactionCategory(smsId, category)
                     },
+                    onResetLearnedMappings = {
+                        viewModel.resetLearnedMappings()
+                    },
                     modifier = Modifier.padding(innerPadding)
                 )
             }
