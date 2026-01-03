@@ -3,23 +3,23 @@
   "spec": "012-dark-mode-toggle",
   "state": "building",
   "subtasks": {
-    "completed": 2,
+    "completed": 3,
     "total": 13,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Theme ViewModel",
+    "current": "Settings Screen",
     "id": null,
-    "total": 1
+    "total": 3
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 4,
+    "number": 5,
     "started_at": "2026-01-03T14:07:34.390366"
   },
-  "last_update": "2026-01-03T14:28:10.110685"
+  "last_update": "2026-01-03T14:33:56.783585"
 }
