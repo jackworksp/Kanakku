@@ -19,7 +19,9 @@ data class ParsedTransaction(
     val rawSms: String,           // Original SMS for reference
     val senderAddress: String,    // Bank sender ID
     val balanceAfter: Double? = null,  // Balance after transaction (if available in SMS)
-    val location: String? = null       // ATM/merchant location (if available)
+    val location: String? = null,      // ATM/merchant location (if available)
+    val source: TransactionSource = TransactionSource.SMS, // Transaction source (SMS or MANUAL)
+    val notes: String? = null          // Optional notes (primarily for manual transactions)
 )
 
 enum class TransactionType {

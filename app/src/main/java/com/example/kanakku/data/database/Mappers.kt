@@ -30,7 +30,9 @@ fun ParsedTransaction.toEntity(): TransactionEntity {
         rawSms = this.rawSms,
         senderAddress = this.senderAddress,
         balanceAfter = this.balanceAfter,
-        location = this.location
+        location = this.location,
+        source = this.source,
+        notes = this.notes
     )
 }
 
@@ -51,6 +53,8 @@ fun TransactionEntity.toDomain(): ParsedTransaction {
         rawSms = this.rawSms,
         senderAddress = this.senderAddress,
         balanceAfter = this.balanceAfter,
-        location = this.location
+        location = this.location,
+        source = this.source,
+        notes = this.notes
     )
 }
