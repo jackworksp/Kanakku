@@ -8,6 +8,7 @@ import android.provider.Telephony
 import android.telephony.SmsMessage
 import com.example.kanakku.core.error.ErrorHandler
 import com.example.kanakku.data.sms.BankSmsParser
+import com.example.kanakku.service.SmsProcessingService
 
 /**
  * BroadcastReceiver for intercepting incoming SMS messages in real-time.
@@ -227,11 +228,14 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
      * This method:
      * 1. Converts the Android SmsMessage to our app's SmsMessage data model
      * 2. Checks if the SMS is a bank transaction message using BankSmsParser
-     * 3. Logs bank transaction SMS for debugging (Phase 2.3 will start service)
+     * 3. Enqueues background work via SmsProcessingService if bank SMS detected
      *
-     * Future phases will:
-     * - Phase 2.3: Start SmsProcessingService to handle parsing and database save
-     * - Phase 3: Trigger notification if enabled in preferences
+     * The SmsProcessingService (WorkManager Worker) handles:
+     * - Parsing transaction using BankSmsParser
+     * - Checking for duplicate transactions
+     * - Saving to database via TransactionRepository
+     * - Notification triggering (Phase 3)
+     * - UI update events (Phase 5)
      *
      * @param context Application context
      * @param message The Android SmsMessage to process
@@ -272,11 +276,18 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
                     "processSmsMessage"
                 )
 
-                // TODO (Phase 2.3): Start SmsProcessingService for background work
+                // Start SmsProcessingService for background work
                 // The service will:
                 // - Parse transaction using bankSmsParser.parseSms()
                 // - Save to database via TransactionRepository
-                // - Trigger notification if enabled in preferences
+                // - Trigger notification if enabled in preferences (Phase 3)
+                SmsProcessingService.enqueueWork(
+                    context = context,
+                    smsId = timestamp,
+                    sender = sender,
+                    body = body,
+                    timestamp = timestamp
+                )
 
             } else {
                 // Not a bank transaction SMS - skip silently for efficiency

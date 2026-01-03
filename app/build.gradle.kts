@@ -70,6 +70,9 @@ dependencies {
     // Security - EncryptedSharedPreferences
     implementation(libs.androidx.security.crypto)
 
+    // WorkManager for background SMS processing
+    implementation(libs.androidx.work.runtime.ktx)
+
     testImplementation(libs.junit)
     testImplementation(libs.androidx.room.testing)
     testImplementation(libs.kotlinx.coroutines.test)
