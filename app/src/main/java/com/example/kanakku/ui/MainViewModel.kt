@@ -10,9 +10,12 @@ import com.example.kanakku.data.database.DatabaseProvider
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.SmsMessage
+import com.example.kanakku.data.preferences.AppPreferences
+import com.example.kanakku.data.repository.BudgetRepository
 import com.example.kanakku.data.repository.TransactionRepository
 import com.example.kanakku.data.sms.BankSmsParser
 import com.example.kanakku.data.sms.SmsReader
+import com.example.kanakku.domain.notification.SpendingAlertCoordinator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +47,8 @@ class MainViewModel : ViewModel() {
     private val categoryManager = CategoryManager()
 
     private var repository: TransactionRepository? = null
+    private var budgetRepository: BudgetRepository? = null
+    private var appPreferences: AppPreferences? = null
 
     fun updatePermissionStatus(hasPermission: Boolean) {
         _uiState.value = _uiState.value.copy(hasPermission = hasPermission)
@@ -73,7 +78,10 @@ class MainViewModel : ViewModel() {
                 // Step 0: Initialize repository if not already done
                 if (repository == null) {
                     try {
+                        val database = DatabaseProvider.getDatabase(context)
                         repository = DatabaseProvider.getRepository(context)
+                        budgetRepository = BudgetRepository(database)
+                        appPreferences = AppPreferences.getInstance(context)
                         // Initialize CategoryManager with repository and load overrides
                         categoryManager.initialize(repository!!)
                     } catch (e: Exception) {
@@ -217,6 +225,31 @@ class MainViewModel : ViewModel() {
                             )
                             return@launch
                         }
+
+                    // Step 5.5: Check for spending alerts after new transactions are saved
+                    budgetRepository?.let { budgetRepo ->
+                        appPreferences?.let { prefs ->
+                            SpendingAlertCoordinator.onTransactionsUpdated(
+                                context = context,
+                                newTransactions = deduplicated,
+                                transactionRepository = repo,
+                                budgetRepository = budgetRepo,
+                                appPreferences = prefs
+                            ).onSuccess { result ->
+                                ErrorHandler.logInfo(
+                                    "Alert check completed after SMS sync: ${result.totalAlerts} alerts sent",
+                                    "loadSmsData"
+                                )
+                            }.onFailure { throwable ->
+                                // Log error but don't fail the SMS sync
+                                val errorInfo = throwable.toErrorInfo()
+                                ErrorHandler.logWarning(
+                                    "Failed to check alerts after SMS sync: ${errorInfo.technicalMessage}",
+                                    "loadSmsData"
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // Step 6: Update sync timestamp
