@@ -60,6 +60,7 @@ object DatabaseProvider {
 
     /**
      * Builds the Room database with proper configuration.
+     * Includes migrations to preserve data during schema changes.
      *
      * @param context Application context
      * @return Configured KanakkuDatabase instance
@@ -70,7 +71,7 @@ object DatabaseProvider {
             KanakkuDatabase::class.java,
             DATABASE_NAME
         )
-            .fallbackToDestructiveMigration() // For development - TODO: implement proper migrations for production
+            .addMigrations(KanakkuDatabase.MIGRATION_1_2)
             .build()
     }
 

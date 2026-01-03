@@ -3,6 +3,8 @@ package com.example.kanakku.data.database
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.kanakku.data.database.dao.CategoryOverrideDao
 import com.example.kanakku.data.database.dao.SyncMetadataDao
 import com.example.kanakku.data.database.dao.TransactionDao
@@ -25,7 +27,7 @@ import com.example.kanakku.data.database.entity.TransactionEntity
         CategoryOverrideEntity::class,
         SyncMetadataEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -48,4 +50,24 @@ abstract class KanakkuDatabase : RoomDatabase() {
      * @return SyncMetadataDao instance for tracking synchronization state
      */
     abstract fun syncMetadataDao(): SyncMetadataDao
+
+    companion object {
+        /**
+         * Migration from version 1 to 2: Add UPI-specific fields to transactions table.
+         *
+         * Adds two new nullable columns to support UPI transaction data:
+         * - upiId: Stores UPI VPA (Virtual Payment Address) like user@paytm
+         * - paymentMethod: Stores payment method (e.g., "UPI", "Card", "Net Banking")
+         */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE transactions ADD COLUMN upiId TEXT DEFAULT NULL"
+                )
+                database.execSQL(
+                    "ALTER TABLE transactions ADD COLUMN paymentMethod TEXT DEFAULT NULL"
+                )
+            }
+        }
+    }
 }
