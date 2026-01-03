@@ -20,6 +20,7 @@ import com.example.kanakku.ui.SearchFilterState
 import com.example.kanakku.ui.components.ActiveFilterChips
 import com.example.kanakku.ui.components.CategoryPickerSheet
 import com.example.kanakku.ui.components.FilterSheet
+import com.example.kanakku.ui.components.HighlightedText
 import com.example.kanakku.ui.components.SearchBar
 import java.text.SimpleDateFormat
 import java.util.*
@@ -229,7 +230,8 @@ private fun TransactionsHeader(
 fun TransactionCard(
     transaction: ParsedTransaction,
     category: Category?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    searchQuery: String? = null
 ) {
     val isDebit = transaction.type == TransactionType.DEBIT
     val amountColor = if (isDebit) Color(0xFFC62828) else Color(0xFF2E7D32)
@@ -248,10 +250,10 @@ fun TransactionCard(
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
+                    HighlightedText(
                         text = transaction.merchant ?: transaction.senderAddress,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
+                        highlight = searchQuery,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -265,10 +267,10 @@ fun TransactionCard(
                     )
 
                     transaction.referenceNumber?.let { ref ->
-                        Text(
+                        HighlightedText(
                             text = "Ref: $ref",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            highlight = searchQuery,
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
