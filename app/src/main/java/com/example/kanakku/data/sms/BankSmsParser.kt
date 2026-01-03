@@ -4,7 +4,19 @@ import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.SmsMessage
 import com.example.kanakku.data.model.TransactionType
 
-class BankSmsParser {
+/**
+ * Parser for bank transaction SMS messages.
+ *
+ * This parser supports bank-specific patterns through the BankRegistry,
+ * while maintaining fallback to generic patterns for unknown banks or
+ * when bank-specific patterns are not defined.
+ *
+ * @property registry Optional BankRegistry for looking up bank-specific patterns.
+ *                    If null, only generic patterns will be used.
+ */
+class BankSmsParser(
+    private val registry: BankRegistry? = null
+) {
 
     companion object {
         // Common bank sender ID patterns (VM-HDFCBK, AD-SBIBNK, etc.)
@@ -13,14 +25,14 @@ class BankSmsParser {
             RegexOption.IGNORE_CASE
         )
 
-        // Amount patterns: Rs.500, Rs 500, INR 500, Rs.5,00,000.00, ₹500
-        private val AMOUNT_PATTERN = Regex(
+        // Generic amount patterns: Rs.500, Rs 500, INR 500, Rs.5,00,000.00, ₹500
+        private val GENERIC_AMOUNT_PATTERN = Regex(
             """(?:Rs\.?|₹|INR)\s*([\d,]+(?:\.\d{1,2})?)""",
             RegexOption.IGNORE_CASE
         )
 
-        // Balance pattern: Bal Rs.3305.19, Bal:Rs 500, Available Bal Rs.1000
-        private val BALANCE_PATTERN = Regex(
+        // Generic balance pattern: Bal Rs.3305.19, Bal:Rs 500, Available Bal Rs.1000
+        private val GENERIC_BALANCE_PATTERN = Regex(
             """(?:Bal|Balance|Avl\.?\s*Bal|Available\s*Bal)[:\s]*(?:Rs\.?|₹|INR)\s*([\d,]+(?:\.\d{1,2})?)""",
             RegexOption.IGNORE_CASE
         )
@@ -37,9 +49,9 @@ class BankSmsParser {
             RegexOption.IGNORE_CASE
         )
 
-        // Reference number patterns (UTR, REF, TXN, RRN)
+        // Generic reference number patterns (UTR, REF, TXN, RRN)
         // Reference must contain at least one digit to avoid matching words like "Reversed"
-        private val REFERENCE_PATTERN = Regex(
+        private val GENERIC_REFERENCE_PATTERN = Regex(
             """(?:Ref\.?|UTR|TXN|RRN|UPI|Ref\s*No\.?|Reference)[:\s#]*([A-Z0-9]*\d[A-Z0-9]{5,21})""",
             RegexOption.IGNORE_CASE
         )
@@ -50,8 +62,8 @@ class BankSmsParser {
             RegexOption.IGNORE_CASE
         )
 
-        // Merchant/Payee pattern (at MERCHANT, to MERCHANT, Info: MERCHANT)
-        private val MERCHANT_PATTERN = Regex(
+        // Generic merchant/Payee pattern (at MERCHANT, to MERCHANT, Info: MERCHANT)
+        private val GENERIC_MERCHANT_PATTERN = Regex(
             """(?:at|to|from|Info:?|VPA:?|@)\s*([A-Za-z0-9@._\s-]+?)(?:\s+on|\s+Ref|\s+UPI|\.|\s*$)""",
             RegexOption.IGNORE_CASE
         )
@@ -80,8 +92,11 @@ class BankSmsParser {
             return false
         }
 
-        // Must contain amount pattern
-        if (!AMOUNT_PATTERN.containsMatchIn(body)) {
+        // Must contain amount pattern (use generic or bank-specific)
+        val amountPattern = getBankSpecificPattern(sms.address)?.amountPattern
+            ?: GENERIC_AMOUNT_PATTERN
+
+        if (!amountPattern.containsMatchIn(body)) {
             return false
         }
 
@@ -106,6 +121,16 @@ class BankSmsParser {
     }
 
     /**
+     * Helper method to look up bank-specific patterns for a given sender ID.
+     *
+     * @param senderId The SMS sender ID/address
+     * @return BankPatternSet if bank-specific patterns are found, null otherwise
+     */
+    private fun getBankSpecificPattern(senderId: String): com.example.kanakku.data.sms.model.BankPatternSet? {
+        return registry?.findBankBySender(senderId)?.patterns
+    }
+
+    /**
      * Parse a bank SMS into a structured transaction
      */
     fun parseSms(sms: SmsMessage): ParsedTransaction? {
@@ -115,8 +140,17 @@ class BankSmsParser {
 
         val body = sms.body
 
+        // Look up bank-specific patterns, or use generic patterns as fallback
+        val bankPatterns = getBankSpecificPattern(sms.address)
+
+        // Select patterns (bank-specific or generic)
+        val amountPattern = bankPatterns?.amountPattern ?: GENERIC_AMOUNT_PATTERN
+        val balancePattern = bankPatterns?.balancePattern ?: GENERIC_BALANCE_PATTERN
+        val merchantPattern = bankPatterns?.merchantPattern ?: GENERIC_MERCHANT_PATTERN
+        val referencePattern = bankPatterns?.referencePattern ?: GENERIC_REFERENCE_PATTERN
+
         // Extract amount
-        val amountMatch = AMOUNT_PATTERN.find(body)
+        val amountMatch = amountPattern.find(body)
         val amount = amountMatch?.groupValues?.get(1)
             ?.replace(",", "")
             ?.toDoubleOrNull() ?: return null
@@ -129,7 +163,7 @@ class BankSmsParser {
         }
 
         // Extract reference number
-        val referenceMatch = REFERENCE_PATTERN.find(body)
+        val referenceMatch = referencePattern.find(body)
         val referenceNumber = referenceMatch?.groupValues?.get(1)
 
         // Extract account number
@@ -137,11 +171,11 @@ class BankSmsParser {
         val accountNumber = accountMatch?.groupValues?.get(1)
 
         // Extract merchant (best effort)
-        val merchantMatch = MERCHANT_PATTERN.find(body)
+        val merchantMatch = merchantPattern.find(body)
         val merchant = merchantMatch?.groupValues?.get(1)?.trim()?.take(50)
 
         // Extract balance after transaction
-        val balanceMatch = BALANCE_PATTERN.find(body)
+        val balanceMatch = balancePattern.find(body)
         val balanceAfter = balanceMatch?.groupValues?.get(1)
             ?.replace(",", "")
             ?.toDoubleOrNull()
