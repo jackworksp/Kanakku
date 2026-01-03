@@ -21,6 +21,24 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * UI State for the main screen.
+ *
+ * @property isLoading Whether the screen is currently loading data
+ * @property hasPermission Whether SMS permission is granted
+ * @property totalSmsCount Total number of SMS messages scanned
+ * @property bankSmsCount Number of bank SMS messages found
+ * @property duplicatesRemoved Number of duplicate transactions removed
+ * @property transactions List of all parsed transactions
+ * @property rawBankSms List of raw bank SMS messages
+ * @property errorMessage User-friendly error message to display (null if no error)
+ * @property isLoadedFromDatabase Whether data was loaded from database
+ * @property newTransactionsSynced Number of new transactions synced in last operation
+ * @property lastSyncTimestamp Timestamp of last successful sync
+ * @property categorySuggestions Map of transaction SMS ID to list of category suggestions
+ * @property isSuggestionsLoading Whether category suggestions are being generated
+ * @property applyingCategoryToMultiple Whether a bulk category application is in progress
+ */
 data class MainUiState(
     val isLoading: Boolean = false,
     val hasPermission: Boolean = false,
@@ -286,7 +304,7 @@ class MainViewModel @Inject constructor(
                 // Step 3: Show existing data immediately for fast startup
                 if (existingTransactions.isNotEmpty()) {
                     val categories = try {
-                        categoryManager.categorizeAll(existingTransactions)
+                        catManager.categorizeAll(existingTransactions)
                     } catch (e: Exception) {
                         val errorInfo = ErrorHandler.handleError(e, "Categorize existing transactions")
                         ErrorHandler.logWarning(
@@ -677,7 +695,7 @@ class MainViewModel @Inject constructor(
 
                 // Step 6: Categorize all transactions
                 val categories = try {
-                    categoryManager.categorizeAll(allTransactions)
+                    catManager.categorizeAll(allTransactions)
                 } catch (e: Exception) {
                     val errorInfo = ErrorHandler.handleError(e, "Categorize all transactions")
                     ErrorHandler.logWarning(
@@ -767,10 +785,12 @@ class MainViewModel @Inject constructor(
 
     /**
      * Updates a transaction's category and persists the override to database.
+     * Also records the categorization in the suggestion engine for pattern learning.
      *
      * Error Handling:
      * - Database write failures when saving category override
      * - Errors are logged and shown to user with clear messages
+     * - Suggestion engine unavailable (continues without recording patterns)
      */
     fun updateTransactionCategory(smsId: Long, category: Category) {
         viewModelScope.launch {
@@ -787,6 +807,21 @@ class MainViewModel @Inject constructor(
                         _categoryMap.value = _categoryMap.value.toMutableMap().apply {
                             put(smsId, category)
                         }
+
+                        // Record categorization for pattern learning
+                        val engine = suggestionEngine
+                        if (engine != null) {
+                            val transaction = _uiState.value.transactions.find { it.smsId == smsId }
+                            if (transaction != null) {
+                                engine.recordCategorization(transaction, category.id)
+                            }
+                        }
+
+                        // Clear suggestions for this transaction since it's now categorized
+                        val updatedSuggestions = _uiState.value.categorySuggestions.toMutableMap()
+                        updatedSuggestions.remove(smsId)
+                        _uiState.value = _uiState.value.copy(categorySuggestions = updatedSuggestions)
+
                         ErrorHandler.logInfo(
                             "Category updated for transaction $smsId to ${category.name}",
                             "updateTransactionCategory"

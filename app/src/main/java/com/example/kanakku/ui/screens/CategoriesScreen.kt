@@ -70,21 +70,34 @@ fun CategoriesScreen(
             }
         )
     } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Categories",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Categories",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    actions = {
+                        IconButton(onClick = onManageCategoriesClick) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Manage Categories"
+                            )
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 16.dp)
             ) {
                 // Show reset learned preferences card if mappings exist
                 if (merchantMappingCount > 0) {

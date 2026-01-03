@@ -12,7 +12,7 @@ import com.example.kanakku.data.sms.SmsDataSource
 import java.io.File
 
 /**
- * Singleton provider for database instance and repository.
+ * Singleton provider for database instance and repositories.
  *
  * @deprecated This singleton pattern is deprecated in favor of Hilt dependency injection.
  * Use Hilt to inject KanakkuDatabase and TransactionRepository instead.
