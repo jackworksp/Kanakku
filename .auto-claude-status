@@ -3,23 +3,23 @@
   "spec": "021-upi-transaction-detection-enhancement",
   "state": "building",
   "subtasks": {
-    "completed": 18,
+    "completed": 22,
     "total": 24,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Unit Testing",
+    "current": "Integration and QA",
     "id": null,
-    "total": 7
+    "total": 3
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 20,
-    "started_at": "2026-01-03T08:12:55.133052"
+    "number": 3,
+    "started_at": "2026-01-03T13:09:08.069003"
   },
-  "last_update": "2026-01-03T09:24:55.611838"
+  "last_update": "2026-01-03T13:19:33.920892"
 }
