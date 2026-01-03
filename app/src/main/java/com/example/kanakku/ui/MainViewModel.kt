@@ -1,22 +1,22 @@
 package com.example.kanakku.ui
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.kanakku.core.error.ErrorHandler
 import com.example.kanakku.core.error.toErrorInfo
 import com.example.kanakku.data.category.CategoryManager
-import com.example.kanakku.data.database.DatabaseProvider
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.SmsMessage
 import com.example.kanakku.data.repository.TransactionRepository
 import com.example.kanakku.data.sms.BankSmsParser
 import com.example.kanakku.data.sms.SmsReader
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class MainUiState(
     val isLoading: Boolean = false,
@@ -32,7 +32,13 @@ data class MainUiState(
     val lastSyncTimestamp: Long? = null
 )
 
-class MainViewModel : ViewModel() {
+@HiltViewModel
+class MainViewModel @Inject constructor(
+    private val repository: TransactionRepository,
+    private val parser: BankSmsParser,
+    private val categoryManager: CategoryManager,
+    private val smsReader: SmsReader
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -40,10 +46,21 @@ class MainViewModel : ViewModel() {
     private val _categoryMap = MutableStateFlow<Map<Long, Category>>(emptyMap())
     val categoryMap: StateFlow<Map<Long, Category>> = _categoryMap.asStateFlow()
 
-    private val parser = BankSmsParser()
-    private val categoryManager = CategoryManager()
-
-    private var repository: TransactionRepository? = null
+    init {
+        // Initialize CategoryManager to load category overrides from database
+        viewModelScope.launch {
+            try {
+                categoryManager.initialize()
+            } catch (e: Exception) {
+                val errorInfo = ErrorHandler.handleError(e, "Initialize CategoryManager")
+                ErrorHandler.logWarning(
+                    "Failed to initialize category manager: ${errorInfo.technicalMessage}",
+                    "MainViewModel.init"
+                )
+                // Continue without overrides - not critical
+            }
+        }
+    }
 
     fun updatePermissionStatus(hasPermission: Boolean) {
         _uiState.value = _uiState.value.copy(hasPermission = hasPermission)
@@ -60,35 +77,19 @@ class MainViewModel : ViewModel() {
      * 5. Update sync timestamp
      *
      * Error Handling:
-     * - Database initialization failures
      * - Permission denied when reading SMS
      * - Database read/write errors
      * - All errors provide user-friendly messages via ErrorHandler
+     *
+     * @param daysAgo Number of days to look back for initial SMS sync (default 30)
      */
-    fun loadSmsData(context: Context, daysAgo: Int = 30) {
+    fun loadSmsData(daysAgo: Int = 30) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
             try {
-                // Step 0: Initialize repository if not already done
-                if (repository == null) {
-                    try {
-                        repository = DatabaseProvider.getRepository(context)
-                        // Initialize CategoryManager with repository and load overrides
-                        categoryManager.initialize(repository!!)
-                    } catch (e: Exception) {
-                        val errorInfo = ErrorHandler.handleError(e, "Database initialization")
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            errorMessage = errorInfo.userMessage
-                        )
-                        return@launch
-                    }
-                }
-                val repo = repository!!
-
                 // Step 1: Load existing transactions from database (FAST)
-                val existingTransactions = repo.getAllTransactionsSnapshot()
+                val existingTransactions = repository.getAllTransactionsSnapshot()
                     .onFailure { throwable ->
                         val errorInfo = throwable.toErrorInfo()
                         ErrorHandler.logWarning(
@@ -100,7 +101,7 @@ class MainViewModel : ViewModel() {
                     .getOrElse { emptyList() }
 
                 // Step 2: Check last sync timestamp (before showing existing data)
-                val lastSyncTimestamp = repo.getLastSyncTimestamp()
+                val lastSyncTimestamp = repository.getLastSyncTimestamp()
                     .onFailure { throwable ->
                         val errorInfo = throwable.toErrorInfo()
                         ErrorHandler.logWarning(
@@ -134,7 +135,6 @@ class MainViewModel : ViewModel() {
                 }
 
                 // Step 3: Read only new SMS since last sync
-                val smsReader = SmsReader(context)
                 val newSms = if (lastSyncTimestamp != null) {
                     // Incremental sync: only read SMS newer than last sync
                     smsReader.readSmsSince(lastSyncTimestamp)
@@ -179,7 +179,7 @@ class MainViewModel : ViewModel() {
                 // Filter out transactions that already exist in database
                 val newTransactions = mutableListOf<ParsedTransaction>()
                 for (transaction in newParsed) {
-                    val exists = repo.transactionExists(transaction.smsId)
+                    val exists = repository.transactionExists(transaction.smsId)
                         .onFailure { throwable ->
                             val errorInfo = throwable.toErrorInfo()
                             ErrorHandler.logWarning(
@@ -208,7 +208,7 @@ class MainViewModel : ViewModel() {
 
                 // Step 5: Save new transactions to database
                 if (deduplicated.isNotEmpty()) {
-                    repo.saveTransactions(deduplicated)
+                    repository.saveTransactions(deduplicated)
                         .onFailure { throwable ->
                             val errorInfo = throwable.toErrorInfo()
                             _uiState.value = _uiState.value.copy(
@@ -221,7 +221,7 @@ class MainViewModel : ViewModel() {
 
                 // Step 6: Update sync timestamp
                 val currentTimestamp = System.currentTimeMillis()
-                repo.setLastSyncTimestamp(currentTimestamp)
+                repository.setLastSyncTimestamp(currentTimestamp)
                     .onFailure { throwable ->
                         val errorInfo = throwable.toErrorInfo()
                         ErrorHandler.logWarning(
@@ -232,7 +232,7 @@ class MainViewModel : ViewModel() {
                     }
 
                 // Step 7: Load final state from database (includes both old and new)
-                val allTransactions = repo.getAllTransactionsSnapshot()
+                val allTransactions = repository.getAllTransactionsSnapshot()
                     .onFailure { throwable ->
                         val errorInfo = throwable.toErrorInfo()
                         _uiState.value = _uiState.value.copy(
