@@ -128,6 +128,12 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
                             onSuccess = onSuccess
                         )
                     },
+                    onDeleteTransaction = { transactionId, onSuccess ->
+                        viewModel.deleteTransaction(
+                            transactionId = transactionId,
+                            onSuccess = onSuccess
+                        )
+                    },
                     modifier = Modifier.padding(innerPadding)
                 )
             }

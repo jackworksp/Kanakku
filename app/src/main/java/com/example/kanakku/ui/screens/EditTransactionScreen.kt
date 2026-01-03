@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,7 +47,8 @@ fun EditTransactionScreen(
     transaction: ParsedTransaction?,
     initialCategory: Category?,
     onNavigateBack: () -> Unit,
-    onSave: (amount: Double, type: TransactionType, category: Category, merchant: String, date: Long, notes: String) -> Unit
+    onSave: (amount: Double, type: TransactionType, category: Category, merchant: String, date: Long, notes: String) -> Unit,
+    onDelete: () -> Unit
 ) {
     // Initialize form state with transaction data
     var formState by remember(transaction) {
@@ -68,6 +70,7 @@ fun EditTransactionScreen(
 
     var showCategoryPicker by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
 
     // Show loading or error if transaction is null
     if (transaction == null) {
@@ -110,6 +113,15 @@ fun EditTransactionScreen(
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Back"
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showDeleteConfirmation = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.error
                         )
                     }
                 }
@@ -398,6 +410,35 @@ fun EditTransactionScreen(
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+
+    // Delete Confirmation Dialog
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete Transaction") },
+            text = { Text("Are you sure you want to delete this transaction? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteConfirmation = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

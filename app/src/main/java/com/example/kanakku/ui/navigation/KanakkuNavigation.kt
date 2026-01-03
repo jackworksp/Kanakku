@@ -32,6 +32,7 @@ fun KanakkuNavHost(
     onCategoryChange: (Long, Category) -> Unit,
     onSaveManualTransaction: (Double, TransactionType, Category, String, Long, String, () -> Unit) -> Unit,
     onUpdateManualTransaction: (Long, Double, TransactionType, Category, String, Long, String, () -> Unit) -> Unit,
+    onDeleteTransaction: (Long, () -> Unit) -> Unit,
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController()
 ) {
@@ -103,6 +104,11 @@ fun KanakkuNavHost(
                     },
                     onSave = { amount, type, category, merchant, date, notes ->
                         onUpdateManualTransaction(transactionId, amount, type, category, merchant, date, notes) {
+                            navController.navigateUp()
+                        }
+                    },
+                    onDelete = {
+                        onDeleteTransaction(transactionId) {
                             navController.navigateUp()
                         }
                     }
