@@ -3,7 +3,7 @@
   "spec": "017-savings-goals-and-targets",
   "state": "building",
   "subtasks": {
-    "completed": 1,
+    "completed": 2,
     "total": 27,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 3,
+    "number": 4,
     "started_at": "2026-01-03T08:13:32.251077"
   },
-  "last_update": "2026-01-03T08:21:14.693461"
+  "last_update": "2026-01-03T08:23:29.008597"
 }
