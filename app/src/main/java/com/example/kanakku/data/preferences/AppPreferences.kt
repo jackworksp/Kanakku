@@ -61,6 +61,7 @@ class AppPreferences private constructor(context: Context) {
         private const val KEY_SHOW_OFFLINE_BADGE = "show_offline_badge"
         private const val KEY_AUTO_CATEGORIZE = "auto_categorize"
         private const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
+        private const val KEY_DEFAULT_ANALYTICS_PERIOD = "default_analytics_period"
         private const val KEY_LAST_APP_VERSION = "last_app_version"
 
         @Volatile
@@ -318,6 +319,25 @@ class AppPreferences private constructor(context: Context) {
     fun setNotificationsEnabled(enabled: Boolean) {
         sharedPreferences.edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, enabled).apply()
         Log.d(TAG, "Notifications enabled set to: $enabled")
+    }
+
+    /**
+     * Gets the default analytics period selection.
+     *
+     * @return Default time period (DAY, WEEK, MONTH, or YEAR) (default: MONTH)
+     */
+    fun getDefaultAnalyticsPeriod(): String {
+        return sharedPreferences.getString(KEY_DEFAULT_ANALYTICS_PERIOD, "MONTH") ?: "MONTH"
+    }
+
+    /**
+     * Sets the default analytics period selection.
+     *
+     * @param period Default time period (DAY, WEEK, MONTH, or YEAR)
+     */
+    fun setDefaultAnalyticsPeriod(period: String) {
+        sharedPreferences.edit().putString(KEY_DEFAULT_ANALYTICS_PERIOD, period).apply()
+        Log.d(TAG, "Default analytics period set to: $period")
     }
 
     // ============================================
