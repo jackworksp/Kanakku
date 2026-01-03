@@ -7,16 +7,23 @@ import com.example.kanakku.core.error.ErrorHandler
 import com.example.kanakku.core.error.toErrorInfo
 import com.example.kanakku.data.category.CategoryManager
 import com.example.kanakku.data.database.DatabaseProvider
+import com.example.kanakku.data.model.Budget
+import com.example.kanakku.data.model.BudgetProgress
+import com.example.kanakku.data.model.BudgetSummary
 import com.example.kanakku.data.model.Category
+import com.example.kanakku.data.model.CategoryBudgetProgress
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.SmsMessage
+import com.example.kanakku.data.repository.BudgetRepository
 import com.example.kanakku.data.repository.TransactionRepository
 import com.example.kanakku.data.sms.BankSmsParser
 import com.example.kanakku.data.sms.SmsReader
+import com.example.kanakku.domain.budget.BudgetCalculator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.*
 
 data class MainUiState(
     val isLoading: Boolean = false,
@@ -29,7 +36,9 @@ data class MainUiState(
     val errorMessage: String? = null,
     val isLoadedFromDatabase: Boolean = false,
     val newTransactionsSynced: Int = 0,
-    val lastSyncTimestamp: Long? = null
+    val lastSyncTimestamp: Long? = null,
+    val budgetSummary: BudgetSummary? = null,
+    val isBudgetLoading: Boolean = false
 )
 
 class MainViewModel : ViewModel() {
@@ -42,8 +51,10 @@ class MainViewModel : ViewModel() {
 
     private val parser = BankSmsParser()
     private val categoryManager = CategoryManager()
+    private val budgetCalculator = BudgetCalculator()
 
     private var repository: TransactionRepository? = null
+    private var budgetRepository: BudgetRepository? = null
 
     fun updatePermissionStatus(hasPermission: Boolean) {
         _uiState.value = _uiState.value.copy(hasPermission = hasPermission)
@@ -70,10 +81,11 @@ class MainViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
             try {
-                // Step 0: Initialize repository if not already done
+                // Step 0: Initialize repositories if not already done
                 if (repository == null) {
                     try {
                         repository = DatabaseProvider.getRepository(context)
+                        budgetRepository = DatabaseProvider.getBudgetRepository(context)
                         // Initialize CategoryManager with repository and load overrides
                         categoryManager.initialize(repository!!)
                     } catch (e: Exception) {
@@ -278,6 +290,10 @@ class MainViewModel : ViewModel() {
                     "Successfully loaded ${allTransactions.size} transactions (${deduplicated.size} new)",
                     "loadSmsData"
                 )
+
+                // Step 8: Load budget summary for current month
+                loadBudgetSummary(context)
+
             } catch (e: Exception) {
                 // Catch-all for unexpected errors
                 val errorInfo = ErrorHandler.handleError(e, "loadSmsData")
@@ -322,6 +338,144 @@ class MainViewModel : ViewModel() {
                 val errorInfo = ErrorHandler.handleError(e, "updateTransactionCategory")
                 _uiState.value = _uiState.value.copy(
                     errorMessage = errorInfo.userMessage
+                )
+            }
+        }
+    }
+
+    /**
+     * Loads budget summary for the current month.
+     *
+     * This function:
+     * 1. Gets the current month and year
+     * 2. Loads all budgets for the current month from database
+     * 3. Gets current month transactions
+     * 4. Calculates spending by category using BudgetCalculator
+     * 5. Calculates budget progress for overall and category budgets
+     * 6. Creates BudgetSummary and updates UI state
+     *
+     * Error Handling:
+     * - Database read failures when loading budgets
+     * - Errors are logged but don't block the UI
+     * - Falls back to null budget summary on error
+     */
+    fun loadBudgetSummary(context: Context) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isBudgetLoading = true)
+
+            try {
+                // Initialize budget repository if needed
+                if (budgetRepository == null) {
+                    try {
+                        budgetRepository = DatabaseProvider.getBudgetRepository(context)
+                    } catch (e: Exception) {
+                        val errorInfo = ErrorHandler.handleError(e, "Budget repository initialization")
+                        ErrorHandler.logWarning(
+                            "Failed to initialize budget repository: ${errorInfo.technicalMessage}",
+                            "loadBudgetSummary"
+                        )
+                        _uiState.value = _uiState.value.copy(
+                            isBudgetLoading = false,
+                            budgetSummary = null
+                        )
+                        return@launch
+                    }
+                }
+                val budgetRepo = budgetRepository!!
+
+                // Get current month and year
+                val calendar = Calendar.getInstance()
+                val currentMonth = calendar.get(Calendar.MONTH) + 1  // Calendar.MONTH is 0-indexed
+                val currentYear = calendar.get(Calendar.YEAR)
+
+                // Load all budgets for current month
+                val budgets = budgetRepo.getBudgetsForMonth(currentMonth, currentYear)
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        ErrorHandler.logWarning(
+                            "Failed to load budgets: ${errorInfo.technicalMessage}",
+                            "loadBudgetSummary"
+                        )
+                    }
+                    .getOrElse { emptyList() }
+
+                // Get current month transactions
+                val allTransactions = _uiState.value.transactions
+                val currentMonthTransactions = budgetCalculator.filterTransactionsByMonth(
+                    allTransactions,
+                    currentMonth,
+                    currentYear
+                )
+
+                // Calculate spending by category
+                val spentByCategory = budgetCalculator.getSpentByCategory(
+                    currentMonthTransactions,
+                    _categoryMap.value
+                )
+
+                // Calculate total spent
+                val totalSpent = budgetCalculator.getTotalSpent(currentMonthTransactions)
+
+                // Find overall budget (categoryId = null)
+                val overallBudget = budgets.find { it.categoryId == null }
+
+                // Calculate overall budget progress
+                val overallProgress = if (overallBudget != null) {
+                    budgetCalculator.calculateBudgetProgress(overallBudget, totalSpent)
+                } else {
+                    null
+                }
+
+                // Calculate category budget progresses
+                val categoryBudgets = budgets.filter { it.categoryId != null }
+                val categoryProgresses = categoryBudgets.mapNotNull { budget ->
+                    val categoryId = budget.categoryId ?: return@mapNotNull null
+                    val category = _categoryMap.value.values.find { it.id == categoryId }
+                        ?: return@mapNotNull null
+                    val spent = spentByCategory[categoryId] ?: 0.0
+                    val progress = budgetCalculator.calculateBudgetProgress(budget, spent)
+
+                    CategoryBudgetProgress(
+                        category = category,
+                        budget = budget,
+                        progress = progress
+                    )
+                }
+
+                // Calculate total budget (overall budget if set, otherwise sum of category budgets)
+                val totalBudget = overallBudget?.amount
+                    ?: categoryBudgets.sumOf { it.amount }
+
+                // Create budget summary
+                val budgetSummary = BudgetSummary(
+                    month = currentMonth,
+                    year = currentYear,
+                    overallProgress = overallProgress,
+                    categoryProgresses = categoryProgresses,
+                    totalSpent = totalSpent,
+                    totalBudget = totalBudget
+                )
+
+                _uiState.value = _uiState.value.copy(
+                    isBudgetLoading = false,
+                    budgetSummary = budgetSummary
+                )
+
+                ErrorHandler.logInfo(
+                    "Budget summary loaded: ${budgets.size} budgets, total spent: $totalSpent",
+                    "loadBudgetSummary"
+                )
+
+            } catch (e: Exception) {
+                // Catch-all for unexpected errors
+                val errorInfo = ErrorHandler.handleError(e, "loadBudgetSummary")
+                ErrorHandler.logWarning(
+                    "Failed to load budget summary: ${errorInfo.technicalMessage}",
+                    "loadBudgetSummary"
+                )
+                _uiState.value = _uiState.value.copy(
+                    isBudgetLoading = false,
+                    budgetSummary = null
                 )
             }
         }
