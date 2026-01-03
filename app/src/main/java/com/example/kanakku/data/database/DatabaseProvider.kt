@@ -8,6 +8,7 @@ import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.kanakku.data.repository.TransactionRepository
+import com.example.kanakku.data.sms.SmsDataSource
 import java.io.File
 
 /**
@@ -79,6 +80,9 @@ object DatabaseProvider {
     private var database: KanakkuDatabase? = null
 
     @Volatile
+    private var smsDataSource: SmsDataSource? = null
+
+    @Volatile
     private var repository: TransactionRepository? = null
 
     /**
@@ -132,7 +136,7 @@ object DatabaseProvider {
 
     /**
      * Gets the singleton repository instance.
-     * Creates both database and repository on first access.
+     * Creates database, SMS data source, and repository on first access.
      *
      * @deprecated Use Hilt to inject TransactionRepository instead.
      * See [RepositoryModule.provideTransactionRepository] for the recommended approach.
@@ -149,9 +153,38 @@ object DatabaseProvider {
     )
     fun getRepository(context: Context): TransactionRepository {
         return repository ?: synchronized(this) {
-            repository ?: TransactionRepository(getDatabase(context)).also {
+            repository ?: createRepository(context.applicationContext).also {
                 repository = it
                 Log.i(TAG, "Repository initialized successfully")
+            }
+        }
+    }
+
+    /**
+     * Creates a new repository instance with all required dependencies.
+     * This factory method ensures proper dependency injection and initialization.
+     *
+     * @param context Application context
+     * @return TransactionRepository with database and SMS data source dependencies
+     */
+    private fun createRepository(context: Context): TransactionRepository {
+        val db = getDatabase(context)
+        val smsSource = getSmsDataSource(context)
+        return TransactionRepository(db, smsSource)
+    }
+
+    /**
+     * Gets the singleton SMS data source instance.
+     * Creates the data source on first access using the provided context.
+     *
+     * @param context Application context
+     * @return The SmsDataSource instance
+     */
+    private fun getSmsDataSource(context: Context): SmsDataSource {
+        return smsDataSource ?: synchronized(this) {
+            smsDataSource ?: SmsDataSource(context).also {
+                smsDataSource = it
+                Log.i(TAG, "SmsDataSource initialized successfully")
             }
         }
     }
@@ -398,7 +431,22 @@ object DatabaseProvider {
             Log.e(TAG, "Error closing database during reset: ${e.message}", e)
         }
         database = null
+        smsDataSource = null
         repository = null
+    }
+
+    /**
+     * Sets a test repository instance for testing purposes.
+     * This allows tests to inject their own repository with test databases.
+     *
+     * WARNING: This should only be used in tests.
+     *
+     * @param testRepository The test repository instance to use
+     */
+    @Synchronized
+    fun setTestRepository(testRepository: TransactionRepository) {
+        repository = testRepository
+        Log.d(TAG, "Test repository injected")
     }
 }
 

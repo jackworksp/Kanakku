@@ -26,7 +26,6 @@ data class MainUiState(
     val bankSmsCount: Int = 0,
     val duplicatesRemoved: Int = 0,
     val transactions: List<ParsedTransaction> = emptyList(),
-    val rawBankSms: List<SmsMessage> = emptyList(),
     val errorMessage: String? = null,
     val isLoadedFromDatabase: Boolean = false,
     val newTransactionsSynced: Int = 0,
@@ -72,15 +71,14 @@ class MainViewModel @Inject constructor(
      * Loads transaction data with database-first approach for fast startup.
      *
      * Flow:
-     * 1. Load existing transactions from database immediately (fast)
-     * 2. Check last sync timestamp
-     * 3. Only parse SMS newer than last sync
-     * 4. Save new transactions to database
-     * 5. Update sync timestamp
+     * 1. Initialize repository and CategoryManager
+     * 2. Load existing transactions from database immediately (fast startup)
+     * 3. Sync new transactions from SMS using repository
+     * 4. Load final state and categorize transactions
      *
      * Error Handling:
      * - Permission denied when reading SMS
-     * - Database read/write errors
+     * - SMS sync errors
      * - All errors provide user-friendly messages via ErrorHandler
      *
      * @param daysAgo Number of days to look back for initial SMS sync (default 30)
@@ -90,7 +88,7 @@ class MainViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
             try {
-                // Step 0: Initialize repository if not already done
+                // Step 1: Initialize repository if not already done
                 if (repository == null) {
                     try {
                         repository = DatabaseProvider.getRepository(context)
@@ -138,12 +136,12 @@ class MainViewModel @Inject constructor(
                             "Failed to get last sync timestamp: ${errorInfo.technicalMessage}",
                             "loadSmsData"
                         )
-                        // Continue with null - will do full sync
+                        // Continue with null
                     }
                     .getOrNull()
 
+                // Step 3: Show existing data immediately for fast startup
                 if (existingTransactions.isNotEmpty()) {
-                    // Show existing data immediately for fast startup
                     val categories = try {
                         categoryManager.categorizeAll(existingTransactions)
                     } catch (e: Exception) {
@@ -261,11 +259,19 @@ class MainViewModel @Inject constructor(
                     .onFailure { throwable ->
                         val errorInfo = throwable.toErrorInfo()
                         ErrorHandler.logWarning(
-                            "Failed to update sync timestamp: ${errorInfo.technicalMessage}",
+                            "Failed to sync transactions from SMS: ${errorInfo.technicalMessage}",
                             "loadSmsData"
                         )
-                        // Continue - not critical
+                        // If sync fails but we have existing data, show that
+                        if (existingTransactions.isEmpty()) {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                errorMessage = "Failed to sync transactions: ${errorInfo.userMessage}"
+                            )
+                            return@launch
+                        }
                     }
+                    .getOrNull()
 
                 // Step 7: Load final state from database (includes both old and new)
                 val allTransactions = repository.getAllTransactionsSnapshot()
@@ -279,6 +285,7 @@ class MainViewModel @Inject constructor(
                     }
                     .getOrElse { emptyList() }
 
+                // Step 6: Categorize all transactions
                 val categories = try {
                     categoryManager.categorizeAll(allTransactions)
                 } catch (e: Exception) {
@@ -291,11 +298,36 @@ class MainViewModel @Inject constructor(
                 }
                 _categoryMap.value = categories
 
-                // Calculate stats
-                val totalSmsCount = if (lastSyncTimestamp != null) {
-                    existingTransactions.size + newSms.size
+                // Step 7: Update UI state with sync results
+                if (syncResult != null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        totalSmsCount = syncResult.totalSmsRead,
+                        bankSmsCount = syncResult.bankSmsFound,
+                        duplicatesRemoved = syncResult.duplicatesRemoved,
+                        transactions = allTransactions,
+                        isLoadedFromDatabase = true,
+                        newTransactionsSynced = syncResult.newTransactionsSaved,
+                        lastSyncTimestamp = syncResult.syncTimestamp
+                    )
+
+                    ErrorHandler.logInfo(
+                        "Successfully loaded ${allTransactions.size} transactions (${syncResult.newTransactionsSaved} new)",
+                        "loadSmsData"
+                    )
                 } else {
-                    newSms.size
+                    // Sync failed, but we have existing data - update UI with what we have
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        transactions = allTransactions,
+                        isLoadedFromDatabase = true,
+                        lastSyncTimestamp = lastSyncTimestamp
+                    )
+
+                    ErrorHandler.logInfo(
+                        "Loaded ${allTransactions.size} existing transactions (sync skipped due to error)",
+                        "loadSmsData"
+                    )
                 }
 
                 _uiState.value = _uiState.value.copy(

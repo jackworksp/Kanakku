@@ -10,6 +10,7 @@ import com.example.kanakku.data.database.toEntity
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.TransactionFilter
 import com.example.kanakku.data.model.TransactionType
+import com.example.kanakku.data.sms.SmsDataSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -28,6 +29,7 @@ import kotlinx.coroutines.sync.withLock
  * - Manage category overrides
  * - Manage merchant-to-category mappings for automatic categorization
  * - Track sync metadata for incremental updates
+ * - Sync transactions from SMS messages
  * - Provide reactive data streams via Flow
  * - Handle all database errors gracefully with comprehensive error handling
  * - Provide in-memory caching for frequently accessed data to improve performance
@@ -47,8 +49,12 @@ import kotlinx.coroutines.sync.withLock
  * - Improves performance for common operations like getAllTransactions()
  *
  * @param database The Room database instance
+ * @param smsDataSource Data source for reading and parsing SMS messages
  */
-class TransactionRepository(private val database: KanakkuDatabase) {
+class TransactionRepository(
+    private val database: KanakkuDatabase,
+    private val smsDataSource: SmsDataSource
+) : ITransactionRepository {
 
     // DAOs for database access
     private val transactionDao = database.transactionDao()
@@ -120,7 +126,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param transaction The parsed transaction to save
      * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun saveTransaction(transaction: ParsedTransaction): Result<Unit> {
+    override suspend fun saveTransaction(transaction: ParsedTransaction): Result<Unit> {
         return ErrorHandler.runSuspendCatching("Save transaction") {
             transactionDao.insert(transaction.toEntity())
             invalidateCache()
@@ -135,7 +141,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param transactions List of parsed transactions to save
      * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun saveTransactions(transactions: List<ParsedTransaction>): Result<Unit> {
+    override suspend fun saveTransactions(transactions: List<ParsedTransaction>): Result<Unit> {
         return ErrorHandler.runSuspendCatching("Save transactions") {
             transactionDao.insertAll(transactions.map { it.toEntity() })
             invalidateCache()
@@ -149,7 +155,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Flow emitting list of parsed transactions, sorted by date (newest first)
      */
-    fun getAllTransactions(): Flow<List<ParsedTransaction>> {
+    override fun getAllTransactions(): Flow<List<ParsedTransaction>> {
         return transactionDao.getAllTransactions()
             .map { entities -> entities.map { it.toDomain() } }
             .catch { throwable ->
@@ -165,7 +171,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<List<ParsedTransaction>> containing transactions or error information
      */
-    suspend fun getAllTransactionsSnapshot(): Result<List<ParsedTransaction>> {
+    override suspend fun getAllTransactionsSnapshot(): Result<List<ParsedTransaction>> {
         return ErrorHandler.runSuspendCatching("Get all transactions snapshot") {
             // Check cache first
             val cached = cacheMutex.withLock { transactionsCache }
@@ -193,7 +199,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param type The transaction type to filter by (DEBIT/CREDIT/UNKNOWN)
      * @return Flow emitting list of transactions matching the type
      */
-    fun getTransactionsByType(type: TransactionType): Flow<List<ParsedTransaction>> {
+    override fun getTransactionsByType(type: TransactionType): Flow<List<ParsedTransaction>> {
         return transactionDao.getTransactionsByType(type)
             .map { entities -> entities.map { it.toDomain() } }
             .catch { throwable ->
@@ -210,7 +216,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param endDate End timestamp (inclusive)
      * @return Flow emitting list of transactions within the date range
      */
-    fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<ParsedTransaction>> {
+    override fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<ParsedTransaction>> {
         return transactionDao.getTransactionsByDateRange(startDate, endDate)
             .map { entities -> entities.map { it.toDomain() } }
             .catch { throwable ->
@@ -226,7 +232,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param timestamp The timestamp to query after
      * @return Result<List<ParsedTransaction>> containing transactions or error information
      */
-    suspend fun getTransactionsAfter(timestamp: Long): Result<List<ParsedTransaction>> {
+    override suspend fun getTransactionsAfter(timestamp: Long): Result<List<ParsedTransaction>> {
         return ErrorHandler.runSuspendCatching("Get transactions after timestamp") {
             transactionDao.getTransactionsAfter(timestamp)
                 .map { it.toDomain() }
@@ -239,7 +245,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param smsId The SMS ID to check
      * @return Result<Boolean> indicating if transaction exists or error information
      */
-    suspend fun transactionExists(smsId: Long): Result<Boolean> {
+    override suspend fun transactionExists(smsId: Long): Result<Boolean> {
         return ErrorHandler.runSuspendCatching("Check transaction exists") {
             transactionDao.exists(smsId)
         }
@@ -252,7 +258,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param smsId The SMS ID of the transaction to delete
      * @return Result<Boolean> indicating if transaction was deleted or error information
      */
-    suspend fun deleteTransaction(smsId: Long): Result<Boolean> {
+    override suspend fun deleteTransaction(smsId: Long): Result<Boolean> {
         return ErrorHandler.runSuspendCatching("Delete transaction") {
             val deleted = transactionDao.deleteById(smsId) > 0
             if (deleted) {
@@ -269,7 +275,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Int> containing number of transactions deleted or error information
      */
-    suspend fun deleteAllTransactions(): Result<Int> {
+    override suspend fun deleteAllTransactions(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Delete all transactions") {
             val deletedCount = transactionDao.deleteAll()
             if (deletedCount > 0) {
@@ -285,7 +291,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Int> containing total number of transactions or error information
      */
-    suspend fun getTransactionCount(): Result<Int> {
+    override suspend fun getTransactionCount(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Get transaction count") {
             // Check cache first
             val cached = cacheMutex.withLock { transactionCountCache }
@@ -312,7 +318,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Long?> containing timestamp of most recent transaction or error information
      */
-    suspend fun getLatestTransactionDate(): Result<Long?> {
+    override suspend fun getLatestTransactionDate(): Result<Long?> {
         return ErrorHandler.runSuspendCatching("Get latest transaction date") {
             // Check cache first
             val cached = cacheMutex.withLock { latestTransactionDateCache }
@@ -376,7 +382,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param categoryId The category ID to override with
      * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun setCategoryOverride(smsId: Long, categoryId: String): Result<Unit> {
+    override suspend fun setCategoryOverride(smsId: Long, categoryId: String): Result<Unit> {
         return ErrorHandler.runSuspendCatching("Set category override") {
             categoryOverrideDao.insert(CategoryOverrideEntity(smsId, categoryId))
         }
@@ -388,7 +394,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param smsId The SMS ID of the transaction
      * @return Result<String?> containing category ID override or error information
      */
-    suspend fun getCategoryOverride(smsId: Long): Result<String?> {
+    override suspend fun getCategoryOverride(smsId: Long): Result<String?> {
         return ErrorHandler.runSuspendCatching("Get category override") {
             categoryOverrideDao.getOverride(smsId)?.categoryId
         }
@@ -399,7 +405,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Map<Long, String>> containing map of SMS ID to category ID or error information
      */
-    suspend fun getAllCategoryOverrides(): Result<Map<Long, String>> {
+    override suspend fun getAllCategoryOverrides(): Result<Map<Long, String>> {
         return ErrorHandler.runSuspendCatching("Get all category overrides") {
             categoryOverrideDao.getAllOverridesSnapshot()
                 .associate { it.smsId to it.categoryId }
@@ -412,7 +418,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Flow emitting Map of SMS ID to category ID
      */
-    fun getAllCategoryOverridesFlow(): Flow<Map<Long, String>> {
+    override fun getAllCategoryOverridesFlow(): Flow<Map<Long, String>> {
         return categoryOverrideDao.getAllOverrides()
             .map { overrides -> overrides.associate { it.smsId to it.categoryId } }
             .catch { throwable ->
@@ -427,7 +433,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param smsId The SMS ID of the transaction
      * @return Result<Boolean> indicating if override was removed or error information
      */
-    suspend fun removeCategoryOverride(smsId: Long): Result<Boolean> {
+    override suspend fun removeCategoryOverride(smsId: Long): Result<Boolean> {
         return ErrorHandler.runSuspendCatching("Remove category override") {
             categoryOverrideDao.deleteOverride(smsId) > 0
         }
@@ -438,9 +444,297 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Int> containing number of overrides removed or error information
      */
-    suspend fun removeAllCategoryOverrides(): Result<Int> {
+    override suspend fun removeAllCategoryOverrides(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Remove all category overrides") {
             categoryOverrideDao.deleteAll()
+        }
+    }
+
+    // ==================== SMS Sync Operations ====================
+
+    /**
+     * Syncs transactions from SMS messages.
+     *
+     * This method orchestrates the complete SMS sync workflow:
+     * 1. Check last sync timestamp to determine if incremental or full sync
+     * 2. Read SMS messages from device (incremental or full based on last sync)
+     * 3. Filter to bank transaction SMS
+     * 4. Parse SMS into structured transactions
+     * 5. Deduplicate and filter out existing transactions
+     * 6. Save new transactions to database
+     * 7. Update sync metadata timestamp
+     *
+     * The method performs incremental sync automatically if last sync timestamp exists,
+     * otherwise performs a full sync for the specified number of days.
+     *
+     * @param daysAgo Number of days to look back for full sync (default: 30)
+     * @return Result<SyncResult> containing sync statistics or error information
+     */
+    override suspend fun syncFromSms(daysAgo: Int): Result<SyncResult> {
+        return ErrorHandler.runSuspendCatching("Sync transactions from SMS") {
+            ErrorHandler.logDebug("Starting SMS sync operation", "TransactionRepository")
+
+            // Step 1: Check last sync timestamp to determine sync strategy
+            val lastSyncTimestamp = getLastSyncTimestamp().getOrNull()
+            val isIncremental = lastSyncTimestamp != null
+
+            ErrorHandler.logDebug(
+                "Sync strategy: ${if (isIncremental) "incremental (since $lastSyncTimestamp)" else "full ($daysAgo days)"}",
+                "TransactionRepository"
+            )
+
+            // Step 2: Read SMS messages (incremental or full)
+            val smsMessages = if (isIncremental) {
+                smsDataSource.readSmsSince(lastSyncTimestamp!!)
+                    .onFailure { throwable ->
+                        ErrorHandler.logWarning(
+                            "Failed to read SMS messages: ${throwable.message}",
+                            "syncFromSms"
+                        )
+                    }
+                    .getOrElse { emptyList() }
+            } else {
+                smsDataSource.readAllSms(daysAgo)
+                    .onFailure { throwable ->
+                        ErrorHandler.logWarning(
+                            "Failed to read SMS messages: ${throwable.message}",
+                            "syncFromSms"
+                        )
+                    }
+                    .getOrElse { emptyList() }
+            }
+
+            val totalSmsRead = smsMessages.size
+            ErrorHandler.logDebug("Read $totalSmsRead SMS messages", "TransactionRepository")
+
+            // Step 3: Parse and deduplicate transactions from SMS
+            val parsedTransactions = smsDataSource.parseAndDeduplicate(smsMessages)
+                .onFailure { throwable ->
+                    ErrorHandler.logWarning(
+                        "Failed to parse SMS messages: ${throwable.message}",
+                        "syncFromSms"
+                    )
+                }
+                .getOrElse { emptyList() }
+
+            val bankSmsFound = parsedTransactions.size +
+                (totalSmsRead - parsedTransactions.size) // Approximation
+            ErrorHandler.logDebug("Parsed ${parsedTransactions.size} transactions", "TransactionRepository")
+
+            // Step 4: Filter out transactions that already exist in database
+            val newTransactions = mutableListOf<ParsedTransaction>()
+            for (transaction in parsedTransactions) {
+                val exists = transactionExists(transaction.smsId)
+                    .onFailure { throwable ->
+                        ErrorHandler.logWarning(
+                            "Failed to check transaction existence: ${throwable.message}",
+                            "syncFromSms"
+                        )
+                    }
+                    .getOrElse { false }
+
+                if (!exists) {
+                    newTransactions.add(transaction)
+                }
+            }
+
+            val duplicatesRemoved = parsedTransactions.size - newTransactions.size
+            ErrorHandler.logDebug(
+                "Filtered ${newTransactions.size} new transactions ($duplicatesRemoved duplicates removed)",
+                "TransactionRepository"
+            )
+
+            // Step 5: Save new transactions to database
+            var newTransactionsSaved = 0
+            if (newTransactions.isNotEmpty()) {
+                saveTransactions(newTransactions)
+                    .onSuccess {
+                        newTransactionsSaved = newTransactions.size
+                        ErrorHandler.logDebug(
+                            "Saved $newTransactionsSaved new transactions to database",
+                            "TransactionRepository"
+                        )
+                    }
+                    .onFailure { throwable ->
+                        ErrorHandler.logWarning(
+                            "Failed to save transactions: ${throwable.message}",
+                            "syncFromSms"
+                        )
+                        // Partial failure - continue with metadata update
+                    }
+            }
+
+            // Step 6: Update sync timestamp
+            val syncTimestamp = System.currentTimeMillis()
+            setLastSyncTimestamp(syncTimestamp)
+                .onFailure { throwable ->
+                    ErrorHandler.logWarning(
+                        "Failed to update sync timestamp: ${throwable.message}",
+                        "syncFromSms"
+                    )
+                    // Continue - not critical
+                }
+
+            // Step 7: Return sync result
+            val result = SyncResult(
+                totalSmsRead = totalSmsRead,
+                bankSmsFound = bankSmsFound,
+                newTransactionsSaved = newTransactionsSaved,
+                duplicatesRemoved = duplicatesRemoved,
+                syncTimestamp = syncTimestamp,
+                isIncremental = isIncremental
+            )
+
+            ErrorHandler.logInfo(
+                "SMS sync completed: $newTransactionsSaved new transactions (${if (isIncremental) "incremental" else "full"})",
+                "TransactionRepository"
+            )
+
+            result
+        }
+    }
+
+    /**
+     * Performs an incremental SMS sync since the last sync timestamp.
+     *
+     * This is an optimized version of syncFromSms() that only processes new SMS
+     * messages since the last successful sync. If no previous sync exists, it falls
+     * back to a full sync.
+     *
+     * @param daysAgoFallback Number of days to look back if no last sync exists (default: 30)
+     * @return Result<SyncResult> containing sync statistics or error information
+     */
+    override suspend fun syncFromSmsIncremental(daysAgoFallback: Int): Result<SyncResult> {
+        return ErrorHandler.runSuspendCatching("Incremental SMS sync") {
+            ErrorHandler.logDebug("Starting incremental SMS sync", "TransactionRepository")
+
+            // Step 1: Check last sync timestamp
+            val lastSyncTimestamp = getLastSyncTimestamp().getOrNull()
+
+            if (lastSyncTimestamp == null) {
+                // No previous sync - fall back to full sync
+                ErrorHandler.logDebug(
+                    "No previous sync found, falling back to full sync",
+                    "TransactionRepository"
+                )
+                return@runSuspendCatching syncFromSms(daysAgoFallback).getOrThrow()
+            }
+
+            ErrorHandler.logDebug(
+                "Performing incremental sync since $lastSyncTimestamp",
+                "TransactionRepository"
+            )
+
+            // Step 2: Read only new SMS since last sync
+            val smsMessages = smsDataSource.readSmsSince(lastSyncTimestamp)
+                .onFailure { throwable ->
+                    ErrorHandler.logWarning(
+                        "Failed to read SMS messages since timestamp: ${throwable.message}",
+                        "syncFromSmsIncremental"
+                    )
+                }
+                .getOrElse { emptyList() }
+
+            val totalSmsRead = smsMessages.size
+            ErrorHandler.logDebug("Read $totalSmsRead new SMS messages", "TransactionRepository")
+
+            // If no new SMS, return early with empty result
+            if (smsMessages.isEmpty()) {
+                ErrorHandler.logDebug("No new SMS messages to sync", "TransactionRepository")
+                return@runSuspendCatching SyncResult(
+                    totalSmsRead = 0,
+                    bankSmsFound = 0,
+                    newTransactionsSaved = 0,
+                    duplicatesRemoved = 0,
+                    syncTimestamp = System.currentTimeMillis(),
+                    isIncremental = true
+                )
+            }
+
+            // Step 3: Parse and deduplicate transactions from new SMS
+            val parsedTransactions = smsDataSource.parseAndDeduplicate(smsMessages)
+                .onFailure { throwable ->
+                    ErrorHandler.logWarning(
+                        "Failed to parse SMS messages: ${throwable.message}",
+                        "syncFromSmsIncremental"
+                    )
+                }
+                .getOrElse { emptyList() }
+
+            val bankSmsFound = parsedTransactions.size +
+                (totalSmsRead - parsedTransactions.size) // Approximation
+            ErrorHandler.logDebug("Parsed ${parsedTransactions.size} transactions", "TransactionRepository")
+
+            // Step 4: Filter out transactions that already exist in database
+            val newTransactions = mutableListOf<ParsedTransaction>()
+            for (transaction in parsedTransactions) {
+                val exists = transactionExists(transaction.smsId)
+                    .onFailure { throwable ->
+                        ErrorHandler.logWarning(
+                            "Failed to check transaction existence: ${throwable.message}",
+                            "syncFromSmsIncremental"
+                        )
+                    }
+                    .getOrElse { false }
+
+                if (!exists) {
+                    newTransactions.add(transaction)
+                }
+            }
+
+            val duplicatesRemoved = parsedTransactions.size - newTransactions.size
+            ErrorHandler.logDebug(
+                "Filtered ${newTransactions.size} new transactions ($duplicatesRemoved duplicates removed)",
+                "TransactionRepository"
+            )
+
+            // Step 5: Save new transactions to database
+            var newTransactionsSaved = 0
+            if (newTransactions.isNotEmpty()) {
+                saveTransactions(newTransactions)
+                    .onSuccess {
+                        newTransactionsSaved = newTransactions.size
+                        ErrorHandler.logDebug(
+                            "Saved $newTransactionsSaved new transactions to database",
+                            "TransactionRepository"
+                        )
+                    }
+                    .onFailure { throwable ->
+                        ErrorHandler.logWarning(
+                            "Failed to save transactions: ${throwable.message}",
+                            "syncFromSmsIncremental"
+                        )
+                        // Partial failure - continue with metadata update
+                    }
+            }
+
+            // Step 6: Update sync timestamp
+            val syncTimestamp = System.currentTimeMillis()
+            setLastSyncTimestamp(syncTimestamp)
+                .onFailure { throwable ->
+                    ErrorHandler.logWarning(
+                        "Failed to update sync timestamp: ${throwable.message}",
+                        "syncFromSmsIncremental"
+                    )
+                    // Continue - not critical
+                }
+
+            // Step 7: Return sync result
+            val result = SyncResult(
+                totalSmsRead = totalSmsRead,
+                bankSmsFound = bankSmsFound,
+                newTransactionsSaved = newTransactionsSaved,
+                duplicatesRemoved = duplicatesRemoved,
+                syncTimestamp = syncTimestamp,
+                isIncremental = true
+            )
+
+            ErrorHandler.logInfo(
+                "Incremental SMS sync completed: $newTransactionsSaved new transactions",
+                "TransactionRepository"
+            )
+
+            result
         }
     }
 
@@ -452,7 +746,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Long?> containing last sync timestamp in milliseconds or error information
      */
-    suspend fun getLastSyncTimestamp(): Result<Long?> {
+    override suspend fun getLastSyncTimestamp(): Result<Long?> {
         return ErrorHandler.runSuspendCatching("Get last sync timestamp") {
             syncMetadataDao.getValue(KEY_LAST_SYNC_TIMESTAMP)?.toLongOrNull()
         }
@@ -465,7 +759,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param timestamp The sync timestamp in milliseconds
      * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun setLastSyncTimestamp(timestamp: Long): Result<Unit> {
+    override suspend fun setLastSyncTimestamp(timestamp: Long): Result<Unit> {
         return ErrorHandler.runSuspendCatching("Set last sync timestamp") {
             syncMetadataDao.insert(
                 SyncMetadataEntity(KEY_LAST_SYNC_TIMESTAMP, timestamp.toString())
@@ -479,7 +773,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Long?> containing last processed SMS ID or error information
      */
-    suspend fun getLastProcessedSmsId(): Result<Long?> {
+    override suspend fun getLastProcessedSmsId(): Result<Long?> {
         return ErrorHandler.runSuspendCatching("Get last processed SMS ID") {
             syncMetadataDao.getValue(KEY_LAST_PROCESSED_SMS_ID)?.toLongOrNull()
         }
@@ -492,7 +786,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param smsId The SMS ID that was processed
      * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun setLastProcessedSmsId(smsId: Long): Result<Unit> {
+    override suspend fun setLastProcessedSmsId(smsId: Long): Result<Unit> {
         return ErrorHandler.runSuspendCatching("Set last processed SMS ID") {
             syncMetadataDao.insert(
                 SyncMetadataEntity(KEY_LAST_PROCESSED_SMS_ID, smsId.toString())
@@ -506,7 +800,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Int> containing number of metadata entries removed or error information
      */
-    suspend fun clearSyncMetadata(): Result<Int> {
+    override suspend fun clearSyncMetadata(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Clear sync metadata") {
             syncMetadataDao.deleteAll()
         }
