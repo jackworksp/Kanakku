@@ -472,4 +472,278 @@ class MainViewModel : ViewModel() {
             }
         }
     }
+
+    /**
+     * Updates an existing manual transaction in the database.
+     *
+     * Flow:
+     * 1. Set loading state
+     * 2. Validate transaction ID exists
+     * 3. Create updated ParsedTransaction with MANUAL source
+     * 4. Update in database via repository (validates MANUAL source)
+     * 5. Update category override if category changed
+     * 6. Refresh transaction list to reflect changes
+     * 7. Clear loading state
+     *
+     * Error Handling:
+     * - Transaction not found
+     * - Database update failures
+     * - Attempting to update SMS transactions (repository validates)
+     * - Category update failures (logged but don't fail the update)
+     * - All errors provide user-friendly messages via ErrorHandler
+     *
+     * @param transactionId The ID of the transaction to update
+     * @param amount The updated transaction amount
+     * @param type The updated transaction type (DEBIT/CREDIT)
+     * @param category The updated category to assign
+     * @param merchant The updated merchant name
+     * @param date The updated transaction timestamp
+     * @param notes Updated optional notes for the transaction
+     * @param onSuccess Callback invoked after successful update
+     */
+    fun updateManualTransaction(
+        transactionId: Long,
+        amount: Double,
+        type: TransactionType,
+        category: Category,
+        merchant: String,
+        date: Long,
+        notes: String?,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+
+            try {
+                // Ensure repository is initialized
+                if (repository == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Repository not initialized. Please reload the app."
+                    )
+                    return@launch
+                }
+                val repo = repository!!
+
+                // Create updated transaction with all fields
+                val updatedTransaction = ParsedTransaction(
+                    smsId = transactionId,
+                    amount = amount,
+                    type = type,
+                    merchant = merchant,
+                    accountNumber = null, // Not applicable for manual transactions
+                    referenceNumber = null, // Not applicable for manual transactions
+                    date = date,
+                    rawSms = "", // Empty for manual transactions
+                    senderAddress = "MANUAL", // Indicate manual entry
+                    balanceAfter = null,
+                    location = null,
+                    source = com.example.kanakku.data.model.TransactionSource.MANUAL,
+                    notes = notes?.takeIf { it.isNotBlank() } // Only save non-empty notes
+                )
+
+                // Update in database (repository validates MANUAL source)
+                val updateResult = repo.updateManualTransaction(updatedTransaction)
+
+                updateResult
+                    .onSuccess { wasUpdated ->
+                        if (!wasUpdated) {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                errorMessage = "Transaction not found or could not be updated."
+                            )
+                            return@launch
+                        }
+
+                        // Update category override for the transaction
+                        categoryManager.setManualOverride(transactionId, category)
+                            .onSuccess {
+                                // Update category map with new category
+                                _categoryMap.value = _categoryMap.value.toMutableMap().apply {
+                                    put(transactionId, category)
+                                }
+                                ErrorHandler.logInfo(
+                                    "Category ${category.name} applied to manual transaction $transactionId",
+                                    "updateManualTransaction"
+                                )
+                            }
+                            .onFailure { throwable ->
+                                // Log warning but don't fail the update operation
+                                val errorInfo = throwable.toErrorInfo()
+                                ErrorHandler.logWarning(
+                                    "Failed to apply category: ${errorInfo.technicalMessage}",
+                                    "updateManualTransaction"
+                                )
+                            }
+
+                        // Refresh transaction list to reflect changes
+                        val updatedTransactions = repo.getAllTransactionsSnapshot()
+                            .onFailure { throwable ->
+                                val errorInfo = throwable.toErrorInfo()
+                                ErrorHandler.logWarning(
+                                    "Failed to refresh transaction list: ${errorInfo.technicalMessage}",
+                                    "updateManualTransaction"
+                                )
+                            }
+                            .getOrElse { emptyList() }
+
+                        // Update UI state with refreshed transaction list
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            transactions = updatedTransactions,
+                            errorMessage = null
+                        )
+
+                        ErrorHandler.logInfo(
+                            "Manual transaction updated successfully: $transactionId",
+                            "updateManualTransaction"
+                        )
+
+                        // Invoke success callback to navigate back
+                        onSuccess()
+                    }
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            errorMessage = "Failed to update transaction: ${errorInfo.userMessage}"
+                        )
+                        ErrorHandler.logError(
+                            "Failed to update manual transaction: ${errorInfo.technicalMessage}",
+                            "updateManualTransaction"
+                        )
+                    }
+            } catch (e: Exception) {
+                // Catch-all for unexpected errors
+                val errorInfo = ErrorHandler.handleError(e, "updateManualTransaction")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = errorInfo.userMessage
+                )
+            }
+        }
+    }
+
+    /**
+     * Deletes a manual transaction from the database.
+     * Only manual transactions should be deleted - SMS transactions are the source of truth.
+     *
+     * Flow:
+     * 1. Set loading state
+     * 2. Delete transaction from database via repository
+     * 3. Remove category override if exists
+     * 4. Refresh transaction list to remove deleted transaction
+     * 5. Clear loading state
+     *
+     * Error Handling:
+     * - Transaction not found
+     * - Database delete failures
+     * - Category override removal failures (logged but don't fail the delete)
+     * - All errors provide user-friendly messages via ErrorHandler
+     *
+     * Note: The UI should validate that only MANUAL transactions can be deleted
+     * before calling this method. This method does not validate the source type.
+     *
+     * @param transactionId The ID of the transaction to delete
+     * @param onSuccess Callback invoked after successful deletion
+     */
+    fun deleteTransaction(
+        transactionId: Long,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+
+            try {
+                // Ensure repository is initialized
+                if (repository == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Repository not initialized. Please reload the app."
+                    )
+                    return@launch
+                }
+                val repo = repository!!
+
+                // Delete from database
+                val deleteResult = repo.deleteTransaction(transactionId)
+
+                deleteResult
+                    .onSuccess { wasDeleted ->
+                        if (!wasDeleted) {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                errorMessage = "Transaction not found or could not be deleted."
+                            )
+                            return@launch
+                        }
+
+                        // Remove category override if exists (cleanup)
+                        repo.removeCategoryOverride(transactionId)
+                            .onSuccess {
+                                // Update category map to remove the deleted transaction's category
+                                _categoryMap.value = _categoryMap.value.toMutableMap().apply {
+                                    remove(transactionId)
+                                }
+                                ErrorHandler.logInfo(
+                                    "Category override removed for deleted transaction $transactionId",
+                                    "deleteTransaction"
+                                )
+                            }
+                            .onFailure { throwable ->
+                                // Log warning but don't fail the delete operation
+                                val errorInfo = throwable.toErrorInfo()
+                                ErrorHandler.logWarning(
+                                    "Failed to remove category override: ${errorInfo.technicalMessage}",
+                                    "deleteTransaction"
+                                )
+                            }
+
+                        // Refresh transaction list to remove deleted transaction
+                        val updatedTransactions = repo.getAllTransactionsSnapshot()
+                            .onFailure { throwable ->
+                                val errorInfo = throwable.toErrorInfo()
+                                ErrorHandler.logWarning(
+                                    "Failed to refresh transaction list: ${errorInfo.technicalMessage}",
+                                    "deleteTransaction"
+                                )
+                            }
+                            .getOrElse { emptyList() }
+
+                        // Update UI state with refreshed transaction list
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            transactions = updatedTransactions,
+                            errorMessage = null
+                        )
+
+                        ErrorHandler.logInfo(
+                            "Transaction deleted successfully: $transactionId",
+                            "deleteTransaction"
+                        )
+
+                        // Invoke success callback (e.g., close dialog, navigate back)
+                        onSuccess()
+                    }
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            errorMessage = "Failed to delete transaction: ${errorInfo.userMessage}"
+                        )
+                        ErrorHandler.logError(
+                            "Failed to delete transaction: ${errorInfo.technicalMessage}",
+                            "deleteTransaction"
+                        )
+                    }
+            } catch (e: Exception) {
+                // Catch-all for unexpected errors
+                val errorInfo = ErrorHandler.handleError(e, "deleteTransaction")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = errorInfo.userMessage
+                )
+            }
+        }
+    }
 }
