@@ -18,6 +18,7 @@ import com.example.kanakku.data.model.*
 import com.example.kanakku.ui.MainUiState
 import com.example.kanakku.ui.SearchFilterState
 import com.example.kanakku.ui.components.CategoryPickerSheet
+import com.example.kanakku.ui.components.SearchBar
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -39,6 +40,15 @@ fun TransactionsScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         TransactionsHeader(uiState = uiState, onRefresh = onRefresh)
+
+        // Search bar
+        SearchBar(
+            query = searchFilterState.currentFilter.searchQuery ?: "",
+            onQueryChange = onSearchQueryChange,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         if (uiState.transactions.isEmpty()) {
             Box(
