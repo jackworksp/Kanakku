@@ -60,6 +60,9 @@ class AppPreferences private constructor(context: Context) {
         private const val KEY_COMPACT_VIEW = "compact_view"
         private const val KEY_SHOW_OFFLINE_BADGE = "show_offline_badge"
         private const val KEY_AUTO_CATEGORIZE = "auto_categorize"
+        private const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
+        private const val KEY_DEFAULT_ANALYTICS_PERIOD = "default_analytics_period"
+        private const val KEY_CURRENCY_SYMBOL = "currency_symbol"
         private const val KEY_LAST_APP_VERSION = "last_app_version"
 
         // Sync Metadata Keys
@@ -304,6 +307,63 @@ class AppPreferences private constructor(context: Context) {
     fun setAutoCategorizeEnabled(enabled: Boolean) {
         sharedPreferences.edit().putBoolean(KEY_AUTO_CATEGORIZE, enabled).apply()
         Log.d(TAG, "Auto-categorize set to: $enabled")
+    }
+
+    /**
+     * Checks if SMS notifications are enabled.
+     *
+     * @return true if notifications are enabled, false otherwise (default: true)
+     */
+    fun isNotificationsEnabled(): Boolean {
+        return sharedPreferences.getBoolean(KEY_NOTIFICATIONS_ENABLED, true)
+    }
+
+    /**
+     * Sets SMS notification preference.
+     *
+     * @param enabled true to enable notifications, false to disable
+     */
+    fun setNotificationsEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, enabled).apply()
+        Log.d(TAG, "Notifications enabled set to: $enabled")
+    }
+
+    /**
+     * Gets the default analytics period selection.
+     *
+     * @return Default time period (DAY, WEEK, MONTH, or YEAR) (default: MONTH)
+     */
+    fun getDefaultAnalyticsPeriod(): String {
+        return sharedPreferences.getString(KEY_DEFAULT_ANALYTICS_PERIOD, "MONTH") ?: "MONTH"
+    }
+
+    /**
+     * Sets the default analytics period selection.
+     *
+     * @param period Default time period (DAY, WEEK, MONTH, or YEAR)
+     */
+    fun setDefaultAnalyticsPeriod(period: String) {
+        sharedPreferences.edit().putString(KEY_DEFAULT_ANALYTICS_PERIOD, period).apply()
+        Log.d(TAG, "Default analytics period set to: $period")
+    }
+
+    /**
+     * Gets the user's currency symbol preference for display.
+     *
+     * @return Currency symbol (default: ₹)
+     */
+    fun getCurrencySymbol(): String {
+        return sharedPreferences.getString(KEY_CURRENCY_SYMBOL, "₹") ?: "₹"
+    }
+
+    /**
+     * Sets the currency symbol preference for display.
+     *
+     * @param symbol Currency symbol to use in the app
+     */
+    fun setCurrencySymbol(symbol: String) {
+        sharedPreferences.edit().putString(KEY_CURRENCY_SYMBOL, symbol).apply()
+        Log.d(TAG, "Currency symbol set to: $symbol")
     }
 
     // ============================================

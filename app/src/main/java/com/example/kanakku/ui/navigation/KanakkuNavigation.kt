@@ -221,6 +221,9 @@ fun KanakkuNavHost(
                     transactions = uiState.transactions
                 )
             }
+            composable(BottomNavItem.Settings.route) {
+                SettingsScreen()
+            }
         }
     }
 }
