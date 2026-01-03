@@ -17,7 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.kanakku.data.preferences.AppPreferences
 import com.example.kanakku.ui.MainViewModel
 import com.example.kanakku.ui.components.PrivacyInfoDialog
@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
+fun KanakkuApp(viewModel: MainViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val categoryMap by viewModel.categoryMap.collectAsState()
