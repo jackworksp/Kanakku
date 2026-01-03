@@ -3,13 +3,13 @@
   "spec": "009-settings-screen-with-user-preferences",
   "state": "building",
   "subtasks": {
-    "completed": 4,
+    "completed": 5,
     "total": 20,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Add Settings Navigation",
+    "current": "Create SettingsViewModel",
     "id": null,
     "total": 2
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 6,
+    "number": 7,
     "started_at": "2026-01-03T17:28:37.113136"
   },
-  "last_update": "2026-01-03T17:54:21.198600"
+  "last_update": "2026-01-03T17:59:22.773912"
 }
