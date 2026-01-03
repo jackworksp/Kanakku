@@ -45,6 +45,7 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val categoryMap by viewModel.categoryMap.collectAsState()
+    val searchFilterState by viewModel.searchFilterState.collectAsState()
     val appPrefs = remember { AppPreferences.getInstance(context) }
 
     // Track whether to show the privacy dialog
@@ -101,9 +102,19 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
                 KanakkuNavHost(
                     uiState = uiState,
                     categoryMap = categoryMap,
+                    searchFilterState = searchFilterState,
                     onRefresh = { viewModel.loadSmsData(context) },
                     onCategoryChange = { smsId, category ->
                         viewModel.updateTransactionCategory(smsId, category)
+                    },
+                    onSearchQueryChange = { query ->
+                        viewModel.updateSearchQuery(query)
+                    },
+                    onFilterChange = { filter ->
+                        viewModel.updateFilter(filter)
+                    },
+                    onClearFilters = {
+                        viewModel.clearFilters()
                     },
                     modifier = Modifier.padding(innerPadding)
                 )
