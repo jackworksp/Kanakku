@@ -4,9 +4,11 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.example.kanakku.data.database.dao.CategoryOverrideDao
+import com.example.kanakku.data.database.dao.MerchantCategoryMappingDao
 import com.example.kanakku.data.database.dao.SyncMetadataDao
 import com.example.kanakku.data.database.dao.TransactionDao
 import com.example.kanakku.data.database.entity.CategoryOverrideEntity
+import com.example.kanakku.data.database.entity.MerchantCategoryMappingEntity
 import com.example.kanakku.data.database.entity.SyncMetadataEntity
 import com.example.kanakku.data.database.entity.TransactionEntity
 
@@ -17,15 +19,17 @@ import com.example.kanakku.data.database.entity.TransactionEntity
  * This database stores:
  * - Parsed transactions from SMS messages
  * - User's manual category assignments
+ * - Learned merchant-to-category mappings
  * - Synchronization metadata for incremental updates
  */
 @Database(
     entities = [
         TransactionEntity::class,
         CategoryOverrideEntity::class,
-        SyncMetadataEntity::class
+        SyncMetadataEntity::class,
+        MerchantCategoryMappingEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -48,4 +52,10 @@ abstract class KanakkuDatabase : RoomDatabase() {
      * @return SyncMetadataDao instance for tracking synchronization state
      */
     abstract fun syncMetadataDao(): SyncMetadataDao
+
+    /**
+     * Provides access to merchant category mapping operations.
+     * @return MerchantCategoryMappingDao instance for managing learned merchant-to-category mappings
+     */
+    abstract fun merchantCategoryMappingDao(): MerchantCategoryMappingDao
 }

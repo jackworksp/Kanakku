@@ -5,6 +5,8 @@ import android.database.SQLException
 import android.database.sqlite.SQLiteException
 import android.util.Log
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.kanakku.data.repository.TransactionRepository
 import java.io.File
 
@@ -32,6 +34,29 @@ object DatabaseProvider {
 
     @Volatile
     private var repository: TransactionRepository? = null
+
+    /**
+     * Migration from database version 1 to version 2.
+     * Adds the merchant_category_mappings table for storing learned merchant-to-category mappings.
+     */
+    private val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            Log.i(TAG, "Migrating database from version 1 to version 2")
+
+            // Create merchant_category_mappings table
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS merchant_category_mappings (
+                    merchantName TEXT PRIMARY KEY NOT NULL,
+                    categoryId TEXT NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+
+            Log.i(TAG, "Migration 1->2 completed successfully")
+        }
+    }
 
     /**
      * Gets the singleton database instance.
@@ -165,7 +190,8 @@ object DatabaseProvider {
             KanakkuDatabase::class.java,
             DATABASE_NAME
         )
-            .fallbackToDestructiveMigration() // For development - TODO: implement proper migrations for production
+            .addMigrations(MIGRATION_1_2)
+            .fallbackToDestructiveMigration() // For any unmapped migrations during development
             .build()
     }
 
