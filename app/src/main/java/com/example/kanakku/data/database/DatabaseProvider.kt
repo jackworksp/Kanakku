@@ -2,10 +2,11 @@ package com.example.kanakku.data.database
 
 import android.content.Context
 import androidx.room.Room
+import com.example.kanakku.data.repository.SavingsGoalRepository
 import com.example.kanakku.data.repository.TransactionRepository
 
 /**
- * Singleton provider for database instance and repository.
+ * Singleton provider for database instance and repositories.
  *
  * This class manages the lifecycle of the Room database and provides
  * centralized access to database operations through the repository pattern.
@@ -16,6 +17,7 @@ import com.example.kanakku.data.repository.TransactionRepository
  * Usage:
  * ```
  * val repository = DatabaseProvider.getRepository(context)
+ * val savingsGoalRepository = DatabaseProvider.getSavingsGoalRepository(context)
  * ```
  */
 object DatabaseProvider {
@@ -25,6 +27,9 @@ object DatabaseProvider {
 
     @Volatile
     private var repository: TransactionRepository? = null
+
+    @Volatile
+    private var savingsGoalRepository: SavingsGoalRepository? = null
 
     private const val DATABASE_NAME = "kanakku_database"
 
@@ -59,6 +64,21 @@ object DatabaseProvider {
     }
 
     /**
+     * Gets the singleton savings goal repository instance.
+     * Creates both database and repository on first access.
+     *
+     * @param context Application or Activity context (applicationContext is used internally)
+     * @return The SavingsGoalRepository instance
+     */
+    fun getSavingsGoalRepository(context: Context): SavingsGoalRepository {
+        return savingsGoalRepository ?: synchronized(this) {
+            savingsGoalRepository ?: SavingsGoalRepository(getDatabase(context)).also {
+                savingsGoalRepository = it
+            }
+        }
+    }
+
+    /**
      * Builds the Room database with proper configuration.
      *
      * @param context Application context
@@ -87,5 +107,6 @@ object DatabaseProvider {
         database?.close()
         database = null
         repository = null
+        savingsGoalRepository = null
     }
 }
