@@ -17,13 +17,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.kanakku.data.preferences.AppPreferences
 import com.example.kanakku.ui.MainViewModel
 import com.example.kanakku.ui.components.PrivacyInfoDialog
 import com.example.kanakku.ui.navigation.KanakkuNavHost
 import com.example.kanakku.ui.theme.KanakkuTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,7 +43,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
+fun KanakkuApp(viewModel: MainViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val categoryMap by viewModel.categoryMap.collectAsState()
@@ -57,7 +59,7 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
     ) { isGranted ->
         viewModel.updatePermissionStatus(isGranted)
         if (isGranted) {
-            viewModel.loadSmsData(context)
+            viewModel.loadSmsData()
         }
     }
 
@@ -70,7 +72,7 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
         viewModel.updatePermissionStatus(hasPermission)
 
         if (hasPermission) {
-            viewModel.loadSmsData(context)
+            viewModel.loadSmsData()
         }
     }
 
@@ -101,7 +103,7 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
                 KanakkuNavHost(
                     uiState = uiState,
                     categoryMap = categoryMap,
-                    onRefresh = { viewModel.loadSmsData(context) },
+                    onRefresh = { viewModel.loadSmsData() },
                     onCategoryChange = { smsId, category ->
                         viewModel.updateTransactionCategory(smsId, category)
                     },

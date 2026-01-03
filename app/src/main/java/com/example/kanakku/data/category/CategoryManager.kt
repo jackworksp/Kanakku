@@ -21,7 +21,7 @@ import com.example.kanakku.data.repository.TransactionRepository
  * @param repository Optional repository for persisting category overrides and merchant mappings
  */
 class CategoryManager(
-    private var repository: TransactionRepository? = null
+    private val repository: TransactionRepository
 ) {
 
     private val manualOverrides = mutableMapOf<Long, Category>()
@@ -38,8 +38,7 @@ class CategoryManager(
      *
      * @param repo The transaction repository to use for persistence
      */
-    suspend fun initialize(repo: TransactionRepository) {
-        repository = repo
+    suspend fun initialize() {
         loadOverridesFromDatabase()
         loadMerchantMappingsFromDatabase()
     }
@@ -49,10 +48,8 @@ class CategoryManager(
      * Maps category IDs to Category objects from DefaultCategories.
      */
     private suspend fun loadOverridesFromDatabase() {
-        val repo = repository ?: return
-
         // Handle Result type from repository
-        repo.getAllCategoryOverrides()
+        repository.getAllCategoryOverrides()
             .onSuccess { overrides ->
                 manualOverrides.clear()
                 for ((smsId, categoryId) in overrides) {
@@ -193,7 +190,7 @@ class CategoryManager(
 
     /**
      * Removes a manual category override for a transaction.
-     * Removes from database if repository is available.
+     * Removes from database and updates in-memory cache.
      *
      * @param smsId The SMS ID of the transaction
      * @return Result<Unit> indicating success or failure
@@ -203,12 +200,7 @@ class CategoryManager(
         manualOverrides.remove(smsId)
 
         // Remove from database
-        return if (repository != null) {
-            repository!!.removeCategoryOverride(smsId).mapCatching { Unit }
-        } else {
-            // If no repository, still succeed (in-memory only)
-            Result.success(Unit)
-        }
+        return repository.removeCategoryOverride(smsId).mapCatching { Unit }
     }
 
     /**

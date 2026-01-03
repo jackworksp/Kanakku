@@ -22,6 +22,13 @@ import kotlin.system.measureTimeMillis
 /**
  * Instrumented tests for KanakkuDatabase running on a real Android device/emulator.
  *
+ * **Testing Strategy:**
+ * This is a database integration test that intentionally does NOT use Hilt.
+ * It creates an in-memory database directly to test Room database functionality
+ * in isolation without the complexity of the full DI graph.
+ *
+ * For UI/E2E tests that require the full app context with Hilt, use @HiltAndroidTest.
+ *
  * Tests cover:
  * - Database creation and initialization
  * - CRUD operations for all entities

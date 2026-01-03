@@ -18,6 +18,16 @@ import org.robolectric.annotation.Config
 /**
  * Unit tests for TransactionRepository using in-memory Room database.
  *
+ * **Testing Strategy:**
+ * This is a unit test that intentionally does NOT use Hilt dependency injection.
+ * Instead, it creates test instances directly to:
+ * - Test the repository in complete isolation
+ * - Have full control over the database configuration
+ * - Keep tests fast and focused on repository logic only
+ * - Avoid the complexity of Hilt test setup for simple unit tests
+ *
+ * For integration tests that test the full DI graph, use @HiltAndroidTest instead.
+ *
  * Tests cover:
  * - Transaction CRUD operations
  * - Entity-model mapping
