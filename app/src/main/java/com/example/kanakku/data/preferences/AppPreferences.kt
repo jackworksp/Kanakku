@@ -6,6 +6,11 @@ import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.example.kanakku.core.error.ErrorHandler
+import com.example.kanakku.data.model.BudgetAlertSettings
+import com.example.kanakku.data.model.DayOfWeek
+import com.example.kanakku.data.model.LargeTransactionSettings
+import com.example.kanakku.data.model.NotificationSettings
+import com.example.kanakku.data.model.WeeklySummarySettings
 import java.io.IOException
 import java.security.GeneralSecurityException
 
@@ -17,6 +22,7 @@ import java.security.GeneralSecurityException
  * - First launch tracking
  * - UI preferences (theme, display options)
  * - Sync metadata and settings
+ * - Notification preferences (budget alerts, large transactions, weekly summaries)
  *
  * All preference data is encrypted at rest using the Android Keystore system through
  * EncryptedSharedPreferences. This ensures that user settings are protected even if
@@ -38,6 +44,10 @@ import java.security.GeneralSecurityException
  * // Get/set preferences
  * appPrefs.setDarkModeEnabled(true)
  * val isDarkMode = appPrefs.isDarkModeEnabled()
+ *
+ * // Notification settings
+ * val notificationSettings = appPrefs.getNotificationSettings()
+ * appPrefs.setLargeTransactionThreshold(10000.0)
  * ```
  *
  * Fallback Mechanism:
@@ -61,6 +71,16 @@ class AppPreferences private constructor(context: Context) {
         private const val KEY_SHOW_OFFLINE_BADGE = "show_offline_badge"
         private const val KEY_AUTO_CATEGORIZE = "auto_categorize"
         private const val KEY_LAST_APP_VERSION = "last_app_version"
+
+        // Notification Preference Keys
+        private const val KEY_BUDGET_ALERTS_ENABLED = "notification_budget_alerts_enabled"
+        private const val KEY_BUDGET_ALERTS_80_PERCENT = "notification_budget_alerts_80_percent"
+        private const val KEY_BUDGET_ALERTS_100_PERCENT = "notification_budget_alerts_100_percent"
+        private const val KEY_LARGE_TRANSACTION_ENABLED = "notification_large_transaction_enabled"
+        private const val KEY_LARGE_TRANSACTION_THRESHOLD = "notification_large_transaction_threshold"
+        private const val KEY_WEEKLY_SUMMARY_ENABLED = "notification_weekly_summary_enabled"
+        private const val KEY_WEEKLY_SUMMARY_DAY = "notification_weekly_summary_day"
+        private const val KEY_WEEKLY_SUMMARY_HOUR = "notification_weekly_summary_hour"
 
         @Volatile
         private var instance: AppPreferences? = null
@@ -298,6 +318,272 @@ class AppPreferences private constructor(context: Context) {
     fun setAutoCategorizeEnabled(enabled: Boolean) {
         sharedPreferences.edit().putBoolean(KEY_AUTO_CATEGORIZE, enabled).apply()
         Log.d(TAG, "Auto-categorize set to: $enabled")
+    }
+
+    // ============================================
+    // Notification Preferences
+    // ============================================
+
+    /**
+     * Gets the complete notification settings.
+     *
+     * @return NotificationSettings with all configured notification preferences
+     */
+    fun getNotificationSettings(): NotificationSettings {
+        return NotificationSettings(
+            budgetAlerts = getBudgetAlertSettings(),
+            largeTransactions = getLargeTransactionSettings(),
+            weeklySummary = getWeeklySummarySettings()
+        )
+    }
+
+    /**
+     * Sets the complete notification settings.
+     * This is a convenience method to update all notification preferences at once.
+     *
+     * @param settings NotificationSettings object containing all preferences
+     */
+    fun setNotificationSettings(settings: NotificationSettings) {
+        setBudgetAlertSettings(settings.budgetAlerts)
+        setLargeTransactionSettings(settings.largeTransactions)
+        setWeeklySummarySettings(settings.weeklySummary)
+        Log.d(TAG, "Notification settings updated")
+    }
+
+    /**
+     * Gets budget alert notification settings.
+     *
+     * @return BudgetAlertSettings with current preferences
+     */
+    fun getBudgetAlertSettings(): BudgetAlertSettings {
+        return BudgetAlertSettings(
+            enabled = sharedPreferences.getBoolean(KEY_BUDGET_ALERTS_ENABLED, true),
+            notifyAt80Percent = sharedPreferences.getBoolean(KEY_BUDGET_ALERTS_80_PERCENT, true),
+            notifyAt100Percent = sharedPreferences.getBoolean(KEY_BUDGET_ALERTS_100_PERCENT, true)
+        )
+    }
+
+    /**
+     * Sets budget alert notification settings.
+     *
+     * @param settings BudgetAlertSettings to apply
+     */
+    fun setBudgetAlertSettings(settings: BudgetAlertSettings) {
+        sharedPreferences.edit()
+            .putBoolean(KEY_BUDGET_ALERTS_ENABLED, settings.enabled)
+            .putBoolean(KEY_BUDGET_ALERTS_80_PERCENT, settings.notifyAt80Percent)
+            .putBoolean(KEY_BUDGET_ALERTS_100_PERCENT, settings.notifyAt100Percent)
+            .apply()
+        Log.d(TAG, "Budget alert settings: enabled=${settings.enabled}, 80%=${settings.notifyAt80Percent}, 100%=${settings.notifyAt100Percent}")
+    }
+
+    /**
+     * Checks if budget alerts are enabled.
+     *
+     * @return true if budget alerts are enabled (default: true)
+     */
+    fun isBudgetAlertsEnabled(): Boolean {
+        return sharedPreferences.getBoolean(KEY_BUDGET_ALERTS_ENABLED, true)
+    }
+
+    /**
+     * Sets whether budget alerts are enabled.
+     *
+     * @param enabled true to enable budget alerts, false to disable
+     */
+    fun setBudgetAlertsEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_BUDGET_ALERTS_ENABLED, enabled).apply()
+        Log.d(TAG, "Budget alerts enabled set to: $enabled")
+    }
+
+    /**
+     * Checks if 80% budget threshold notification is enabled.
+     *
+     * @return true if 80% notification is enabled (default: true)
+     */
+    fun isBudget80PercentAlertEnabled(): Boolean {
+        return sharedPreferences.getBoolean(KEY_BUDGET_ALERTS_80_PERCENT, true)
+    }
+
+    /**
+     * Sets whether 80% budget threshold notification is enabled.
+     *
+     * @param enabled true to enable 80% alert, false to disable
+     */
+    fun setBudget80PercentAlertEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_BUDGET_ALERTS_80_PERCENT, enabled).apply()
+        Log.d(TAG, "Budget 80% alert set to: $enabled")
+    }
+
+    /**
+     * Checks if 100% budget threshold notification is enabled.
+     *
+     * @return true if 100% notification is enabled (default: true)
+     */
+    fun isBudget100PercentAlertEnabled(): Boolean {
+        return sharedPreferences.getBoolean(KEY_BUDGET_ALERTS_100_PERCENT, true)
+    }
+
+    /**
+     * Sets whether 100% budget threshold notification is enabled.
+     *
+     * @param enabled true to enable 100% alert, false to disable
+     */
+    fun setBudget100PercentAlertEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_BUDGET_ALERTS_100_PERCENT, enabled).apply()
+        Log.d(TAG, "Budget 100% alert set to: $enabled")
+    }
+
+    /**
+     * Gets large transaction notification settings.
+     *
+     * @return LargeTransactionSettings with current preferences
+     */
+    fun getLargeTransactionSettings(): LargeTransactionSettings {
+        return LargeTransactionSettings(
+            enabled = sharedPreferences.getBoolean(KEY_LARGE_TRANSACTION_ENABLED, true),
+            threshold = sharedPreferences.getString(KEY_LARGE_TRANSACTION_THRESHOLD, "5000.0")?.toDoubleOrNull() ?: 5000.0
+        )
+    }
+
+    /**
+     * Sets large transaction notification settings.
+     *
+     * @param settings LargeTransactionSettings to apply
+     */
+    fun setLargeTransactionSettings(settings: LargeTransactionSettings) {
+        sharedPreferences.edit()
+            .putBoolean(KEY_LARGE_TRANSACTION_ENABLED, settings.enabled)
+            .putString(KEY_LARGE_TRANSACTION_THRESHOLD, settings.threshold.toString())
+            .apply()
+        Log.d(TAG, "Large transaction settings: enabled=${settings.enabled}, threshold=${settings.threshold}")
+    }
+
+    /**
+     * Checks if large transaction alerts are enabled.
+     *
+     * @return true if large transaction alerts are enabled (default: true)
+     */
+    fun isLargeTransactionAlertsEnabled(): Boolean {
+        return sharedPreferences.getBoolean(KEY_LARGE_TRANSACTION_ENABLED, true)
+    }
+
+    /**
+     * Sets whether large transaction alerts are enabled.
+     *
+     * @param enabled true to enable large transaction alerts, false to disable
+     */
+    fun setLargeTransactionAlertsEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_LARGE_TRANSACTION_ENABLED, enabled).apply()
+        Log.d(TAG, "Large transaction alerts enabled set to: $enabled")
+    }
+
+    /**
+     * Gets the large transaction alert threshold amount.
+     *
+     * @return Threshold amount for large transaction alerts (default: 5000.0)
+     */
+    fun getLargeTransactionThreshold(): Double {
+        return sharedPreferences.getString(KEY_LARGE_TRANSACTION_THRESHOLD, "5000.0")?.toDoubleOrNull() ?: 5000.0
+    }
+
+    /**
+     * Sets the large transaction alert threshold amount.
+     *
+     * @param threshold Amount threshold for triggering large transaction alerts
+     */
+    fun setLargeTransactionThreshold(threshold: Double) {
+        sharedPreferences.edit().putString(KEY_LARGE_TRANSACTION_THRESHOLD, threshold.toString()).apply()
+        Log.d(TAG, "Large transaction threshold set to: $threshold")
+    }
+
+    /**
+     * Gets weekly summary notification settings.
+     *
+     * @return WeeklySummarySettings with current preferences
+     */
+    fun getWeeklySummarySettings(): WeeklySummarySettings {
+        val dayOrdinal = sharedPreferences.getInt(KEY_WEEKLY_SUMMARY_DAY, DayOfWeek.MONDAY.ordinal)
+        val dayOfWeek = DayOfWeek.entries.getOrNull(dayOrdinal) ?: DayOfWeek.MONDAY
+
+        return WeeklySummarySettings(
+            enabled = sharedPreferences.getBoolean(KEY_WEEKLY_SUMMARY_ENABLED, false),
+            dayOfWeek = dayOfWeek,
+            hourOfDay = sharedPreferences.getInt(KEY_WEEKLY_SUMMARY_HOUR, 9)
+        )
+    }
+
+    /**
+     * Sets weekly summary notification settings.
+     *
+     * @param settings WeeklySummarySettings to apply
+     */
+    fun setWeeklySummarySettings(settings: WeeklySummarySettings) {
+        sharedPreferences.edit()
+            .putBoolean(KEY_WEEKLY_SUMMARY_ENABLED, settings.enabled)
+            .putInt(KEY_WEEKLY_SUMMARY_DAY, settings.dayOfWeek.ordinal)
+            .putInt(KEY_WEEKLY_SUMMARY_HOUR, settings.hourOfDay)
+            .apply()
+        Log.d(TAG, "Weekly summary settings: enabled=${settings.enabled}, day=${settings.dayOfWeek}, hour=${settings.hourOfDay}")
+    }
+
+    /**
+     * Checks if weekly summary notifications are enabled.
+     *
+     * @return true if weekly summary is enabled (default: false)
+     */
+    fun isWeeklySummaryEnabled(): Boolean {
+        return sharedPreferences.getBoolean(KEY_WEEKLY_SUMMARY_ENABLED, false)
+    }
+
+    /**
+     * Sets whether weekly summary notifications are enabled.
+     *
+     * @param enabled true to enable weekly summary, false to disable
+     */
+    fun setWeeklySummaryEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_WEEKLY_SUMMARY_ENABLED, enabled).apply()
+        Log.d(TAG, "Weekly summary enabled set to: $enabled")
+    }
+
+    /**
+     * Gets the day of week for weekly summary notifications.
+     *
+     * @return Day of week for weekly summary (default: MONDAY)
+     */
+    fun getWeeklySummaryDay(): DayOfWeek {
+        val dayOrdinal = sharedPreferences.getInt(KEY_WEEKLY_SUMMARY_DAY, DayOfWeek.MONDAY.ordinal)
+        return DayOfWeek.entries.getOrNull(dayOrdinal) ?: DayOfWeek.MONDAY
+    }
+
+    /**
+     * Sets the day of week for weekly summary notifications.
+     *
+     * @param dayOfWeek Day of week to send weekly summary
+     */
+    fun setWeeklySummaryDay(dayOfWeek: DayOfWeek) {
+        sharedPreferences.edit().putInt(KEY_WEEKLY_SUMMARY_DAY, dayOfWeek.ordinal).apply()
+        Log.d(TAG, "Weekly summary day set to: ${dayOfWeek.displayName}")
+    }
+
+    /**
+     * Gets the hour of day for weekly summary notifications.
+     *
+     * @return Hour of day in 24-hour format (0-23, default: 9)
+     */
+    fun getWeeklySummaryHour(): Int {
+        return sharedPreferences.getInt(KEY_WEEKLY_SUMMARY_HOUR, 9)
+    }
+
+    /**
+     * Sets the hour of day for weekly summary notifications.
+     *
+     * @param hourOfDay Hour of day in 24-hour format (0-23)
+     */
+    fun setWeeklySummaryHour(hourOfDay: Int) {
+        val clampedHour = hourOfDay.coerceIn(0, 23)
+        sharedPreferences.edit().putInt(KEY_WEEKLY_SUMMARY_HOUR, clampedHour).apply()
+        Log.d(TAG, "Weekly summary hour set to: $clampedHour")
     }
 
     // ============================================
