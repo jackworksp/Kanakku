@@ -34,9 +34,7 @@ class MainActivity : ComponentActivity() {
         AppPreferences.getInstance(this)
 
         setContent {
-            KanakkuTheme {
-                KanakkuApp()
-            }
+            KanakkuApp()
         }
     }
 }
@@ -55,6 +53,9 @@ fun KanakkuApp(
     LaunchedEffect(Unit) {
         themeViewModel.initialize(context)
     }
+
+    // Observe theme mode for reactive theme changes
+    val themeMode by themeViewModel.themeMode.collectAsState()
 
     // Track whether to show the privacy dialog
     var showPrivacyDialog by remember {
@@ -83,40 +84,43 @@ fun KanakkuApp(
         }
     }
 
-    // Show privacy dialog on first launch
-    if (showPrivacyDialog) {
-        PrivacyInfoDialog(
-            onDismiss = {
-                appPrefs.setPrivacyDialogShown()
-                showPrivacyDialog = false
-            }
-        )
-    }
+    // Apply theme with observed theme mode for immediate updates
+    KanakkuTheme(themeMode = themeMode) {
+        // Show privacy dialog on first launch
+        if (showPrivacyDialog) {
+            PrivacyInfoDialog(
+                onDismiss = {
+                    appPrefs.setPrivacyDialogShown()
+                    showPrivacyDialog = false
+                }
+            )
+        }
 
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        when {
-            !uiState.hasPermission -> {
-                PermissionScreen(
-                    modifier = Modifier.padding(innerPadding),
-                    onRequestPermission = {
-                        permissionLauncher.launch(Manifest.permission.READ_SMS)
-                    }
-                )
-            }
-            uiState.isLoading -> {
-                LoadingScreen(modifier = Modifier.padding(innerPadding))
-            }
-            else -> {
-                KanakkuNavHost(
-                    uiState = uiState,
-                    categoryMap = categoryMap,
-                    onRefresh = { viewModel.loadSmsData(context) },
-                    onCategoryChange = { smsId, category ->
-                        viewModel.updateTransactionCategory(smsId, category)
-                    },
-                    themeViewModel = themeViewModel,
-                    modifier = Modifier.padding(innerPadding)
-                )
+        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            when {
+                !uiState.hasPermission -> {
+                    PermissionScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        onRequestPermission = {
+                            permissionLauncher.launch(Manifest.permission.READ_SMS)
+                        }
+                    )
+                }
+                uiState.isLoading -> {
+                    LoadingScreen(modifier = Modifier.padding(innerPadding))
+                }
+                else -> {
+                    KanakkuNavHost(
+                        uiState = uiState,
+                        categoryMap = categoryMap,
+                        onRefresh = { viewModel.loadSmsData(context) },
+                        onCategoryChange = { smsId, category ->
+                            viewModel.updateTransactionCategory(smsId, category)
+                        },
+                        themeViewModel = themeViewModel,
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
             }
         }
     }
