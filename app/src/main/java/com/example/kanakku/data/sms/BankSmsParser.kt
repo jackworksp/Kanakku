@@ -105,6 +105,71 @@ class BankSmsParser {
             """(?:(?:paid|sent|transferred)\s+to|to|from|received\s+from)\s+([A-Za-z0-9][A-Za-z0-9\s&.',-]{1,48}?)(?:\s+(?:on|Ref|UPI|A/?c|Rs\.?|₹|INR|@)|[.@]|\s*$)""",
             RegexOption.IGNORE_CASE
         )
+
+        // Maximum length for merchant names
+        private const val MAX_MERCHANT_LENGTH = 50
+
+        // Common noise patterns to remove from merchant names
+        private val MERCHANT_NOISE_PATTERN = Regex(
+            """\s+(PVT\.?\s*LTD\.?|LTD\.?|LIMITED|INC\.?|CORP\.?|CO\.?)\s*$""",
+            RegexOption.IGNORE_CASE
+        )
+
+        /**
+         * Normalize merchant/payee name by cleaning and formatting.
+         *
+         * Performs the following normalizations:
+         * 1. Trims leading/trailing whitespace
+         * 2. Replaces multiple consecutive spaces with a single space
+         * 3. Removes common business suffixes (PVT LTD, LIMITED, INC, etc.)
+         * 4. Removes excessive special characters (multiple dots, dashes, etc.)
+         * 5. Capitalizes each word (title case) for consistency
+         * 6. Limits length to MAX_MERCHANT_LENGTH characters
+         *
+         * @param merchantName Raw merchant name extracted from SMS
+         * @return Cleaned and normalized merchant name, or null if input is null/blank
+         */
+        private fun normalizeMerchantName(merchantName: String?): String? {
+            if (merchantName.isNullOrBlank()) {
+                return null
+            }
+
+            var normalized = merchantName.trim()
+
+            // Replace multiple consecutive spaces with a single space
+            normalized = normalized.replace(Regex("""\s+"""), " ")
+
+            // Remove common business suffixes (e.g., "ABC Pvt Ltd" -> "ABC")
+            normalized = normalized.replace(MERCHANT_NOISE_PATTERN, "")
+
+            // Remove excessive consecutive special characters (e.g., "..." -> ".", "---" -> "-")
+            normalized = normalized.replace(Regex("""\.{2,}"""), ".")
+            normalized = normalized.replace(Regex("""-{2,}"""), "-")
+            normalized = normalized.replace(Regex("""_{2,}"""), "_")
+
+            // Remove trailing dots, commas, dashes, underscores
+            normalized = normalized.replace(Regex("""[.,\-_]+$"""), "")
+
+            // Remove leading dots, commas, dashes, underscores
+            normalized = normalized.replace(Regex("""^[.,\-_]+"""), "")
+
+            // Final trim to remove any remaining whitespace
+            normalized = normalized.trim()
+
+            // Return null if the result is empty after cleaning
+            if (normalized.isBlank()) {
+                return null
+            }
+
+            // Capitalize each word for consistency (e.g., "john doe" -> "John Doe")
+            normalized = normalized.split(" ")
+                .joinToString(" ") { word ->
+                    word.lowercase().replaceFirstChar { it.uppercase() }
+                }
+
+            // Limit length to maximum allowed
+            return normalized.take(MAX_MERCHANT_LENGTH)
+        }
     }
 
     /**
@@ -142,21 +207,24 @@ class BankSmsParser {
      * - "transferred to GHI" (transfer to person)
      *
      * This method prioritizes UPI-specific context keywords over generic merchant patterns,
-     * providing better accuracy for UPI transactions.
+     * providing better accuracy for UPI transactions. The extracted merchant name is
+     * normalized (cleaned and formatted) before being returned.
      *
      * @param smsBody The SMS message body
-     * @return Merchant/payee name or null if not found
+     * @return Normalized merchant/payee name or null if not found
      */
     fun extractUpiMerchant(smsBody: String): String? {
         // Try UPI-specific merchant pattern first (most accurate for UPI)
         val upiMerchantMatch = UPI_MERCHANT_PATTERN.find(smsBody)
         if (upiMerchantMatch != null) {
-            return upiMerchantMatch.groupValues.getOrNull(1)?.trim()?.take(50)
+            val rawMerchant = upiMerchantMatch.groupValues.getOrNull(1)
+            return normalizeMerchantName(rawMerchant)
         }
 
         // Fallback to generic merchant pattern
         val merchantMatch = MERCHANT_PATTERN.find(smsBody)
-        return merchantMatch?.groupValues?.getOrNull(1)?.trim()?.take(50)
+        val rawMerchant = merchantMatch?.groupValues?.getOrNull(1)
+        return normalizeMerchantName(rawMerchant)
     }
 
     /**
@@ -276,9 +344,10 @@ class BankSmsParser {
         val accountMatch = ACCOUNT_PATTERN.find(body)
         val accountNumber = accountMatch?.groupValues?.get(1)
 
-        // Extract merchant (best effort)
+        // Extract merchant (best effort) and normalize
         val merchantMatch = MERCHANT_PATTERN.find(body)
-        val merchant = merchantMatch?.groupValues?.get(1)?.trim()?.take(50)
+        val rawMerchant = merchantMatch?.groupValues?.get(1)
+        val merchant = normalizeMerchantName(rawMerchant)
 
         // Extract balance after transaction
         val balanceMatch = BALANCE_PATTERN.find(body)
@@ -286,9 +355,10 @@ class BankSmsParser {
             ?.replace(",", "")
             ?.toDoubleOrNull()
 
-        // Extract location (ATM/branch)
+        // Extract location (ATM/branch) and normalize
         val locationMatch = LOCATION_PATTERN.find(body)
-        val location = locationMatch?.groupValues?.get(1)?.trim()?.take(50)
+        val rawLocation = locationMatch?.groupValues?.get(1)
+        val location = normalizeMerchantName(rawLocation)
 
         return ParsedTransaction(
             smsId = sms.id,
