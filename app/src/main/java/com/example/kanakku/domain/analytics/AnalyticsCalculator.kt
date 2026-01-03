@@ -6,6 +6,47 @@ import java.util.*
 
 class AnalyticsCalculator {
 
+    /**
+     * Calculate summary for a date range.
+     * Overloaded method that accepts DateRange instead of TimePeriod.
+     */
+    fun calculatePeriodSummary(
+        transactions: List<ParsedTransaction>,
+        categoryMap: Map<Long, Category>,
+        dateRange: DateRange
+    ): PeriodSummary {
+        val filtered = transactions.filter {
+            it.date >= dateRange.startDate && it.date <= dateRange.endDate
+        }
+
+        val totalSpent = filtered
+            .filter { it.type == TransactionType.DEBIT }
+            .sumOf { it.amount }
+
+        val totalReceived = filtered
+            .filter { it.type == TransactionType.CREDIT }
+            .sumOf { it.amount }
+
+        val categoryTotals = getCategoryBreakdown(filtered, categoryMap)
+        val topCategory = categoryTotals.maxByOrNull { it.totalAmount }?.category
+
+        val daysInPeriod = maxOf(1, dateRange.durationInDays)
+        val averageDaily = totalSpent / daysInPeriod
+
+        return PeriodSummary(
+            period = null,
+            totalSpent = totalSpent,
+            totalReceived = totalReceived,
+            transactionCount = filtered.size,
+            averageDaily = averageDaily,
+            topCategory = topCategory
+        )
+    }
+
+    /**
+     * Calculate summary for a time period.
+     * Existing method kept for backward compatibility.
+     */
     fun calculatePeriodSummary(
         transactions: List<ParsedTransaction>,
         categoryMap: Map<Long, Category>,
@@ -61,6 +102,45 @@ class AnalyticsCalculator {
             .sortedByDescending { it.totalAmount }
     }
 
+    /**
+     * Get spending trend for a date range with smart date format selection.
+     * Overloaded method that accepts DateRange instead of TimePeriod.
+     */
+    fun getSpendingTrend(
+        transactions: List<ParsedTransaction>,
+        dateRange: DateRange
+    ): List<TrendPoint> {
+        val filtered = transactions
+            .filter {
+                it.date >= dateRange.startDate &&
+                it.date <= dateRange.endDate &&
+                it.type == TransactionType.DEBIT
+            }
+
+        // Smart date format selection based on range duration
+        val dateFormat = when {
+            dateRange.durationInDays <= 1 -> SimpleDateFormat("HH:00", Locale.getDefault())
+            dateRange.durationInDays <= 14 -> SimpleDateFormat("EEE", Locale.getDefault())
+            dateRange.durationInDays <= 90 -> SimpleDateFormat("dd", Locale.getDefault())
+            else -> SimpleDateFormat("MMM", Locale.getDefault())
+        }
+
+        return filtered
+            .groupBy { dateFormat.format(Date(it.date)) }
+            .map { (label, txns) ->
+                TrendPoint(
+                    label = label,
+                    date = txns.first().date,
+                    amount = txns.sumOf { it.amount }
+                )
+            }
+            .sortedBy { it.date }
+    }
+
+    /**
+     * Get spending trend for a time period.
+     * Existing method kept for backward compatibility.
+     */
     fun getSpendingTrend(
         transactions: List<ParsedTransaction>,
         period: TimePeriod
@@ -90,6 +170,46 @@ class AnalyticsCalculator {
             .sortedBy { it.date }
     }
 
+    /**
+     * Get daily spending breakdown for a date range with smart date formatting.
+     * Overloaded method that accepts DateRange instead of TimePeriod.
+     */
+    fun getDailySpending(
+        transactions: List<ParsedTransaction>,
+        dateRange: DateRange
+    ): List<DaySpending> {
+        // Smart date format selection based on range duration
+        val dayFormat = when {
+            dateRange.durationInDays <= 14 -> SimpleDateFormat("EEE, dd MMM", Locale.getDefault())
+            dateRange.durationInDays <= 90 -> SimpleDateFormat("dd MMM", Locale.getDefault())
+            else -> SimpleDateFormat("MMM yy", Locale.getDefault())
+        }
+        val dayKeyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+        val filtered = transactions.filter {
+            it.date >= dateRange.startDate && it.date <= dateRange.endDate
+        }
+
+        val grouped = filtered.groupBy { dayKeyFormat.format(Date(it.date)) }
+
+        return grouped.map { (dayKey, txns) ->
+            val spent = txns.filter { it.type == TransactionType.DEBIT }.sumOf { it.amount }
+            val received = txns.filter { it.type == TransactionType.CREDIT }.sumOf { it.amount }
+            val firstDate = txns.first().date
+
+            DaySpending(
+                dayLabel = dayFormat.format(Date(firstDate)),
+                date = firstDate,
+                spent = spent,
+                received = received
+            )
+        }.sortedBy { it.date }
+    }
+
+    /**
+     * Get daily spending breakdown for a time period.
+     * Existing method kept for backward compatibility.
+     */
     fun getDailySpending(
         transactions: List<ParsedTransaction>,
         period: TimePeriod
