@@ -220,6 +220,7 @@ class MainViewModel : ViewModel() {
                 // Step 5: Process SMS based on sync mode
                 val newBankSms: List<SmsMessage>
                 val deduplicated: List<ParsedTransaction>
+                var totalParsedCount = 0 // Track total parsed transactions before deduplication
 
                 if (isInitialSync && newSms.size > SMS_BATCH_SIZE) {
                     // Batch processing for large initial sync
@@ -284,6 +285,8 @@ class MainViewModel : ViewModel() {
                             )
                             emptyList()
                         }
+
+                        totalParsedCount += batchParsed.size
 
                         // Filter out transactions that already exist in database
                         val batchNewTransactions = mutableListOf<ParsedTransaction>()
@@ -398,6 +401,8 @@ class MainViewModel : ViewModel() {
                         )
                         emptyList()
                     }
+
+                    totalParsedCount = newParsed.size
 
                     // Step 6: Filter out transactions that already exist in database
                     if (isInitialSync) {
@@ -520,7 +525,7 @@ class MainViewModel : ViewModel() {
                     syncStatusMessage = null,
                     totalSmsCount = totalSmsCount,
                     bankSmsCount = newBankSms.size,
-                    duplicatesRemoved = newParsed.size - deduplicated.size,
+                    duplicatesRemoved = totalParsedCount - deduplicated.size,
                     transactions = allTransactions,
                     rawBankSms = newBankSms,
                     isLoadedFromDatabase = true,
