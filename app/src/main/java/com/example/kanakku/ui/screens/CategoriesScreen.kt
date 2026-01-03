@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,7 +28,8 @@ import java.util.*
 fun CategoriesScreen(
     transactions: List<ParsedTransaction>,
     categoryMap: Map<Long, Category>,
-    onCategoryChange: (Long, Category) -> Unit
+    onCategoryChange: (Long, Category) -> Unit,
+    onManageCategoriesClick: () -> Unit = {}
 ) {
     var selectedCategory by remember { mutableStateOf<Category?>(null) }
     var selectedTransaction by remember { mutableStateOf<ParsedTransaction?>(null) }
@@ -64,21 +66,34 @@ fun CategoriesScreen(
             }
         )
     } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Categories",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Categories",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    actions = {
+                        IconButton(onClick = onManageCategoriesClick) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Manage Categories"
+                            )
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 16.dp)
             ) {
                 items(categoryTotals) { categoryTotal ->
                     CategoryCard(

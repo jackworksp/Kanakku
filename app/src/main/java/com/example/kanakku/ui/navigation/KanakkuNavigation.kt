@@ -66,7 +66,10 @@ fun KanakkuNavHost(
                 CategoriesScreen(
                     transactions = uiState.transactions,
                     categoryMap = categoryMap,
-                    onCategoryChange = onCategoryChange
+                    onCategoryChange = onCategoryChange,
+                    onManageCategoriesClick = {
+                        navController.navigate(NavRoutes.CATEGORY_MANAGEMENT)
+                    }
                 )
             }
 
