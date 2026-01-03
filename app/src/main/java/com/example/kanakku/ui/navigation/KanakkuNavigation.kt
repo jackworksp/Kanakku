@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.ui.MainUiState
+import com.example.kanakku.ui.screens.AddTransactionScreen
 import com.example.kanakku.ui.screens.AnalyticsScreen
 import com.example.kanakku.ui.screens.CategoriesScreen
 import com.example.kanakku.ui.screens.TransactionsScreen
@@ -46,7 +47,7 @@ fun KanakkuNavHost(
                     onRefresh = onRefresh,
                     onCategoryChange = onCategoryChange,
                     onAddTransaction = {
-                        // TODO: Navigate to AddTransactionScreen (implemented in subtask 3.3)
+                        navController.navigate("addTransaction")
                     }
                 )
             }
@@ -61,6 +62,21 @@ fun KanakkuNavHost(
                     transactions = uiState.transactions,
                     categoryMap = categoryMap,
                     onCategoryChange = onCategoryChange
+                )
+            }
+            composable("addTransaction") {
+                AddTransactionScreen(
+                    onNavigateBack = {
+                        navController.navigateUp()
+                    },
+                    onSave = { amount, type, category, merchant, date, notes ->
+                        // TODO: Implement save logic in Phase 4 (subtask 4.1)
+                        // This will call MainViewModel.saveManualTransaction()
+                        // For now, just navigate back
+                        navController.navigateUp()
+                        // After actual save is implemented, refresh the transaction list
+                        onRefresh()
+                    }
                 )
             }
         }
