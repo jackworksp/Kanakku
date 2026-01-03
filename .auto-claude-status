@@ -3,13 +3,13 @@
   "spec": "021-upi-transaction-detection-enhancement",
   "state": "building",
   "subtasks": {
-    "completed": 10,
+    "completed": 12,
     "total": 24,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Enhanced Merchant Extraction",
+    "current": "UPI Parsing Integration",
     "id": null,
     "total": 3
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 12,
+    "number": 14,
     "started_at": "2026-01-03T08:12:55.133052"
   },
-  "last_update": "2026-01-03T08:52:03.826862"
+  "last_update": "2026-01-03T08:58:49.022701"
 }

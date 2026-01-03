@@ -439,9 +439,23 @@ class BankSmsParser {
     }
 
     /**
-     * Parse a bank SMS into a structured transaction
+     * Parse a bank SMS into a structured transaction.
+     *
+     * This method intelligently routes SMS messages to the appropriate parser:
+     * - UPI transaction messages are routed to parseUpiSms() for UPI-specific parsing
+     * - Other bank transaction messages are parsed using generic bank SMS patterns
+     *
+     * UPI transactions are prioritized because they require specialized extraction logic
+     * for VPA, merchant names, and payment method identification.
      */
     fun parseSms(sms: SmsMessage): ParsedTransaction? {
+        // Priority 1: Check if this is a UPI transaction
+        // UPI transactions need specialized parsing for VPA extraction and merchant identification
+        if (isUpiTransactionSms(sms)) {
+            return parseUpiSms(sms)
+        }
+
+        // Priority 2: Check if this is a generic bank transaction
         if (!isBankTransactionSms(sms)) {
             return null
         }
