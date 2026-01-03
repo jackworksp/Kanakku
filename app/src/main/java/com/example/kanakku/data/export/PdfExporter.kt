@@ -1,10 +1,12 @@
 package com.example.kanakku.data.export
 
+import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import android.graphics.Typeface
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
+import com.example.kanakku.data.model.TimePeriod
 import com.example.kanakku.data.model.TransactionType
 import java.io.OutputStream
 import java.text.SimpleDateFormat
@@ -18,6 +20,7 @@ import java.util.Locale
  * - PDF document creation with proper page layout
  * - Title header with date range
  * - Summary section (total spent, total received, transaction count)
+ * - Visual charts (category pie chart and spending bar chart)
  * - Category breakdown table
  * - Transaction list table with automatic pagination
  * - Proper formatting and styling
@@ -89,6 +92,21 @@ object PdfExporter {
             // Summary section
             currentY = drawSummary(canvas, currentY, transactions)
             currentY += SECTION_SPACING
+
+            // Generate and draw charts
+            if (transactions.isNotEmpty()) {
+                // Check if we need a new page for charts
+                if (currentY > PAGE_HEIGHT - MARGIN_BOTTOM - 250) {
+                    pdfDocument.finishPage(currentPage)
+                    pageNumber++
+                    currentPage = startNewPage(pdfDocument, pageNumber)
+                    canvas = currentPage.canvas
+                    currentY = MARGIN_TOP
+                }
+
+                currentY = drawCharts(canvas, currentY, transactions, categoryMap)
+                currentY += SECTION_SPACING
+            }
 
             // Category breakdown
             val categoryBreakdown = calculateCategoryBreakdown(transactions, categoryMap)
@@ -283,6 +301,97 @@ object PdfExporter {
             normalPaint
         )
         y += FONT_SIZE_NORMAL + LINE_SPACING
+
+        return y
+    }
+
+    /**
+     * Draws visual charts (pie chart and bar chart) on the PDF.
+     *
+     * @param canvas The canvas to draw on
+     * @param startY The starting Y position
+     * @param transactions List of transactions
+     * @param categoryMap Map of category IDs to Category objects
+     * @return The new Y position after drawing
+     */
+    private fun drawCharts(
+        canvas: android.graphics.Canvas,
+        startY: Float,
+        transactions: List<ParsedTransaction>,
+        categoryMap: Map<String, Category>
+    ): Float {
+        var y = startY
+
+        // Section header
+        val headerPaint = Paint().apply {
+            textSize = FONT_SIZE_HEADER
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+        canvas.drawText("Visual Summary", CONTENT_START_X, y, headerPaint)
+        y += FONT_SIZE_HEADER + LINE_SPACING
+
+        try {
+            // Generate chart bitmaps
+            val pieChart = PdfChartRenderer.generateCategoryPieChart(transactions, categoryMap)
+            val barChart = PdfChartRenderer.generateSpendingBarChart(transactions, TimePeriod.WEEK)
+
+            // Calculate chart dimensions to fit within content area
+            val chartMaxWidth = CONTENT_WIDTH / 2 - 10f
+            val pieChartScaledWidth = chartMaxWidth.coerceAtMost(200f)
+            val pieChartScaledHeight = pieChartScaledWidth // Keep square aspect ratio
+
+            val barChartScaledWidth = chartMaxWidth.coerceAtMost(240f)
+            val barChartScaledHeight = barChartScaledWidth * 0.6f // Maintain aspect ratio
+
+            // Position charts side by side
+            val pieChartX = CONTENT_START_X + 10f
+            val barChartX = CONTENT_START_X + pieChartScaledWidth + 30f
+
+            // Draw pie chart
+            canvas.drawBitmap(
+                pieChart,
+                null,
+                android.graphics.RectF(
+                    pieChartX,
+                    y,
+                    pieChartX + pieChartScaledWidth,
+                    y + pieChartScaledHeight
+                ),
+                null
+            )
+
+            // Draw bar chart
+            canvas.drawBitmap(
+                barChart,
+                null,
+                android.graphics.RectF(
+                    barChartX,
+                    y,
+                    barChartX + barChartScaledWidth,
+                    y + barChartScaledHeight
+                ),
+                null
+            )
+
+            // Update Y position based on tallest chart
+            y += pieChartScaledHeight.coerceAtLeast(barChartScaledHeight) + LINE_SPACING
+
+            // Clean up bitmaps
+            pieChart.recycle()
+            barChart.recycle()
+
+        } catch (e: Exception) {
+            // If chart generation fails, skip charts and continue with the rest of the PDF
+            val errorPaint = Paint().apply {
+                textSize = FONT_SIZE_NORMAL
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
+                isAntiAlias = true
+                color = android.graphics.Color.GRAY
+            }
+            canvas.drawText("Charts unavailable", CONTENT_START_X + 20f, y, errorPaint)
+            y += FONT_SIZE_NORMAL + LINE_SPACING
+        }
 
         return y
     }
