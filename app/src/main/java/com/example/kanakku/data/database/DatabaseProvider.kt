@@ -5,6 +5,7 @@ import android.database.SQLException
 import android.database.sqlite.SQLiteException
 import android.util.Log
 import androidx.room.Room
+import com.example.kanakku.data.repository.BudgetRepository
 import com.example.kanakku.data.repository.TransactionRepository
 import java.io.File
 
@@ -32,6 +33,9 @@ object DatabaseProvider {
 
     @Volatile
     private var repository: TransactionRepository? = null
+
+    @Volatile
+    private var budgetRepository: BudgetRepository? = null
 
     /**
      * Gets the singleton database instance.
@@ -63,6 +67,23 @@ object DatabaseProvider {
             repository ?: TransactionRepository(getDatabase(context)).also {
                 repository = it
                 Log.i(TAG, "Repository initialized successfully")
+            }
+        }
+    }
+
+    /**
+     * Gets the singleton BudgetRepository instance.
+     * Creates both database and repository on first access.
+     *
+     * @param context Application or Activity context (applicationContext is used internally)
+     * @return The BudgetRepository instance
+     * @throws DatabaseInitializationException if database cannot be created after recovery attempts
+     */
+    fun getBudgetRepository(context: Context): BudgetRepository {
+        return budgetRepository ?: synchronized(this) {
+            budgetRepository ?: BudgetRepository(getDatabase(context)).also {
+                budgetRepository = it
+                Log.i(TAG, "BudgetRepository initialized successfully")
             }
         }
     }
@@ -299,6 +320,7 @@ object DatabaseProvider {
         }
         database = null
         repository = null
+        budgetRepository = null
     }
 }
 
