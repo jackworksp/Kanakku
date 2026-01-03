@@ -347,6 +347,7 @@ class MainViewModel : ViewModel() {
     }
 
     /**
+<<<<<<< HEAD
      * Resets all learned merchant-to-category mappings.
      * Clears the learned preferences and re-categorizes all transactions using default rules.
      *
@@ -407,5 +408,32 @@ class MainViewModel : ViewModel() {
      */
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    /**
+     * Get all transactions for backup purposes.
+     *
+     * @return Current list of parsed transactions
+     */
+    fun getTransactionsForBackup(): List<ParsedTransaction> {
+        return _uiState.value.transactions
+    }
+
+    /**
+     * Get category overrides for backup purposes.
+     *
+     * @return Map of smsId to categoryId for all manual category overrides
+     */
+    fun getCategoryOverridesForBackup(): Map<Long, String> {
+        return categoryManager.exportCategoryOverrides()
+    }
+
+    /**
+     * Get the CategoryManager instance for backup operations.
+     *
+     * @return CategoryManager instance used by this ViewModel
+     */
+    fun getCategoryManager(): CategoryManager {
+        return categoryManager
     }
 }
