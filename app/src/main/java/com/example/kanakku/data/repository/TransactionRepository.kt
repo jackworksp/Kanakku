@@ -302,6 +302,94 @@ class TransactionRepository(private val database: KanakkuDatabase) {
         }
     }
 
+    // ==================== Manual Transaction Operations ====================
+
+    /**
+     * Saves a manually entered transaction to the database.
+     * Generates a unique ID for the transaction using timestamp to avoid collisions with SMS IDs.
+     * Invalidates cache after successful save to ensure data consistency.
+     *
+     * @param transaction The manual transaction to save (source should be MANUAL)
+     * @return Result<Long> containing the generated transaction ID or error information
+     */
+    suspend fun saveManualTransaction(transaction: ParsedTransaction): Result<Long> {
+        return ErrorHandler.runSuspendCatching("Save manual transaction") {
+            // Generate unique ID using current timestamp
+            // SMS IDs are typically small values from Android's SMS database
+            // Using timestamp ensures no collision (e.g., 1735908000000 for 2025)
+            val generatedId = System.currentTimeMillis()
+
+            // Create entity with generated ID
+            val entity = transaction.copy(smsId = generatedId).toEntity()
+
+            // Insert and get the generated ID
+            val insertedId = transactionDao.insertManualTransaction(entity)
+
+            // Invalidate cache to reflect new transaction
+            invalidateCache()
+
+            ErrorHandler.logInfo(
+                "Manual transaction saved with ID: $insertedId",
+                "TransactionRepository"
+            )
+
+            insertedId
+        }
+    }
+
+    /**
+     * Updates an existing manual transaction in the database.
+     * Only manual transactions can be updated (SMS transactions are immutable).
+     * Invalidates cache after successful update to ensure data consistency.
+     *
+     * @param transaction The manual transaction with updated values
+     * @return Result<Boolean> indicating if transaction was updated or error information
+     */
+    suspend fun updateManualTransaction(transaction: ParsedTransaction): Result<Boolean> {
+        return ErrorHandler.runSuspendCatching("Update manual transaction") {
+            // Validate that this is a manual transaction
+            if (transaction.source != com.example.kanakku.data.model.TransactionSource.MANUAL) {
+                throw IllegalArgumentException(
+                    "Only manual transactions can be updated. SMS transactions are immutable."
+                )
+            }
+
+            // Convert to entity and update
+            val entity = transaction.toEntity()
+            val rowsUpdated = transactionDao.updateTransaction(entity)
+
+            // Invalidate cache if transaction was updated
+            if (rowsUpdated > 0) {
+                invalidateCache()
+                ErrorHandler.logInfo(
+                    "Manual transaction updated: ${transaction.smsId}",
+                    "TransactionRepository"
+                )
+            } else {
+                ErrorHandler.logWarning(
+                    "Transaction not found for update: ${transaction.smsId}",
+                    "TransactionRepository"
+                )
+            }
+
+            rowsUpdated > 0
+        }
+    }
+
+    /**
+     * Retrieves a single transaction by its ID.
+     * Useful for editing and viewing transaction details.
+     *
+     * @param id The transaction ID (smsId) to retrieve
+     * @return Result<ParsedTransaction?> containing the transaction or null if not found
+     */
+    suspend fun getTransactionById(id: Long): Result<ParsedTransaction?> {
+        return ErrorHandler.runSuspendCatching("Get transaction by ID") {
+            val entity = transactionDao.getTransactionById(id)
+            entity?.toDomain()
+        }
+    }
+
     /**
      * Gets the most recent transaction date.
      * Useful for determining last sync time.
