@@ -16,6 +16,9 @@
     <!-- SMS Permission for reading bank transaction messages (local-only operation) -->
     <uses-permission android:name="android.permission.READ_SMS" />
 
+    <!-- SMS Permission for receiving real-time bank transaction broadcasts (local-only operation) -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+
     <!-- Declare telephony feature as optional for ChromeOS/tablet compatibility -->
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
