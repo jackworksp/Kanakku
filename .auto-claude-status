@@ -3,23 +3,23 @@
   "spec": "015-recurring-transaction-detection",
   "state": "building",
   "subtasks": {
-    "completed": 3,
+    "completed": 7,
     "total": 28,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Data Models and Entities",
+    "current": "Detection Algorithm",
     "id": null,
-    "total": 5
+    "total": 4
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 5,
+    "number": 9,
     "started_at": "2026-01-03T13:25:03.403090"
   },
-  "last_update": "2026-01-03T13:51:59.109195"
+  "last_update": "2026-01-03T14:17:18.495008"
 }
