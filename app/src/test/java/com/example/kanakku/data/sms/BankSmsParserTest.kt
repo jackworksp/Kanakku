@@ -75,6 +75,54 @@ class BankSmsParserTest {
         body = "You paid Rs.100.00 to friend@paytm via Google Pay for Lunch. Ref: GP123456789"
     )
 
+    private val googlePayDebitWithBalanceSms = createSms(
+        id = 5L,
+        address = "VM-GPAY",
+        body = "Rs.750.50 debited from A/c XX8888 via Google Pay to petrol.pump@paytm on 02-Jan-26. Google Ref ID GR111222333. Avl Bal Rs.12450.75"
+    )
+
+    private val googlePayCreditFromMerchantSms = createSms(
+        id = 6L,
+        address = "AD-GPAY",
+        body = "You received a refund of Rs.299.99 from amazon.pay@okicici via Google Pay. UPI Ref 789012345678"
+    )
+
+    private val googlePayTransferredSms = createSms(
+        id = 7L,
+        address = "GOOGLEPAY",
+        body = "You transferred Rs.5000.00 to mom@oksbi using Google Pay for Monthly allowance. Ref: GP555666777"
+    )
+
+    private val googlePayWithAccountAndDateSms = createSms(
+        id = 8L,
+        address = "G-PAY",
+        body = "Rs.1,250 debited from your A/c XX9999 on 02-Jan-26 via UPI to swiggy@paytm. Google Ref ID GP999888777. Balance Rs.8750"
+    )
+
+    private val googlePayLargeAmountSms = createSms(
+        id = 9L,
+        address = "GPAY",
+        body = "You paid Rs.25,000.00 to furniture.store@axisbank via Google Pay. UPI Ref No 543210987654"
+    )
+
+    private val googlePayMinimalSms = createSms(
+        id = 10L,
+        address = "GPAY",
+        body = "Paid Rs.50 to Tea Stall via GPay. Ref GP123"
+    )
+
+    private val googlePayWithCommaAmountSms = createSms(
+        id = 11L,
+        address = "GOOGLEPAY",
+        body = "Rs.2,499.00 paid to flipkart@axisbank using Google Pay. Google Ref ID GP789456123"
+    )
+
+    private val googlePayCreditWithFullDetailsSms = createSms(
+        id = 12L,
+        address = "GPAY",
+        body = "A/c XX7777 credited Rs.3,500.50 on 02-Jan-26. UPI received from employer@hdfcbank via Google Pay. Google Ref ID GP147258369. Avl Bal Rs.35500.50"
+    )
+
     // ==================== Test Fixtures: PhonePe SMS ====================
 
     private val phonePeDebitSms = createSms(
@@ -878,6 +926,156 @@ class BankSmsParserTest {
         assertEquals("friend@paytm", result.upiId)
         assertEquals("Friend", result.merchant)
         assertEquals("GP123456789", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesGooglePayDebitWithBalance() {
+        // Given
+        val sms = googlePayDebitWithBalanceSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(750.50, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("petrol.pump@paytm", result.upiId)
+        assertEquals("Petrol Pump", result.merchant)
+        assertEquals("8888", result.accountNumber)
+        assertEquals("GR111222333", result.referenceNumber)
+        assertEquals(12450.75, result.balanceAfter, 0.01)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesGooglePayCreditFromMerchant() {
+        // Given
+        val sms = googlePayCreditFromMerchantSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(299.99, result!!.amount, 0.01)
+        assertEquals(TransactionType.CREDIT, result.type)
+        assertEquals("amazon.pay@okicici", result.upiId)
+        assertEquals("Amazon Pay", result.merchant)
+        assertEquals("789012345678", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesGooglePayTransferred() {
+        // Given
+        val sms = googlePayTransferredSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(5000.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("mom@oksbi", result.upiId)
+        assertEquals("Mom", result.merchant)
+        assertEquals("GP555666777", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesGooglePayWithAccountAndDate() {
+        // Given
+        val sms = googlePayWithAccountAndDateSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(1250.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("swiggy@paytm", result.upiId)
+        assertEquals("Swiggy", result.merchant)
+        assertEquals("9999", result.accountNumber)
+        assertEquals("GP999888777", result.referenceNumber)
+        assertEquals(8750.0, result.balanceAfter, 0.01)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesGooglePayLargeAmount() {
+        // Given
+        val sms = googlePayLargeAmountSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(25000.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("furniture.store@axisbank", result.upiId)
+        assertEquals("Furniture Store", result.merchant)
+        assertEquals("543210987654", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesGooglePayMinimal() {
+        // Given
+        val sms = googlePayMinimalSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(50.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("Tea Stall", result.merchant)
+        assertEquals("GP123", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+        assertNull(result.upiId) // No VPA in minimal message
+    }
+
+    @Test
+    fun parseUpiSms_parsesGooglePayWithCommaAmount() {
+        // Given
+        val sms = googlePayWithCommaAmountSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(2499.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("flipkart@axisbank", result.upiId)
+        assertEquals("Flipkart", result.merchant)
+        assertEquals("GP789456123", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesGooglePayCreditWithFullDetails() {
+        // Given
+        val sms = googlePayCreditWithFullDetailsSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(3500.50, result!!.amount, 0.01)
+        assertEquals(TransactionType.CREDIT, result.type)
+        assertEquals("employer@hdfcbank", result.upiId)
+        assertEquals("Employer", result.merchant)
+        assertEquals("7777", result.accountNumber)
+        assertEquals("GP147258369", result.referenceNumber)
+        assertEquals(35500.50, result.balanceAfter, 0.01)
         assertEquals("UPI", result.paymentMethod)
     }
 
