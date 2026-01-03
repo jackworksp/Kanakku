@@ -313,8 +313,13 @@ class MainViewModel : ViewModel() {
     fun updateTransactionCategory(smsId: Long, category: Category) {
         viewModelScope.launch {
             try {
+                // Look up the transaction to get merchant name for learning
+                val transaction = _uiState.value.transactions.find { it.smsId == smsId }
+                val merchant = transaction?.merchant
+
                 // Update in-memory state and persist to database
-                categoryManager.setManualOverride(smsId, category)
+                // Pass merchant to enable learning merchant-to-category mappings
+                categoryManager.setManualOverride(smsId, category, merchant)
                     .onSuccess {
                         // Update UI state only on successful save
                         _categoryMap.value = _categoryMap.value.toMutableMap().apply {
