@@ -158,7 +158,7 @@ fun SpendingBarChart(
     }
 
     val maxSpending = dailySpending.maxOfOrNull { it.spent } ?: 1.0
-    val barColor = Color(0xFFC62828)
+    val barColor = MaterialTheme.colorScheme.error
     val displayData = dailySpending.takeLast(7) // Show last 7 days
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -252,8 +252,8 @@ fun SpendingLineChart(
         animationPlayed = true
     }
 
-    val lineColor = Color(0xFF2E7D32)
-    val fillColor = Color(0xFF2E7D32).copy(alpha = 0.1f)
+    val lineColor = MaterialTheme.colorScheme.primary
+    val fillColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
     val maxAmount = trendPoints.maxOfOrNull { it.amount } ?: 1.0
     val minAmount = trendPoints.minOfOrNull { it.amount } ?: 0.0
     val range = (maxAmount - minAmount).coerceAtLeast(1.0)
@@ -337,7 +337,7 @@ fun SpendingLineChart(
                     center = Offset(x, y)
                 )
                 drawCircle(
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.surface,
                     radius = 3.dp.toPx(),
                     center = Offset(x, y)
                 )
