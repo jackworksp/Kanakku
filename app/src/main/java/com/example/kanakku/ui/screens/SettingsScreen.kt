@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,14 +26,21 @@ import com.example.kanakku.ui.settings.SettingsViewModel
  * Settings screen where users can configure app behavior and preferences.
  *
  * This screen provides a centralized location for users to:
- * - Configure display preferences (dark mode, dynamic colors, compact view)
+ * - Configure display preferences (dark mode, dynamic colors, compact view, offline badge)
  * - Manage notification settings
- * - Set default analytics preferences
- * - Control data management options
- * - View app information
+ * - Set default analytics preferences (time period, auto-categorize)
+ * - Control data management options (clear all data)
+ * - View app information (version, privacy policy)
  *
  * The screen uses a scrollable column layout with distinct sections for each
  * category of settings, following Material3 design guidelines.
+ *
+ * Features:
+ * - Display Settings: Theme and visual customization
+ * - Notifications: SMS notification preferences
+ * - Analytics: Default time period and auto-categorization
+ * - Data Management: Clear all data with confirmation
+ * - About: App version and privacy policy
  *
  * @param viewModel SettingsViewModel for state management and business logic
  */
@@ -46,6 +54,7 @@ fun SettingsScreen(
     // Dialog state
     var showClearDataDialog by remember { mutableStateOf(false) }
     var showSuccessMessage by remember { mutableStateOf(false) }
+    var showPrivacyPolicyDialog by remember { mutableStateOf(false) }
 
     // Initialize ViewModel on first composition
     LaunchedEffect(Unit) {
@@ -176,8 +185,50 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Placeholder for remaining sections
-        // - About (4.6)
+        // About Section
+        SettingsSection(title = "About") {
+            // App Version
+            SettingsInfoItem(
+                title = "App Version",
+                value = uiState.appVersion
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            // Privacy Policy
+            SettingsActionItem(
+                title = "Privacy Policy",
+                description = "Learn about our offline-first approach",
+                icon = Icons.Default.Info,
+                onClick = { showPrivacyPolicyDialog = true }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // App Branding Footer
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Kanakku",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Your Financial Companion",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 
     // Clear Data Confirmation Dialog
@@ -190,6 +241,13 @@ fun SettingsScreen(
                     showClearDataDialog = false
                 }
             }
+        )
+    }
+
+    // Privacy Policy Dialog
+    if (showPrivacyPolicyDialog) {
+        PrivacyPolicyDialog(
+            onDismiss = { showPrivacyPolicyDialog = false }
         )
     }
 
@@ -497,6 +555,41 @@ private fun SettingsActionItem(
 }
 
 /**
+ * Settings info item for displaying read-only information.
+ *
+ * @param title The title label for the info
+ * @param value The value to display
+ */
+@Composable
+private fun SettingsInfoItem(
+    title: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/**
  * Confirmation dialog for clearing all app data.
  *
  * Displays a warning message and requires explicit user confirmation before
@@ -587,6 +680,133 @@ private fun ClearDataConfirmationDialog(
                 enabled = !isClearing
             ) {
                 Text("Cancel")
+            }
+        }
+    )
+}
+
+/**
+ * Privacy Policy dialog explaining Kanakku's offline-first approach.
+ *
+ * Displays comprehensive information about the app's privacy-focused design,
+ * including data storage, permissions, and offline-first architecture.
+ *
+ * @param onDismiss Callback when user dismisses the dialog
+ */
+@Composable
+private fun PrivacyPolicyDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(48.dp)
+            )
+        },
+        title = {
+            Text(
+                text = "Privacy Policy",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Offline-First Approach
+                Text(
+                    text = "Offline-First & Privacy-Focused",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Kanakku is designed with your privacy in mind. All your financial data stays on your device and is never transmitted to any external servers.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Data Storage
+                Text(
+                    text = "Data Storage",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "• All transactions are stored locally in an encrypted database\n" +
+                            "• Your preferences are securely encrypted (AES256_GCM)\n" +
+                            "• No cloud sync or remote backups\n" +
+                            "• No analytics or tracking services",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Permissions
+                Text(
+                    text = "Permissions",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "• SMS Read: To detect and categorize financial transactions from bank SMS messages\n" +
+                            "• Storage: For local database and backup files\n" +
+                            "• No internet permission required",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Your Control
+                Text(
+                    text = "Your Control",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "• You can clear all data at any time\n" +
+                            "• Uninstalling the app removes all data\n" +
+                            "• No account required\n" +
+                            "• No data collection or sharing",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Your financial data belongs to you. We believe in complete transparency and user control.",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Got it")
             }
         }
     )
