@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.kanakku.data.model.TransactionType
+import com.example.kanakku.data.model.TransactionSource
 
 /**
  * Room entity for persisting parsed transactions.

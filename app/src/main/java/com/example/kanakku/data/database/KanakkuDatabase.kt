@@ -21,7 +21,7 @@ import com.example.kanakku.data.database.entity.TransactionEntity
  * Manages all entities and provides access to DAOs for database operations.
  *
  * This database stores:
- * - Parsed transactions from SMS messages
+ * - Parsed transactions from SMS messages and manual entries
  * - User's manual category assignments
  * - Learned merchant-to-category mappings
  * - Synchronization metadata for incremental updates

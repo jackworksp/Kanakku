@@ -4,7 +4,9 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.example.kanakku.data.database.entity.TransactionEntity
+import com.example.kanakku.data.model.TransactionSource
 import com.example.kanakku.data.model.TransactionType
 import kotlinx.coroutines.flow.Flow
 

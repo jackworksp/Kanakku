@@ -8,6 +8,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -171,21 +174,21 @@ fun TransactionsScreen(
                 }
             }
         }
-    }
 
-    if (showCategoryPicker && selectedTransaction != null) {
-        CategoryPickerSheet(
-            currentCategory = categoryMap[selectedTransaction!!.smsId],
-            onCategorySelected = { category ->
-                onCategoryChange(selectedTransaction!!.smsId, category)
-                showCategoryPicker = false
-                selectedTransaction = null
-            },
-            onDismiss = {
-                showCategoryPicker = false
-                selectedTransaction = null
-            }
-        )
+        if (showCategoryPicker && selectedTransaction != null) {
+            CategoryPickerSheet(
+                currentCategory = categoryMap[selectedTransaction!!.smsId],
+                onCategorySelected = { category ->
+                    onCategoryChange(selectedTransaction!!.smsId, category)
+                    showCategoryPicker = false
+                    selectedTransaction = null
+                },
+                onDismiss = {
+                    showCategoryPicker = false
+                    selectedTransaction = null
+                }
+            )
+        }
     }
 
     if (showFilterSheet) {
@@ -367,6 +370,7 @@ fun TransactionCard(
     val isDebit = transaction.type == TransactionType.DEBIT
     val amountColor = if (isDebit) Color(0xFFC62828) else Color(0xFF2E7D32)
     val amountPrefix = if (isDebit) "-" else "+"
+    val isManual = transaction.source == TransactionSource.MANUAL
 
     Card(
         modifier = Modifier
@@ -435,20 +439,68 @@ fun TransactionCard(
                 }
             }
 
-            category?.let { cat ->
+            // Manual transaction badge and category badges
+            if (isManual || category != null) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = cat.color.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(16.dp)
-                        )
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Show "Manual" badge for manually entered transactions
+                    if (isManual) {
+                        Row(
+                            modifier = Modifier
+                                .background(
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "Manual",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+
+                    // Show category badge if assigned
+                    category?.let { cat ->
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = cat.color.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = cat.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = cat.color
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Show notes if present (primarily for manual transactions)
+            transaction.notes?.let { notes ->
+                if (notes.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = cat.name,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = cat.color
+                        text = notes,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                     )
                 }
             }

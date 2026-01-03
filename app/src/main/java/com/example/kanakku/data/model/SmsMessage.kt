@@ -29,3 +29,8 @@ enum class TransactionType {
     CREDIT,
     UNKNOWN
 }
+
+enum class TransactionSource {
+    SMS,
+    MANUAL
+}
