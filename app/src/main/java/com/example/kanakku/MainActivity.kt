@@ -105,6 +105,29 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
                     onCategoryChange = { smsId, category ->
                         viewModel.updateTransactionCategory(smsId, category)
                     },
+                    onSaveManualTransaction = { amount, type, category, merchant, date, notes, onSuccess ->
+                        viewModel.saveManualTransaction(
+                            amount = amount,
+                            type = type,
+                            category = category,
+                            merchant = merchant,
+                            date = date,
+                            notes = notes,
+                            onSuccess = onSuccess
+                        )
+                    },
+                    onUpdateManualTransaction = { transactionId, amount, type, category, merchant, date, notes, onSuccess ->
+                        viewModel.updateManualTransaction(
+                            transactionId = transactionId,
+                            amount = amount,
+                            type = type,
+                            category = category,
+                            merchant = merchant,
+                            date = date,
+                            notes = notes,
+                            onSuccess = onSuccess
+                        )
+                    },
                     modifier = Modifier.padding(innerPadding)
                 )
             }

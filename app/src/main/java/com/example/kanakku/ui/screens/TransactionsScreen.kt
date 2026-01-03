@@ -30,7 +30,8 @@ fun TransactionsScreen(
     categoryMap: Map<Long, Category>,
     onRefresh: () -> Unit,
     onCategoryChange: (Long, Category) -> Unit,
-    onAddTransaction: () -> Unit
+    onAddTransaction: () -> Unit,
+    onEditTransaction: (Long) -> Unit
 ) {
     var selectedTransaction by remember { mutableStateOf<ParsedTransaction?>(null) }
     var showCategoryPicker by remember { mutableStateOf(false) }
@@ -79,8 +80,14 @@ fun TransactionsScreen(
                             transaction = transaction,
                             category = categoryMap[transaction.smsId],
                             onClick = {
-                                selectedTransaction = transaction
-                                showCategoryPicker = true
+                                // For manual transactions: navigate to edit screen
+                                // For SMS transactions: open category picker
+                                if (transaction.source == TransactionSource.MANUAL) {
+                                    onEditTransaction(transaction.smsId)
+                                } else {
+                                    selectedTransaction = transaction
+                                    showCategoryPicker = true
+                                }
                             }
                         )
                     }

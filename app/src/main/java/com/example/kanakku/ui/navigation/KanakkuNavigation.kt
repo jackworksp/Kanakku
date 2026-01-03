@@ -8,16 +8,20 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
+import com.example.kanakku.data.model.TransactionType
 import com.example.kanakku.ui.MainUiState
 import com.example.kanakku.ui.screens.AddTransactionScreen
 import com.example.kanakku.ui.screens.AnalyticsScreen
 import com.example.kanakku.ui.screens.CategoriesScreen
+import com.example.kanakku.ui.screens.EditTransactionScreen
 import com.example.kanakku.ui.screens.TransactionsScreen
 
 @Composable
@@ -26,6 +30,8 @@ fun KanakkuNavHost(
     categoryMap: Map<Long, Category>,
     onRefresh: () -> Unit,
     onCategoryChange: (Long, Category) -> Unit,
+    onSaveManualTransaction: (Double, TransactionType, Category, String, Long, String, () -> Unit) -> Unit,
+    onUpdateManualTransaction: (Long, Double, TransactionType, Category, String, Long, String, () -> Unit) -> Unit,
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController()
 ) {
@@ -48,6 +54,9 @@ fun KanakkuNavHost(
                     onCategoryChange = onCategoryChange,
                     onAddTransaction = {
                         navController.navigate("addTransaction")
+                    },
+                    onEditTransaction = { transactionId ->
+                        navController.navigate("editTransaction/$transactionId")
                     }
                 )
             }
@@ -70,12 +79,32 @@ fun KanakkuNavHost(
                         navController.navigateUp()
                     },
                     onSave = { amount, type, category, merchant, date, notes ->
-                        // TODO: Implement save logic in Phase 4 (subtask 4.1)
-                        // This will call MainViewModel.saveManualTransaction()
-                        // For now, just navigate back
+                        onSaveManualTransaction(amount, type, category, merchant, date, notes) {
+                            navController.navigateUp()
+                        }
+                    }
+                )
+            }
+            composable(
+                route = "editTransaction/{transactionId}",
+                arguments = listOf(navArgument("transactionId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val transactionId = backStackEntry.arguments?.getLong("transactionId") ?: 0L
+
+                // Find the transaction from the list
+                val transaction = uiState.transactions.find { it.smsId == transactionId }
+                val category = categoryMap[transactionId]
+
+                EditTransactionScreen(
+                    transaction = transaction,
+                    initialCategory = category,
+                    onNavigateBack = {
                         navController.navigateUp()
-                        // After actual save is implemented, refresh the transaction list
-                        onRefresh()
+                    },
+                    onSave = { amount, type, category, merchant, date, notes ->
+                        onUpdateManualTransaction(transactionId, amount, type, category, merchant, date, notes) {
+                            navController.navigateUp()
+                        }
                     }
                 )
             }
