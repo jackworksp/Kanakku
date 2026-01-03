@@ -77,6 +77,56 @@ class BankSmsParser {
     }
 
     /**
+     * Check if SMS is a UPI transaction message with better accuracy
+     * than generic bank SMS detection.
+     *
+     * UPI transactions are identified by:
+     * 1. Sender matches UPI app patterns (GPay, PhonePe, Paytm, etc.)
+     * 2. Body contains UPI-specific keywords
+     * 3. Body contains amount
+     * 4. Body contains transaction keywords (debit/credit)
+     *
+     * @param sms The SMS message to check
+     * @return true if this is a UPI transaction SMS
+     */
+    fun isUpiTransactionSms(sms: SmsMessage): Boolean {
+        val body = sms.body
+        val sender = sms.address
+
+        // Filter out OTP messages
+        if (OTP_PATTERN.containsMatchIn(body)) {
+            return false
+        }
+
+        // Check if sender matches UPI app pattern
+        val hasUpiSender = UPI_SENDER_PATTERN.containsMatchIn(sender)
+
+        // Check if body contains UPI keyword (case-insensitive)
+        val hasUpiKeyword = body.contains("UPI", ignoreCase = true)
+
+        // Must have either UPI sender OR UPI keyword in body
+        // (Some banks send UPI transactions from generic bank sender IDs)
+        if (!hasUpiSender && !hasUpiKeyword) {
+            return false
+        }
+
+        // Must contain amount pattern
+        if (!AMOUNT_PATTERN.containsMatchIn(body)) {
+            return false
+        }
+
+        // Must contain debit or credit keyword
+        val hasDebitKeyword = DEBIT_KEYWORDS.containsMatchIn(body)
+        val hasCreditKeyword = CREDIT_KEYWORDS.containsMatchIn(body)
+
+        if (!hasDebitKeyword && !hasCreditKeyword) {
+            return false
+        }
+
+        return true
+    }
+
+    /**
      * Check if SMS is likely a bank transaction message
      */
     fun isBankTransactionSms(sms: SmsMessage): Boolean {
