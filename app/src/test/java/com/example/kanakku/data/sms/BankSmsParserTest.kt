@@ -217,6 +217,66 @@ class BankSmsParserTest {
         body = "UPI txn of Rs.1299 to Reliance Digital completed. Ref No PTM444555666. A/c XX9876"
     )
 
+    private val paytmLargeAmountSms = createSms(
+        id = 20L,
+        address = "AD-PAYTM",
+        body = "Rs.35,000 debited from A/c XX9876 on 02-Jan-26. UPI paid to furniture.mart@okaxis. Paytm Txn ID PTM777888999. Avl Bal Rs.65000"
+    )
+
+    private val paytmMinimalSms = createSms(
+        id = 21L,
+        address = "PAYTM",
+        body = "Paid Rs.30 to Chai Stall via Paytm. Ref PTM321"
+    )
+
+    private val paytmWithDateAndBalanceSms = createSms(
+        id = 22L,
+        address = "VM-PAYTM",
+        body = "A/c XX9876 debited Rs.750.25 on 02-Jan-26. UPI payment to bigbasket@paytm successful. Paytm Txn ID PTM147852369. Balance Rs.9250.75"
+    )
+
+    private val paytmCreditWithDecimalSms = createSms(
+        id = 23L,
+        address = "PYTMPA",
+        body = "Rs.1,850.50 UPI credited from freelance@hdfcbank to A/c XX9876 on 02-Jan-26. Paytm Txn ID PTM654321987. Avl Bal Rs.11101.25"
+    )
+
+    private val paytmTransferredSms = createSms(
+        id = 24L,
+        address = "PAYTM",
+        body = "You transferred Rs.2,500 to dad@oksbi using Paytm for Monthly support. Paytm Txn ID PTM999111222"
+    )
+
+    private val paytmWithCommaSms = createSms(
+        id = 25L,
+        address = "AD-PAYTM",
+        body = "Rs.1,599.00 paid to myntra@paytm using Paytm UPI. Paytm Txn ID PTM888777666. Bal: Rs.7401"
+    )
+
+    private val paytmRefundSms = createSms(
+        id = 26L,
+        address = "PYTMPA",
+        body = "UPI refund of Rs.499 from amazon.pay@icici credited to your account. Paytm Txn ID PTM555444333"
+    )
+
+    private val paytmP2MSms = createSms(
+        id = 27L,
+        address = "VM-PAYTM",
+        body = "UPI payment of Rs.1199 to dominos@paytm successful. Paytm Txn ID PTM222333444. Available Balance: Rs.5801"
+    )
+
+    private val paytmWithFullDetailsSms = createSms(
+        id = 28L,
+        address = "PAYTM",
+        body = "A/c XX9876 credited Rs.4,500.75 on 02-Jan-26. UPI received from project.pay@axisbank via Paytm. Paytm Txn ID PTM963852741. Avl Bal Rs.45500.75"
+    )
+
+    private val paytmAlternativeSenderSms = createSms(
+        id = 29L,
+        address = "PYTM",
+        body = "Rs.899 debited via UPI to zomato@paytm. Txn ID: PTM123789456. Balance Rs.3101"
+    )
+
     // ==================== Test Fixtures: Bank UPI SMS ====================
 
     private val hdfcUpiDebitSms = createSms(
@@ -1409,6 +1469,197 @@ class BankSmsParserTest {
         assertEquals("Reliance Digital", result.merchant)
         assertEquals("9876", result.accountNumber)
         assertEquals("PTM444555666", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPaytmLargeAmount() {
+        // Given
+        val sms = paytmLargeAmountSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(35000.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("furniture.mart@okaxis", result.upiId)
+        assertEquals("Furniture Mart", result.merchant)
+        assertEquals("9876", result.accountNumber)
+        assertEquals("PTM777888999", result.referenceNumber)
+        assertEquals(65000.0, result.balanceAfter, 0.01)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPaytmMinimal() {
+        // Given
+        val sms = paytmMinimalSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(30.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("Chai Stall", result.merchant)
+        assertEquals("PTM321", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+        assertNull(result.upiId) // No VPA in minimal message
+    }
+
+    @Test
+    fun parseUpiSms_parsesPaytmWithDateAndBalance() {
+        // Given
+        val sms = paytmWithDateAndBalanceSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(750.25, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("bigbasket@paytm", result.upiId)
+        assertEquals("Bigbasket", result.merchant)
+        assertEquals("9876", result.accountNumber)
+        assertEquals("PTM147852369", result.referenceNumber)
+        assertEquals(9250.75, result.balanceAfter, 0.01)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPaytmCreditWithDecimal() {
+        // Given
+        val sms = paytmCreditWithDecimalSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(1850.50, result!!.amount, 0.01)
+        assertEquals(TransactionType.CREDIT, result.type)
+        assertEquals("freelance@hdfcbank", result.upiId)
+        assertEquals("Freelance", result.merchant)
+        assertEquals("9876", result.accountNumber)
+        assertEquals("PTM654321987", result.referenceNumber)
+        assertEquals(11101.25, result.balanceAfter, 0.01)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPaytmTransferred() {
+        // Given
+        val sms = paytmTransferredSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(2500.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("dad@oksbi", result.upiId)
+        assertEquals("Dad", result.merchant)
+        assertEquals("PTM999111222", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPaytmWithCommaAmount() {
+        // Given
+        val sms = paytmWithCommaSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(1599.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("myntra@paytm", result.upiId)
+        assertEquals("Myntra", result.merchant)
+        assertEquals("PTM888777666", result.referenceNumber)
+        assertEquals(7401.0, result.balanceAfter, 0.01)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPaytmRefund() {
+        // Given
+        val sms = paytmRefundSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(499.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.CREDIT, result.type)
+        assertEquals("amazon.pay@icici", result.upiId)
+        assertEquals("Amazon Pay", result.merchant)
+        assertEquals("PTM555444333", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPaytmP2MTransaction() {
+        // Given
+        val sms = paytmP2MSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(1199.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("dominos@paytm", result.upiId)
+        assertEquals("Dominos", result.merchant)
+        assertEquals("PTM222333444", result.referenceNumber)
+        assertEquals(5801.0, result.balanceAfter, 0.01)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPaytmCreditWithFullDetails() {
+        // Given
+        val sms = paytmWithFullDetailsSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(4500.75, result!!.amount, 0.01)
+        assertEquals(TransactionType.CREDIT, result.type)
+        assertEquals("project.pay@axisbank", result.upiId)
+        assertEquals("Project Pay", result.merchant)
+        assertEquals("9876", result.accountNumber)
+        assertEquals("PTM963852741", result.referenceNumber)
+        assertEquals(45500.75, result.balanceAfter, 0.01)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesPaytmAlternativeSender() {
+        // Given
+        val sms = paytmAlternativeSenderSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(899.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("zomato@paytm", result.upiId)
+        assertEquals("Zomato", result.merchant)
+        assertEquals("PTM123789456", result.referenceNumber)
+        assertEquals(3101.0, result.balanceAfter, 0.01)
         assertEquals("UPI", result.paymentMethod)
     }
 
