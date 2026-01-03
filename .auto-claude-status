@@ -3,13 +3,13 @@
   "spec": "015-recurring-transaction-detection",
   "state": "building",
   "subtasks": {
-    "completed": 10,
+    "completed": 12,
     "total": 28,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Repository Layer",
+    "current": "ViewModel Layer",
     "id": null,
     "total": 3
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 12,
-    "started_at": "2026-01-03T13:25:03.403090"
+    "number": 2,
+    "started_at": "2026-01-03T16:17:13.436857"
   },
-  "last_update": "2026-01-03T14:37:42.481767"
+  "last_update": "2026-01-03T16:20:58.083821"
 }
