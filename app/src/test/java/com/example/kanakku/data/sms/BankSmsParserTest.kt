@@ -315,6 +315,150 @@ class BankSmsParserTest {
         body = "Rs.999 paid to netflix@icici via UPI from A/c XX4567. Txn ID IDFC987654321. Avl Bal Rs.6500"
     )
 
+    // ==================== Test Fixtures: Additional Bank UPI SMS (Comprehensive) ====================
+
+    // HDFC UPI - Additional test cases
+    private val hdfcUpiCreditSms = createSms(
+        id = 30L,
+        address = "HDFCPAY",
+        body = "A/c XX1234 credited Rs.5,500.00 on 02-Jan-26. UPI received from salary@company via HDFC UPI. UPI Ref 202601020098765. Avl Bal Rs.45500.00"
+    )
+
+    private val hdfcUpiP2PSms = createSms(
+        id = 31L,
+        address = "VM-HDFCUPI",
+        body = "You sent Rs.1,200.50 to friend@paytm via HDFC UPI. UPI Ref No 202601020012346. Balance Rs.11299.50"
+    )
+
+    private val hdfcUpiMinimalSms = createSms(
+        id = 32L,
+        address = "HDFCPAY",
+        body = "Paid Rs.45 to Tea Shop via UPI. Ref 202601020000111"
+    )
+
+    private val hdfcUpiLargeAmountSms = createSms(
+        id = 33L,
+        address = "HDFCUPI",
+        body = "Rs.75,000 debited from A/c XX1234 on 02-Jan-26. UPI payment to property@axisbank successful. UPI Ref 202601020099999. Avl Bal Rs.125000"
+    )
+
+    private val hdfcUpiWithCommaSms = createSms(
+        id = 34L,
+        address = "VM-HDFCPAY",
+        body = "Rs.3,750.75 debited via UPI to amazon.pay@icici from A/c XX1234. UPI Ref No 202601020054321. Balance Rs.21249.25"
+    )
+
+    // SBI UPI - Additional test cases
+    private val sbiUpiCreditSms = createSms(
+        id = 35L,
+        address = "SBIPAY",
+        body = "A/c XX5678 credited Rs.8,250.00 on 02-Jan-26. UPI received from freelance@hdfcbank. UTR: 402601020087654. Avl Bal Rs.28250.00"
+    )
+
+    private val sbiUpiP2PSms = createSms(
+        id = 36L,
+        address = "YONOSBI",
+        body = "You transferred Rs.2,100.00 to sister@ybl using SBI UPI for Gift. UTR: 402601020011111. Balance Rs.18900"
+    )
+
+    private val sbiUpiMinimalSms = createSms(
+        id = 37L,
+        address = "SBIUPI",
+        body = "Paid Rs.65 to Snacks via UPI. UTR: 402601020000222"
+    )
+
+    private val sbiUpiLargeAmountSms = createSms(
+        id = 38L,
+        address = "SBIYONO",
+        body = "Rs.95,500 debited from A/c XX5678 on 02-Jan-26. UPI paid to jewellery.store@okaxis. UTR: 402601020099999. Avl Bal Rs.204500"
+    )
+
+    private val sbiUpiRefundSms = createSms(
+        id = 39L,
+        address = "VM-SBIPAY",
+        body = "UPI refund of Rs.1,299.50 from flipkart@axisbank credited to A/c XX5678. UTR: 402601020076543. Bal: Rs.9799.50"
+    )
+
+    private val sbiUpiWithDecimalSms = createSms(
+        id = 40L,
+        address = "SBIUPI",
+        body = "Rs.4,899.99 debited via UPI to swiggy@paytm from A/c XX5678 on 02-Jan-26. UTR: 402601020055555. Balance Rs.14100.01"
+    )
+
+    // ICICI UPI - Additional test cases
+    private val iciciUpiDebitSms = createSms(
+        id = 41L,
+        address = "ICICIM",
+        body = "Rs.2,750 debited from A/c XX3456 on 02-Jan-26. UPI paid to zomato@paytm. UPI Txn ID ICI202601020012345. Avl Bal Rs.17250"
+    )
+
+    private val iciciUpiP2PSms = createSms(
+        id = 42L,
+        address = "ICICIPAY",
+        body = "You sent Rs.5,000.00 to brother@ybl via ICICI UPI for Emergency. UPI Txn ID ICI202601020098765. Balance Rs.25000.00"
+    )
+
+    private val iciciUpiMinimalSms = createSms(
+        id = 43L,
+        address = "VM-ICICIM",
+        body = "Paid Rs.55 to Coffee Shop via UPI. Ref ICI202601020000333"
+    )
+
+    private val iciciUpiLargeAmountSms = createSms(
+        id = 44L,
+        address = "ICICIBK",
+        body = "Rs.1,25,000 debited from A/c XX3456 on 02-Jan-26. UPI payment to car.dealer@hdfcbank successful. UPI Txn ID ICI202601020099999. Avl Bal Rs.375000"
+    )
+
+    private val iciciUpiRefundSms = createSms(
+        id = 45L,
+        address = "ICICIPAY",
+        body = "UPI refund of Rs.2,499.00 from amazon.pay@icici credited to your A/c XX3456. UPI Txn ID ICI202601020087654"
+    )
+
+    private val iciciUpiWithDecimalSms = createSms(
+        id = 46L,
+        address = "AD-ICICIM",
+        body = "Rs.6,750.25 UPI debited to bigbasket@paytm from A/c XX3456 on 02-Jan-26. UPI Txn ID ICI202601020066666. Bal Rs.23249.75"
+    )
+
+    // Axis UPI - Additional test cases
+    private val axisUpiCreditSms = createSms(
+        id = 47L,
+        address = "AXISPAY",
+        body = "A/c XX9876 credited Rs.12,500.00 on 02-Jan-26. UPI received from project@hdfcbank. Axis UPI Ref: AX202601020087654. Avl Bal Rs.52500.00"
+    )
+
+    private val axisUpiP2PSms = createSms(
+        id = 48L,
+        address = "VM-AXISBK",
+        body = "You transferred Rs.3,500.00 to mom@oksbi using Axis UPI for Monthly support. Axis UPI Ref: AX202601020012345. Balance Rs.16500.00"
+    )
+
+    private val axisUpiMinimalSms = createSms(
+        id = 49L,
+        address = "AXISBNK",
+        body = "Paid Rs.70 to Grocery via UPI. Ref AX202601020000444"
+    )
+
+    private val axisUpiLargeAmountSms = createSms(
+        id = 50L,
+        address = "AXISBK",
+        body = "Rs.2,15,000 debited from A/c XX9876 on 02-Jan-26. UPI paid to furniture.mart@okaxis. Axis UPI Ref: AX202601020099999. Avl Bal Rs.285000"
+    )
+
+    private val axisUpiRefundSms = createSms(
+        id = 51L,
+        address = "AXISPAY",
+        body = "UPI refund of Rs.3,799.00 from myntra@paytm credited to A/c XX9876. Axis UPI Ref: AX202601020076543. Bal: Rs.23799"
+    )
+
+    private val axisUpiWithDecimalSms = createSms(
+        id = 52L,
+        address = "AD-AXISBNK",
+        body = "Rs.8,999.50 debited via UPI to petrol.pump@paytm from A/c XX9876 on 02-Jan-26. Axis UPI Ref: AX202601020055555. Balance Rs.41000.50"
+    )
+
     // ==================== Test Fixtures: BHIM and NPCI UPI ====================
 
     private val bhimUpiDebitSms = createSms(
@@ -1047,7 +1191,7 @@ class BankSmsParserTest {
         assertEquals("Petrol Pump", result.merchant)
         assertEquals("8888", result.accountNumber)
         assertEquals("GR111222333", result.referenceNumber)
-        assertEquals(12450.75, result.balanceAfter, 0.01)
+        assertEquals(12450.75, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1103,7 +1247,7 @@ class BankSmsParserTest {
         assertEquals("Swiggy", result.merchant)
         assertEquals("9999", result.accountNumber)
         assertEquals("GP999888777", result.referenceNumber)
-        assertEquals(8750.0, result.balanceAfter, 0.01)
+        assertEquals(8750.0, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1177,7 +1321,7 @@ class BankSmsParserTest {
         assertEquals("Employer", result.merchant)
         assertEquals("7777", result.accountNumber)
         assertEquals("GP147258369", result.referenceNumber)
-        assertEquals(35500.50, result.balanceAfter, 0.01)
+        assertEquals(35500.50, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1274,7 +1418,7 @@ class BankSmsParserTest {
         assertEquals("brother@ybl", result.upiId)
         assertEquals("Brother", result.merchant)
         assertEquals("PP246813579", result.referenceNumber)
-        assertEquals(8500.0, result.balanceAfter, 0.01)
+        assertEquals(8500.0, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1294,7 +1438,7 @@ class BankSmsParserTest {
         assertEquals("Furniture Store", result.merchant)
         assertEquals("3456", result.accountNumber)
         assertEquals("PP111222333", result.referenceNumber)
-        assertEquals(55000.0, result.balanceAfter, 0.01)
+        assertEquals(55000.0, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1332,7 +1476,7 @@ class BankSmsParserTest {
         assertEquals("Swiggy", result.merchant)
         assertEquals("6789", result.accountNumber)
         assertEquals("PP369258147", result.referenceNumber)
-        assertEquals(7200.50, result.balanceAfter, 0.01)
+        assertEquals(7200.50, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1352,7 +1496,7 @@ class BankSmsParserTest {
         assertEquals("Client", result.merchant)
         assertEquals("4321", result.accountNumber)
         assertEquals("PP987123654", result.referenceNumber)
-        assertEquals(12750.75, result.balanceAfter, 0.01)
+        assertEquals(12750.75, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1389,7 +1533,7 @@ class BankSmsParserTest {
         assertEquals("amazon.pay@icici", result.upiId)
         assertEquals("Amazon Pay", result.merchant)
         assertEquals("PP654987321", result.referenceNumber)
-        assertEquals(5001.0, result.balanceAfter, 0.01)
+        assertEquals(5001.0, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1488,7 +1632,7 @@ class BankSmsParserTest {
         assertEquals("Furniture Mart", result.merchant)
         assertEquals("9876", result.accountNumber)
         assertEquals("PTM777888999", result.referenceNumber)
-        assertEquals(65000.0, result.balanceAfter, 0.01)
+        assertEquals(65000.0, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1526,7 +1670,7 @@ class BankSmsParserTest {
         assertEquals("Bigbasket", result.merchant)
         assertEquals("9876", result.accountNumber)
         assertEquals("PTM147852369", result.referenceNumber)
-        assertEquals(9250.75, result.balanceAfter, 0.01)
+        assertEquals(9250.75, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1546,7 +1690,7 @@ class BankSmsParserTest {
         assertEquals("Freelance", result.merchant)
         assertEquals("9876", result.accountNumber)
         assertEquals("PTM654321987", result.referenceNumber)
-        assertEquals(11101.25, result.balanceAfter, 0.01)
+        assertEquals(11101.25, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1583,7 +1727,7 @@ class BankSmsParserTest {
         assertEquals("myntra@paytm", result.upiId)
         assertEquals("Myntra", result.merchant)
         assertEquals("PTM888777666", result.referenceNumber)
-        assertEquals(7401.0, result.balanceAfter, 0.01)
+        assertEquals(7401.0, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1620,7 +1764,7 @@ class BankSmsParserTest {
         assertEquals("dominos@paytm", result.upiId)
         assertEquals("Dominos", result.merchant)
         assertEquals("PTM222333444", result.referenceNumber)
-        assertEquals(5801.0, result.balanceAfter, 0.01)
+        assertEquals(5801.0, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1640,7 +1784,7 @@ class BankSmsParserTest {
         assertEquals("Project Pay", result.merchant)
         assertEquals("9876", result.accountNumber)
         assertEquals("PTM963852741", result.referenceNumber)
-        assertEquals(45500.75, result.balanceAfter, 0.01)
+        assertEquals(45500.75, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1659,7 +1803,7 @@ class BankSmsParserTest {
         assertEquals("zomato@paytm", result.upiId)
         assertEquals("Zomato", result.merchant)
         assertEquals("PTM123789456", result.referenceNumber)
-        assertEquals(3101.0, result.balanceAfter, 0.01)
+        assertEquals(3101.0, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
@@ -1780,6 +1924,461 @@ class BankSmsParserTest {
         assertEquals("4567", result.accountNumber)
         assertEquals("IDFC987654321", result.referenceNumber)
         assertEquals(6500.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    // ==================== HDFC UPI Comprehensive Tests ====================
+
+    @Test
+    fun parseUpiSms_parsesHdfcUpiCredit() {
+        // Given
+        val sms = hdfcUpiCreditSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(5500.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.CREDIT, result.type)
+        assertEquals("salary@company", result.upiId)
+        assertEquals("Salary", result.merchant)
+        assertEquals("1234", result.accountNumber)
+        assertEquals("202601020098765", result.referenceNumber)
+        assertEquals(45500.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesHdfcUpiP2P() {
+        // Given
+        val sms = hdfcUpiP2PSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(1200.50, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("friend@paytm", result.upiId)
+        assertEquals("Friend", result.merchant)
+        assertEquals("202601020012346", result.referenceNumber)
+        assertEquals(11299.50, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesHdfcUpiMinimal() {
+        // Given
+        val sms = hdfcUpiMinimalSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(45.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("Tea Shop", result.merchant)
+        assertEquals("202601020000111", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+        assertNull(result.upiId) // No VPA in minimal message
+    }
+
+    @Test
+    fun parseUpiSms_parsesHdfcUpiLargeAmount() {
+        // Given
+        val sms = hdfcUpiLargeAmountSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(75000.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("property@axisbank", result.upiId)
+        assertEquals("Property", result.merchant)
+        assertEquals("1234", result.accountNumber)
+        assertEquals("202601020099999", result.referenceNumber)
+        assertEquals(125000.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesHdfcUpiWithCommaAmount() {
+        // Given
+        val sms = hdfcUpiWithCommaSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(3750.75, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("amazon.pay@icici", result.upiId)
+        assertEquals("Amazon Pay", result.merchant)
+        assertEquals("1234", result.accountNumber)
+        assertEquals("202601020054321", result.referenceNumber)
+        assertEquals(21249.25, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    // ==================== SBI UPI Comprehensive Tests ====================
+
+    @Test
+    fun parseUpiSms_parsesSbiUpiCredit() {
+        // Given
+        val sms = sbiUpiCreditSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(8250.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.CREDIT, result.type)
+        assertEquals("freelance@hdfcbank", result.upiId)
+        assertEquals("Freelance", result.merchant)
+        assertEquals("5678", result.accountNumber)
+        assertEquals("402601020087654", result.referenceNumber)
+        assertEquals(28250.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesSbiUpiP2P() {
+        // Given
+        val sms = sbiUpiP2PSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(2100.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("sister@ybl", result.upiId)
+        assertEquals("Sister", result.merchant)
+        assertEquals("402601020011111", result.referenceNumber)
+        assertEquals(18900.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesSbiUpiMinimal() {
+        // Given
+        val sms = sbiUpiMinimalSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(65.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("Snacks", result.merchant)
+        assertEquals("402601020000222", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+        assertNull(result.upiId) // No VPA in minimal message
+    }
+
+    @Test
+    fun parseUpiSms_parsesSbiUpiLargeAmount() {
+        // Given
+        val sms = sbiUpiLargeAmountSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(95500.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("jewellery.store@okaxis", result.upiId)
+        assertEquals("Jewellery Store", result.merchant)
+        assertEquals("5678", result.accountNumber)
+        assertEquals("402601020099999", result.referenceNumber)
+        assertEquals(204500.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesSbiUpiRefund() {
+        // Given
+        val sms = sbiUpiRefundSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(1299.50, result!!.amount, 0.01)
+        assertEquals(TransactionType.CREDIT, result.type)
+        assertEquals("flipkart@axisbank", result.upiId)
+        assertEquals("Flipkart", result.merchant)
+        assertEquals("5678", result.accountNumber)
+        assertEquals("402601020076543", result.referenceNumber)
+        assertEquals(9799.50, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesSbiUpiWithDecimal() {
+        // Given
+        val sms = sbiUpiWithDecimalSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(4899.99, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("swiggy@paytm", result.upiId)
+        assertEquals("Swiggy", result.merchant)
+        assertEquals("5678", result.accountNumber)
+        assertEquals("402601020055555", result.referenceNumber)
+        assertEquals(14100.01, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    // ==================== ICICI UPI Comprehensive Tests ====================
+
+    @Test
+    fun parseUpiSms_parsesIciciUpiDebit() {
+        // Given
+        val sms = iciciUpiDebitSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(2750.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("zomato@paytm", result.upiId)
+        assertEquals("Zomato", result.merchant)
+        assertEquals("3456", result.accountNumber)
+        assertEquals("ICI202601020012345", result.referenceNumber)
+        assertEquals(17250.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesIciciUpiP2P() {
+        // Given
+        val sms = iciciUpiP2PSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(5000.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("brother@ybl", result.upiId)
+        assertEquals("Brother", result.merchant)
+        assertEquals("ICI202601020098765", result.referenceNumber)
+        assertEquals(25000.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesIciciUpiMinimal() {
+        // Given
+        val sms = iciciUpiMinimalSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(55.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("Coffee Shop", result.merchant)
+        assertEquals("ICI202601020000333", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+        assertNull(result.upiId) // No VPA in minimal message
+    }
+
+    @Test
+    fun parseUpiSms_parsesIciciUpiLargeAmount() {
+        // Given
+        val sms = iciciUpiLargeAmountSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(125000.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("car.dealer@hdfcbank", result.upiId)
+        assertEquals("Car Dealer", result.merchant)
+        assertEquals("3456", result.accountNumber)
+        assertEquals("ICI202601020099999", result.referenceNumber)
+        assertEquals(375000.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesIciciUpiRefund() {
+        // Given
+        val sms = iciciUpiRefundSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(2499.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.CREDIT, result.type)
+        assertEquals("amazon.pay@icici", result.upiId)
+        assertEquals("Amazon Pay", result.merchant)
+        assertEquals("3456", result.accountNumber)
+        assertEquals("ICI202601020087654", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesIciciUpiWithDecimal() {
+        // Given
+        val sms = iciciUpiWithDecimalSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(6750.25, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("bigbasket@paytm", result.upiId)
+        assertEquals("Bigbasket", result.merchant)
+        assertEquals("3456", result.accountNumber)
+        assertEquals("ICI202601020066666", result.referenceNumber)
+        assertEquals(23249.75, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    // ==================== Axis UPI Comprehensive Tests ====================
+
+    @Test
+    fun parseUpiSms_parsesAxisUpiCredit() {
+        // Given
+        val sms = axisUpiCreditSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(12500.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.CREDIT, result.type)
+        assertEquals("project@hdfcbank", result.upiId)
+        assertEquals("Project", result.merchant)
+        assertEquals("9876", result.accountNumber)
+        assertEquals("AX202601020087654", result.referenceNumber)
+        assertEquals(52500.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesAxisUpiP2P() {
+        // Given
+        val sms = axisUpiP2PSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(3500.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("mom@oksbi", result.upiId)
+        assertEquals("Mom", result.merchant)
+        assertEquals("AX202601020012345", result.referenceNumber)
+        assertEquals(16500.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesAxisUpiMinimal() {
+        // Given
+        val sms = axisUpiMinimalSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(70.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("Grocery", result.merchant)
+        assertEquals("AX202601020000444", result.referenceNumber)
+        assertEquals("UPI", result.paymentMethod)
+        assertNull(result.upiId) // No VPA in minimal message
+    }
+
+    @Test
+    fun parseUpiSms_parsesAxisUpiLargeAmount() {
+        // Given
+        val sms = axisUpiLargeAmountSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(215000.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("furniture.mart@okaxis", result.upiId)
+        assertEquals("Furniture Mart", result.merchant)
+        assertEquals("9876", result.accountNumber)
+        assertEquals("AX202601020099999", result.referenceNumber)
+        assertEquals(285000.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesAxisUpiRefund() {
+        // Given
+        val sms = axisUpiRefundSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(3799.0, result!!.amount, 0.01)
+        assertEquals(TransactionType.CREDIT, result.type)
+        assertEquals("myntra@paytm", result.upiId)
+        assertEquals("Myntra", result.merchant)
+        assertEquals("9876", result.accountNumber)
+        assertEquals("AX202601020076543", result.referenceNumber)
+        assertEquals(23799.0, result.balanceAfter)
+        assertEquals("UPI", result.paymentMethod)
+    }
+
+    @Test
+    fun parseUpiSms_parsesAxisUpiWithDecimal() {
+        // Given
+        val sms = axisUpiWithDecimalSms
+
+        // When
+        val result = parser.parseUpiSms(sms)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(8999.50, result!!.amount, 0.01)
+        assertEquals(TransactionType.DEBIT, result.type)
+        assertEquals("petrol.pump@paytm", result.upiId)
+        assertEquals("Petrol Pump", result.merchant)
+        assertEquals("9876", result.accountNumber)
+        assertEquals("AX202601020055555", result.referenceNumber)
+        assertEquals(41000.50, result.balanceAfter)
         assertEquals("UPI", result.paymentMethod)
     }
 
