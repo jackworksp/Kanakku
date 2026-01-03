@@ -4,7 +4,9 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.example.kanakku.data.database.entity.TransactionEntity
+import com.example.kanakku.data.model.TransactionSource
 import com.example.kanakku.data.model.TransactionType
 import kotlinx.coroutines.flow.Flow
 
@@ -125,4 +127,43 @@ interface TransactionDao {
      */
     @Query("SELECT MAX(date) FROM transactions")
     suspend fun getLatestTransactionDate(): Long?
+
+    /**
+     * Inserts a manual transaction and returns the generated ID.
+     * Used for manually entered transactions that don't originate from SMS.
+     *
+     * @param transaction The manual transaction entity to insert
+     * @return The ID of the inserted transaction (smsId value)
+     */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertManualTransaction(transaction: TransactionEntity): Long
+
+    /**
+     * Retrieves a single transaction by its ID.
+     * Used for editing and viewing transaction details.
+     *
+     * @param id The transaction ID (smsId) to retrieve
+     * @return The transaction entity, or null if not found
+     */
+    @Query("SELECT * FROM transactions WHERE smsId = :id LIMIT 1")
+    suspend fun getTransactionById(id: Long): TransactionEntity?
+
+    /**
+     * Updates an existing transaction in the database.
+     * Used for editing manual transactions.
+     *
+     * @param transaction The transaction entity with updated values
+     * @return Number of rows updated (0 if not found, 1 if updated)
+     */
+    @Update
+    suspend fun updateTransaction(transaction: TransactionEntity): Int
+
+    /**
+     * Retrieves only manual transactions (not from SMS).
+     * Returns a Flow for reactive updates.
+     *
+     * @return Flow emitting list of manual transactions
+     */
+    @Query("SELECT * FROM transactions WHERE source = 'MANUAL' ORDER BY date DESC")
+    fun getManualTransactions(): Flow<List<TransactionEntity>>
 }
