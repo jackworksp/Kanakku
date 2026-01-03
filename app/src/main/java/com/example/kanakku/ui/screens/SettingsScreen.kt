@@ -10,7 +10,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.kanakku.ui.components.ClearDataConfirmationDialog
 import com.example.kanakku.ui.settings.SettingsViewModel
 
 /**
@@ -587,102 +587,6 @@ private fun SettingsInfoItem(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-}
-
-/**
- * Confirmation dialog for clearing all app data.
- *
- * Displays a warning message and requires explicit user confirmation before
- * proceeding with the destructive data clearing operation.
- *
- * @param isClearing Whether the clearing operation is in progress
- * @param onConfirm Callback when user confirms the clear action
- * @param onDismiss Callback when user dismisses the dialog
- */
-@Composable
-private fun ClearDataConfirmationDialog(
-    isClearing: Boolean,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = { if (!isClearing) onDismiss() },
-        icon = {
-            Icon(
-                imageVector = Icons.Default.Warning,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(48.dp)
-            )
-        },
-        title = {
-            Text(
-                text = "Clear All Data?",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Column {
-                Text(
-                    text = "This will permanently delete:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "• All transactions\n• Category overrides\n• Sync metadata",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "Your theme preferences will be preserved.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "This action cannot be undone.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                enabled = !isClearing,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                )
-            ) {
-                if (isClearing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onError
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                Text(if (isClearing) "Clearing..." else "Clear Data")
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isClearing
-            ) {
-                Text("Cancel")
-            }
-        }
-    )
 }
 
 /**
