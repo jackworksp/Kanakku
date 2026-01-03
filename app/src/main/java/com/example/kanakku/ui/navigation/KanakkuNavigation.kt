@@ -44,7 +44,10 @@ fun KanakkuNavHost(
                     uiState = uiState,
                     categoryMap = categoryMap,
                     onRefresh = onRefresh,
-                    onCategoryChange = onCategoryChange
+                    onCategoryChange = onCategoryChange,
+                    onAddTransaction = {
+                        // TODO: Navigate to AddTransactionScreen (implemented in subtask 3.3)
+                    }
                 )
             }
             composable(BottomNavItem.Analytics.route) {

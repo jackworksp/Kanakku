@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,61 +28,80 @@ fun TransactionsScreen(
     uiState: MainUiState,
     categoryMap: Map<Long, Category>,
     onRefresh: () -> Unit,
-    onCategoryChange: (Long, Category) -> Unit
+    onCategoryChange: (Long, Category) -> Unit,
+    onAddTransaction: () -> Unit
 ) {
     var selectedTransaction by remember { mutableStateOf<ParsedTransaction?>(null) }
     var showCategoryPicker by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        TransactionsHeader(uiState = uiState, onRefresh = onRefresh)
-
-        if (uiState.transactions.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddTransaction,
+                containerColor = MaterialTheme.colorScheme.primary
             ) {
-                Text(
-                    text = "No bank transactions found in the last 30 days",
-                    style = MaterialTheme.typography.bodyLarge
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add Transaction"
                 )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(uiState.transactions) { transaction ->
-                    TransactionCard(
-                        transaction = transaction,
-                        category = categoryMap[transaction.smsId],
-                        onClick = {
-                            selectedTransaction = transaction
-                            showCategoryPicker = true
-                        }
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            TransactionsHeader(uiState = uiState, onRefresh = onRefresh)
+
+            if (uiState.transactions.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No bank transactions found in the last 30 days",
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
-                item { Spacer(modifier = Modifier.height(16.dp)) }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(uiState.transactions) { transaction ->
+                        TransactionCard(
+                            transaction = transaction,
+                            category = categoryMap[transaction.smsId],
+                            onClick = {
+                                selectedTransaction = transaction
+                                showCategoryPicker = true
+                            }
+                        )
+                    }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                }
             }
         }
-    }
 
-    if (showCategoryPicker && selectedTransaction != null) {
-        CategoryPickerSheet(
-            currentCategory = categoryMap[selectedTransaction!!.smsId],
-            onCategorySelected = { category ->
-                onCategoryChange(selectedTransaction!!.smsId, category)
-                showCategoryPicker = false
-                selectedTransaction = null
-            },
-            onDismiss = {
-                showCategoryPicker = false
-                selectedTransaction = null
-            }
-        )
+        if (showCategoryPicker && selectedTransaction != null) {
+            CategoryPickerSheet(
+                currentCategory = categoryMap[selectedTransaction!!.smsId],
+                onCategorySelected = { category ->
+                    onCategoryChange(selectedTransaction!!.smsId, category)
+                    showCategoryPicker = false
+                    selectedTransaction = null
+                },
+                onDismiss = {
+                    showCategoryPicker = false
+                    selectedTransaction = null
+                }
+            )
+        }
     }
 }
 
