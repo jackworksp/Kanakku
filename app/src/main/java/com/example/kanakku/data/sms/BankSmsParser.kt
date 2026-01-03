@@ -51,6 +51,21 @@ class BankSmsParser {
             RegexOption.IGNORE_CASE
         )
 
+        // UPI-specific reference number patterns
+        // Handles UPI-specific reference formats that differ from standard bank references:
+        // - "UPI Ref: 123456789012" or "UPI Ref No: 987654321098"
+        // - "UPI Txn ID: ABCD1234567890" or "UPI Transaction ID: XYZ123456"
+        // - "Txn ID: PP123456789" (PhonePe, Paytm style)
+        // - "Google Ref ID: 1234567890" (Google Pay)
+        // - "PhonePe Txn ID: PP987654321"
+        // - "Paytm Txn ID: PTM123456789"
+        // - "UTR: 123456789012" (bank UPI)
+        // Reference must contain at least one digit
+        private val UPI_REFERENCE_PATTERN = Regex(
+            """(?:UPI\s*(?:Ref(?:erence)?|Txn|Transaction)\s*(?:ID|No|Number)?|Google\s*Ref\s*ID|PhonePe\s*Txn\s*ID|Paytm\s*Txn\s*ID|Txn\s*(?:ID|No)|Transaction\s*(?:ID|No)|UTR)[:\s#]*([A-Z0-9]*\d[A-Z0-9]{5,21})""",
+            RegexOption.IGNORE_CASE
+        )
+
         // Account/Card number pattern (XX1234, A/c XX1234, Acct ending 1234, Card x3255, Card 3255)
         private val ACCOUNT_PATTERN = Regex(
             """(?:A/?c|Acct?|Account|Card|ending)[:\s]*(?:no\.?)?[:\s]*[Xx*]*(\d{4,})""",
@@ -240,6 +255,40 @@ class BankSmsParser {
     }
 
     /**
+     * Extract UPI-specific reference number from SMS message.
+     *
+     * Prioritizes UPI-specific reference number formats before falling back to generic patterns.
+     * UPI transactions often use different reference formats than standard bank transactions:
+     *
+     * UPI-specific formats (checked first):
+     * - "UPI Ref: 123456789012" or "UPI Ref No: 987654321098"
+     * - "UPI Txn ID: ABCD1234567890" or "UPI Transaction ID: XYZ123456"
+     * - "Google Ref ID: 1234567890" (Google Pay)
+     * - "PhonePe Txn ID: PP987654321" (PhonePe)
+     * - "Paytm Txn ID: PTM123456789" (Paytm)
+     * - "Txn ID: 123456789" (generic transaction ID)
+     * - "UTR: 123456789012" (Unified Transaction Reference)
+     *
+     * Generic formats (fallback):
+     * - "Ref: 123456789012"
+     * - "RRN: 123456789012"
+     *
+     * @param smsBody The SMS message body
+     * @return Reference number string or null if not found
+     */
+    fun extractUpiReference(smsBody: String): String? {
+        // Try UPI-specific reference pattern first (more accurate for UPI)
+        val upiRefMatch = UPI_REFERENCE_PATTERN.find(smsBody)
+        if (upiRefMatch != null) {
+            return upiRefMatch.groupValues.getOrNull(1)
+        }
+
+        // Fallback to generic reference pattern
+        val genericRefMatch = REFERENCE_PATTERN.find(smsBody)
+        return genericRefMatch?.groupValues?.getOrNull(1)
+    }
+
+    /**
      * Extract merchant/payee name from UPI transaction SMS.
      *
      * Uses UPI-specific patterns to extract merchant names from messages:
@@ -371,9 +420,8 @@ class BankSmsParser {
         // Extract merchant/payee using UPI-specific patterns
         val merchant = extractUpiMerchant(body)
 
-        // Extract reference number
-        val referenceMatch = REFERENCE_PATTERN.find(body)
-        val referenceNumber = referenceMatch?.groupValues?.get(1)
+        // Extract reference number using UPI-specific extraction
+        val referenceNumber = extractUpiReference(body)
 
         // Extract account number
         val accountMatch = ACCOUNT_PATTERN.find(body)
