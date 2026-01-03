@@ -18,6 +18,14 @@ enum class BudgetThreshold(val percentage: Int) {
 }
 
 /**
+ * Represents budget period types for tracking spending limits.
+ */
+enum class BudgetPeriod(val displayName: String) {
+    MONTHLY("Monthly"),
+    WEEKLY("Weekly")
+}
+
+/**
  * Represents days of the week for scheduling weekly summaries.
  */
 enum class DayOfWeek(val displayName: String, val calendarDay: Int) {
