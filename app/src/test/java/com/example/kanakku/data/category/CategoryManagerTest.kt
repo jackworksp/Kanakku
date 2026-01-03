@@ -87,6 +87,7 @@ class CategoryManagerTest {
         // Given
         categoryManager.initialize(repository)
         val transaction = createTestTransaction(smsId = 1L, merchant = "Swiggy")
+        repository.saveTransaction(transaction) // Save transaction first for foreign key constraint
 
         // When
         val result = categoryManager.setManualOverride(
@@ -107,6 +108,8 @@ class CategoryManagerTest {
     fun setManualOverride_withMerchant_updatesMerchantCache() = runTest {
         // Given
         categoryManager.initialize(repository)
+        val transaction = createTestTransaction(smsId = 1L, merchant = "Amazon India")
+        repository.saveTransaction(transaction) // Save transaction first for foreign key constraint
 
         // When
         categoryManager.setManualOverride(
@@ -129,6 +132,8 @@ class CategoryManagerTest {
     fun setManualOverride_withNullMerchant_doesNotSaveMapping() = runTest {
         // Given
         categoryManager.initialize(repository)
+        val transaction = createTestTransaction(smsId = 1L, merchant = "Test")
+        repository.saveTransaction(transaction) // Save transaction first for foreign key constraint
 
         // When
         val result = categoryManager.setManualOverride(
@@ -149,6 +154,8 @@ class CategoryManagerTest {
     fun setManualOverride_withEmptyMerchant_doesNotSaveMapping() = runTest {
         // Given
         categoryManager.initialize(repository)
+        val transaction = createTestTransaction(smsId = 1L, merchant = "Test")
+        repository.saveTransaction(transaction) // Save transaction first for foreign key constraint
 
         // When
         val result = categoryManager.setManualOverride(
@@ -381,6 +388,9 @@ class CategoryManagerTest {
         // Given
         categoryManager.initialize(repository)
 
+        // Save transaction first for foreign key constraint
+        repository.saveTransaction(createTestTransaction(smsId = 1L, merchant = "Book  My  Show"))
+
         // When - Set mapping with multiple spaces
         categoryManager.setManualOverride(1L, DefaultCategories.ENTERTAINMENT, "Book  My  Show")
 
@@ -400,6 +410,11 @@ class CategoryManagerTest {
     fun resetAllMerchantMappings_clearsMappingsFromDatabase() = runTest {
         // Given
         categoryManager.initialize(repository)
+
+        // Save transactions first for foreign key constraint
+        repository.saveTransaction(createTestTransaction(smsId = 1L, merchant = "Swiggy"))
+        repository.saveTransaction(createTestTransaction(smsId = 2L, merchant = "Amazon"))
+        repository.saveTransaction(createTestTransaction(smsId = 3L, merchant = "Uber"))
 
         // Add multiple merchant mappings
         categoryManager.setManualOverride(1L, DefaultCategories.FOOD, "Swiggy")
@@ -426,6 +441,9 @@ class CategoryManagerTest {
     fun resetAllMerchantMappings_clearsInMemoryCache() = runTest {
         // Given
         categoryManager.initialize(repository)
+
+        // Save transaction first for foreign key constraint
+        repository.saveTransaction(createTestTransaction(smsId = 1L, merchant = "Zomato"))
 
         // Add merchant mapping
         categoryManager.setManualOverride(1L, DefaultCategories.FOOD, "Zomato")
@@ -543,6 +561,10 @@ class CategoryManagerTest {
         // Given
         categoryManager.initialize(repository)
 
+        // Save transactions first for foreign key constraint
+        repository.saveTransaction(createTestTransaction(smsId = 1L, merchant = "Pizza Hut"))
+        repository.saveTransaction(createTestTransaction(smsId = 3L, merchant = "Myntra"))
+
         // Step 1: User corrects a transaction
         categoryManager.setManualOverride(1L, DefaultCategories.FOOD, "Pizza Hut")
 
@@ -573,21 +595,20 @@ class CategoryManagerTest {
         // Given
         categoryManager.initialize(repository)
 
-        // Set up all priority levels
-        val merchant = "Test Shop"
+        // Set up merchant mapping using one transaction
+        repository.saveTransaction(createTestTransaction(smsId = 1L, merchant = "Shop A"))
+        categoryManager.setManualOverride(1L, DefaultCategories.SHOPPING, "Shop A")
 
-        // 1. Learn merchant mapping (priority 2)
-        categoryManager.setManualOverride(1L, DefaultCategories.SHOPPING, merchant)
+        // Set up per-transaction override using different merchant to avoid overwriting mapping
+        repository.saveTransaction(createTestTransaction(smsId = 2L, merchant = "Shop B"))
+        categoryManager.setManualOverride(2L, DefaultCategories.FOOD, "Shop B")
 
-        // 2. Set per-transaction override (priority 1 - highest)
-        categoryManager.setManualOverride(2L, DefaultCategories.FOOD, merchant)
-
-        // Test priority 1: Per-transaction override wins
-        val tx2 = createTestTransaction(smsId = 2L, merchant = merchant, rawSms = "Payment at amazon")
+        // Test priority 1: Per-transaction override wins (even over keywords)
+        val tx2 = createTestTransaction(smsId = 2L, merchant = "Shop B", rawSms = "Payment at amazon flipkart")
         assertEquals(DefaultCategories.FOOD, categoryManager.categorizeTransaction(tx2))
 
         // Test priority 2: Merchant mapping wins over keywords
-        val tx3 = createTestTransaction(smsId = 3L, merchant = merchant, rawSms = "Payment at zomato swiggy")
+        val tx3 = createTestTransaction(smsId = 3L, merchant = "Shop A", rawSms = "Payment at zomato swiggy")
         assertEquals(DefaultCategories.SHOPPING, categoryManager.categorizeTransaction(tx3))
 
         // Test priority 3: Keywords win when no merchant/override
@@ -613,6 +634,11 @@ class CategoryManagerTest {
             "Apollo" to DefaultCategories.HEALTH
         )
 
+        // Save transactions first for foreign key constraint
+        merchants.forEachIndexed { index, (merchant, _) ->
+            repository.saveTransaction(createTestTransaction(smsId = index.toLong(), merchant = merchant))
+        }
+
         merchants.forEachIndexed { index, (merchant, category) ->
             categoryManager.setManualOverride(index.toLong(), category, merchant)
         }
@@ -637,6 +663,9 @@ class CategoryManagerTest {
         categoryManager.initialize(repository)
         val longMerchant = "A".repeat(500)
 
+        // Save transaction first for foreign key constraint
+        repository.saveTransaction(createTestTransaction(smsId = 1L, merchant = longMerchant))
+
         // When
         categoryManager.setManualOverride(1L, DefaultCategories.FOOD, longMerchant)
 
@@ -651,6 +680,9 @@ class CategoryManagerTest {
         // Given
         categoryManager.initialize(repository)
 
+        // Save transaction first for foreign key constraint
+        repository.saveTransaction(createTestTransaction(smsId = 1L, merchant = "123456789"))
+
         // When - Merchant is all numbers
         categoryManager.setManualOverride(1L, DefaultCategories.SHOPPING, "123456789")
 
@@ -664,6 +696,9 @@ class CategoryManagerTest {
     fun merchantMapping_withUnicodeCharacters() = runTest {
         // Given
         categoryManager.initialize(repository)
+
+        // Save transaction first for foreign key constraint
+        repository.saveTransaction(createTestTransaction(smsId = 1L, merchant = "カフェ☕️"))
 
         // When - Merchant has unicode characters
         categoryManager.setManualOverride(1L, DefaultCategories.FOOD, "カフェ☕️")
