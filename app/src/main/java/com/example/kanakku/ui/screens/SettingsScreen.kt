@@ -109,8 +109,19 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Notifications Section
+        SettingsSection(title = "Notifications") {
+            SettingsToggleItem(
+                title = "Enable Notifications",
+                description = "Get notified about new transactions",
+                checked = uiState.isNotificationsEnabled,
+                onCheckedChange = { viewModel.updateNotificationsEnabled(it) }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         // Placeholder for remaining sections
-        // - Notifications (4.3)
         // - Analytics Preferences (4.4)
         // - Data Management (4.5)
         // - About (4.6)
