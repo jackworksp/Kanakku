@@ -1687,4 +1687,382 @@ class TransactionRepositoryTest {
         // Then
         assertEquals(5, repository.getTransactionCount().getOrNull())
     }
+
+    // ==================== Manual Transaction Tests ====================
+
+    @Test
+    fun saveManualTransaction_insertsSuccessfully() = runTest {
+        // Given
+        val manualTransaction = createTestTransaction(
+            smsId = 0L, // Will be replaced by repository
+            amount = 250.0,
+            merchant = "Cash Store"
+        ).copy(
+            source = com.example.kanakku.data.model.TransactionSource.MANUAL,
+            notes = "Bought groceries"
+        )
+
+        // When
+        val result = repository.saveManualTransaction(manualTransaction)
+
+        // Then
+        assertTrue(result.isSuccess)
+        val generatedId = result.getOrNull()!!
+        assertTrue(generatedId > 0) // Should have generated ID
+
+        // Verify transaction was saved with correct source
+        val saved = repository.getTransactionById(generatedId).getOrNull()
+        assertNotNull(saved)
+        assertEquals(com.example.kanakku.data.model.TransactionSource.MANUAL, saved?.source)
+        assertEquals(250.0, saved?.amount, 0.01)
+        assertEquals("Cash Store", saved?.merchant)
+        assertEquals("Bought groceries", saved?.notes)
+    }
+
+    @Test
+    fun saveManualTransaction_generatesUniqueId() = runTest {
+        // Given
+        val transaction1 = createTestTransaction(smsId = 0L, amount = 100.0)
+            .copy(source = com.example.kanakku.data.model.TransactionSource.MANUAL)
+        val transaction2 = createTestTransaction(smsId = 0L, amount = 200.0)
+            .copy(source = com.example.kanakku.data.model.TransactionSource.MANUAL)
+
+        // When - Save two manual transactions
+        val id1 = repository.saveManualTransaction(transaction1).getOrNull()!!
+        val id2 = repository.saveManualTransaction(transaction2).getOrNull()!!
+
+        // Then - IDs should be different
+        assertNotEquals(id1, id2)
+        assertTrue(id1 > 0)
+        assertTrue(id2 > 0)
+
+        // Both transactions should exist
+        val count = repository.getTransactionCount().getOrNull()
+        assertEquals(2, count)
+    }
+
+    @Test
+    fun saveManualTransaction_withNotes_savesCorrectly() = runTest {
+        // Given
+        val manualTransaction = createTestTransaction(smsId = 0L)
+            .copy(
+                source = com.example.kanakku.data.model.TransactionSource.MANUAL,
+                notes = "Birthday gift for mom"
+            )
+
+        // When
+        val generatedId = repository.saveManualTransaction(manualTransaction).getOrNull()!!
+
+        // Then
+        val saved = repository.getTransactionById(generatedId).getOrNull()
+        assertEquals("Birthday gift for mom", saved?.notes)
+    }
+
+    @Test
+    fun saveManualTransaction_withoutNotes_savesNullNotes() = runTest {
+        // Given
+        val manualTransaction = createTestTransaction(smsId = 0L)
+            .copy(
+                source = com.example.kanakku.data.model.TransactionSource.MANUAL,
+                notes = null
+            )
+
+        // When
+        val generatedId = repository.saveManualTransaction(manualTransaction).getOrNull()!!
+
+        // Then
+        val saved = repository.getTransactionById(generatedId).getOrNull()
+        assertNull(saved?.notes)
+    }
+
+    @Test
+    fun saveManualTransaction_invalidatesCache() = runTest {
+        // Given - Populate cache
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+        repository.getAllTransactionsSnapshot() // Populate cache
+
+        // When - Save manual transaction
+        val manualTransaction = createTestTransaction(smsId = 0L)
+            .copy(source = com.example.kanakku.data.model.TransactionSource.MANUAL)
+        repository.saveManualTransaction(manualTransaction)
+
+        // Then - Cache should be invalidated and show updated count
+        val allTransactions = repository.getAllTransactionsSnapshot().getOrNull()
+        assertEquals(2, allTransactions?.size)
+    }
+
+    @Test
+    fun saveManualTransaction_handlesErrorGracefully() = runTest {
+        // Given
+        database.close() // Close database to simulate error
+
+        // When
+        val manualTransaction = createTestTransaction(smsId = 0L)
+            .copy(source = com.example.kanakku.data.model.TransactionSource.MANUAL)
+        val result = repository.saveManualTransaction(manualTransaction)
+
+        // Then
+        assertTrue(result.isFailure)
+        assertNotNull(result.exceptionOrNull())
+    }
+
+    @Test
+    fun getTransactionById_returnsCorrectTransaction() = runTest {
+        // Given
+        val transaction = createTestTransaction(smsId = 12345L, amount = 500.0, merchant = "Test Shop")
+        repository.saveTransaction(transaction)
+
+        // When
+        val result = repository.getTransactionById(12345L)
+
+        // Then
+        assertTrue(result.isSuccess)
+        val loaded = result.getOrNull()
+        assertNotNull(loaded)
+        assertEquals(12345L, loaded?.smsId)
+        assertEquals(500.0, loaded?.amount, 0.01)
+        assertEquals("Test Shop", loaded?.merchant)
+    }
+
+    @Test
+    fun getTransactionById_returnsNullForNonExistent() = runTest {
+        // When
+        val result = repository.getTransactionById(99999L)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertNull(result.getOrNull())
+    }
+
+    @Test
+    fun getTransactionById_handlesErrorGracefully() = runTest {
+        // Given
+        database.close()
+
+        // When
+        val result = repository.getTransactionById(1L)
+
+        // Then
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun updateManualTransaction_updatesSuccessfully() = runTest {
+        // Given - Save a manual transaction
+        val originalTransaction = createTestTransaction(smsId = 0L, amount = 100.0, merchant = "Original Store")
+            .copy(
+                source = com.example.kanakku.data.model.TransactionSource.MANUAL,
+                notes = "Original notes"
+            )
+        val generatedId = repository.saveManualTransaction(originalTransaction).getOrNull()!!
+
+        // When - Update the transaction
+        val updatedTransaction = createTestTransaction(smsId = generatedId, amount = 200.0, merchant = "Updated Store")
+            .copy(
+                source = com.example.kanakku.data.model.TransactionSource.MANUAL,
+                notes = "Updated notes"
+            )
+        val updateResult = repository.updateManualTransaction(updatedTransaction)
+
+        // Then
+        assertTrue(updateResult.isSuccess)
+        assertTrue(updateResult.getOrNull() == true)
+
+        // Verify changes were persisted
+        val loaded = repository.getTransactionById(generatedId).getOrNull()
+        assertNotNull(loaded)
+        assertEquals(200.0, loaded?.amount, 0.01)
+        assertEquals("Updated Store", loaded?.merchant)
+        assertEquals("Updated notes", loaded?.notes)
+    }
+
+    @Test
+    fun updateManualTransaction_returnsFailureForSmsTransaction() = runTest {
+        // Given - Save an SMS transaction
+        val smsTransaction = createTestTransaction(smsId = 1L)
+            .copy(source = com.example.kanakku.data.model.TransactionSource.SMS)
+        repository.saveTransaction(smsTransaction)
+
+        // When - Try to update SMS transaction using updateManualTransaction
+        val result = repository.updateManualTransaction(smsTransaction)
+
+        // Then - Should fail with IllegalArgumentException
+        assertTrue(result.isFailure)
+        val exception = result.exceptionOrNull()
+        assertTrue(exception?.cause is IllegalArgumentException)
+    }
+
+    @Test
+    fun updateManualTransaction_returnsFalseForNonExistent() = runTest {
+        // Given - Transaction that doesn't exist
+        val nonExistentTransaction = createTestTransaction(smsId = 99999L)
+            .copy(source = com.example.kanakku.data.model.TransactionSource.MANUAL)
+
+        // When
+        val result = repository.updateManualTransaction(nonExistentTransaction)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertFalse(result.getOrNull() == true)
+    }
+
+    @Test
+    fun updateManualTransaction_invalidatesCache() = runTest {
+        // Given - Manual transaction and populate cache
+        val manualTransaction = createTestTransaction(smsId = 0L, amount = 100.0)
+            .copy(source = com.example.kanakku.data.model.TransactionSource.MANUAL)
+        val generatedId = repository.saveManualTransaction(manualTransaction).getOrNull()!!
+        repository.getAllTransactionsSnapshot() // Populate cache
+
+        // When - Update transaction
+        val updatedTransaction = createTestTransaction(smsId = generatedId, amount = 200.0)
+            .copy(source = com.example.kanakku.data.model.TransactionSource.MANUAL)
+        repository.updateManualTransaction(updatedTransaction)
+
+        // Then - Cache should reflect updated amount
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()?.first()
+        assertEquals(200.0, loaded?.amount, 0.01)
+    }
+
+    @Test
+    fun updateManualTransaction_handlesErrorGracefully() = runTest {
+        // Given
+        val manualTransaction = createTestTransaction(smsId = 1L)
+            .copy(source = com.example.kanakku.data.model.TransactionSource.MANUAL)
+        database.close()
+
+        // When
+        val result = repository.updateManualTransaction(manualTransaction)
+
+        // Then
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun manualTransactionWorkflow_fullCycle() = runTest {
+        // 1. Save manual transaction
+        val manualTransaction = createTestTransaction(
+            smsId = 0L,
+            amount = 150.0,
+            merchant = "Coffee Shop"
+        ).copy(
+            source = com.example.kanakku.data.model.TransactionSource.MANUAL,
+            notes = "Morning coffee"
+        )
+        val generatedId = repository.saveManualTransaction(manualTransaction).getOrNull()!!
+        assertTrue(generatedId > 0)
+
+        // 2. Verify saved
+        val saved = repository.getTransactionById(generatedId).getOrNull()
+        assertNotNull(saved)
+        assertEquals(150.0, saved?.amount, 0.01)
+        assertEquals("Coffee Shop", saved?.merchant)
+
+        // 3. Update transaction
+        val updated = saved!!.copy(amount = 175.0, notes = "Coffee + snack")
+        val updateResult = repository.updateManualTransaction(updated)
+        assertTrue(updateResult.isSuccess)
+
+        // 4. Verify update
+        val reloaded = repository.getTransactionById(generatedId).getOrNull()
+        assertEquals(175.0, reloaded?.amount, 0.01)
+        assertEquals("Coffee + snack", reloaded?.notes)
+
+        // 5. Add category override
+        repository.setCategoryOverride(generatedId, "food")
+        assertEquals("food", repository.getCategoryOverride(generatedId).getOrNull())
+
+        // 6. Delete transaction
+        val deleteResult = repository.deleteTransaction(generatedId)
+        assertTrue(deleteResult.isSuccess)
+        assertTrue(deleteResult.getOrNull() == true)
+
+        // 7. Verify deleted
+        assertNull(repository.getTransactionById(generatedId).getOrNull())
+        assertNull(repository.getCategoryOverride(generatedId).getOrNull()) // Cascade delete
+    }
+
+    @Test
+    fun manualAndSmsTransactions_coexistCorrectly() = runTest {
+        // Given - Mix of SMS and manual transactions
+        val smsTransaction = createTestTransaction(smsId = 1L, amount = 100.0)
+            .copy(source = com.example.kanakku.data.model.TransactionSource.SMS)
+        val manualTransaction = createTestTransaction(smsId = 0L, amount = 200.0)
+            .copy(source = com.example.kanakku.data.model.TransactionSource.MANUAL)
+
+        // When
+        repository.saveTransaction(smsTransaction)
+        val manualId = repository.saveManualTransaction(manualTransaction).getOrNull()!!
+
+        // Then
+        val allTransactions = repository.getAllTransactionsSnapshot().getOrNull()
+        assertEquals(2, allTransactions?.size)
+
+        // Verify sources are correct
+        val sms = repository.getTransactionById(1L).getOrNull()
+        val manual = repository.getTransactionById(manualId).getOrNull()
+        assertEquals(com.example.kanakku.data.model.TransactionSource.SMS, sms?.source)
+        assertEquals(com.example.kanakku.data.model.TransactionSource.MANUAL, manual?.source)
+    }
+
+    @Test
+    fun saveManualTransaction_withVeryLongNotes() = runTest {
+        // Given - Transaction with very long notes
+        val longNotes = "A".repeat(5000)
+        val manualTransaction = createTestTransaction(smsId = 0L)
+            .copy(
+                source = com.example.kanakku.data.model.TransactionSource.MANUAL,
+                notes = longNotes
+            )
+
+        // When
+        val result = repository.saveManualTransaction(manualTransaction)
+
+        // Then
+        assertTrue(result.isSuccess)
+        val saved = repository.getTransactionById(result.getOrNull()!!).getOrNull()
+        assertEquals(longNotes, saved?.notes)
+    }
+
+    @Test
+    fun saveManualTransaction_withSpecialCharactersInNotes() = runTest {
+        // Given
+        val specialNotes = "Café ☕️ - paid €20.50 for mom's 生日 gift! #special 🎁"
+        val manualTransaction = createTestTransaction(smsId = 0L)
+            .copy(
+                source = com.example.kanakku.data.model.TransactionSource.MANUAL,
+                notes = specialNotes
+            )
+
+        // When
+        val generatedId = repository.saveManualTransaction(manualTransaction).getOrNull()!!
+
+        // Then
+        val saved = repository.getTransactionById(generatedId).getOrNull()
+        assertEquals(specialNotes, saved?.notes)
+    }
+
+    @Test
+    fun idGeneration_doesNotCollideWithSmsIds() = runTest {
+        // Given - SMS transactions with typical IDs
+        val smsIds = listOf(1L, 2L, 3L, 100L, 1000L)
+        smsIds.forEach { id ->
+            repository.saveTransaction(
+                createTestTransaction(smsId = id)
+                    .copy(source = com.example.kanakku.data.model.TransactionSource.SMS)
+            )
+        }
+
+        // When - Save manual transaction
+        val manualTransaction = createTestTransaction(smsId = 0L)
+            .copy(source = com.example.kanakku.data.model.TransactionSource.MANUAL)
+        val generatedId = repository.saveManualTransaction(manualTransaction).getOrNull()!!
+
+        // Then - Generated ID should be much larger (timestamp-based)
+        assertTrue(generatedId > 1000000000000L) // Timestamp is in milliseconds since epoch
+        assertFalse(smsIds.contains(generatedId))
+
+        // All transactions should coexist
+        assertEquals(6, repository.getTransactionCount().getOrNull())
+    }
 }
