@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class BottomNavItem(
@@ -29,7 +30,13 @@ sealed class BottomNavItem(
         icon = Icons.Default.Category
     )
 
+    data object Savings : BottomNavItem(
+        route = "savings",
+        title = "Savings",
+        icon = Icons.Default.Savings
+    )
+
     companion object {
-        val items = listOf(Transactions, Analytics, Categories)
+        val items = listOf(Transactions, Analytics, Categories, Savings)
     }
 }
