@@ -11,22 +11,19 @@ import com.example.kanakku.data.repository.TransactionRepository
  * This class handles automatic categorization based on keywords
  * and supports manual category overrides that persist to database.
  *
- * @param repository Optional repository for persisting category overrides
+ * @param repository Repository for persisting category overrides
  */
 class CategoryManager(
-    private var repository: TransactionRepository? = null
+    private val repository: TransactionRepository
 ) {
 
     private val manualOverrides = mutableMapOf<Long, Category>()
 
     /**
      * Initializes the CategoryManager by loading category overrides from database.
-     * Should be called after repository is available and before categorizing transactions.
-     *
-     * @param repo The transaction repository to use for persistence
+     * Should be called before categorizing transactions to load existing overrides.
      */
-    suspend fun initialize(repo: TransactionRepository) {
-        repository = repo
+    suspend fun initialize() {
         loadOverridesFromDatabase()
     }
 
@@ -35,10 +32,8 @@ class CategoryManager(
      * Maps category IDs to Category objects from DefaultCategories.
      */
     private suspend fun loadOverridesFromDatabase() {
-        val repo = repository ?: return
-
         // Handle Result type from repository
-        repo.getAllCategoryOverrides()
+        repository.getAllCategoryOverrides()
             .onSuccess { overrides ->
                 manualOverrides.clear()
                 for ((smsId, categoryId) in overrides) {
@@ -75,7 +70,7 @@ class CategoryManager(
 
     /**
      * Sets a manual category override for a transaction.
-     * Persists to database if repository is available.
+     * Persists to database and updates in-memory cache.
      *
      * @param smsId The SMS ID of the transaction
      * @param category The category to assign
@@ -86,17 +81,12 @@ class CategoryManager(
         manualOverrides[smsId] = category
 
         // Persist to database
-        return if (repository != null) {
-            repository!!.setCategoryOverride(smsId, category.id)
-        } else {
-            // If no repository, still succeed (in-memory only)
-            Result.success(Unit)
-        }
+        return repository.setCategoryOverride(smsId, category.id)
     }
 
     /**
      * Removes a manual category override for a transaction.
-     * Removes from database if repository is available.
+     * Removes from database and updates in-memory cache.
      *
      * @param smsId The SMS ID of the transaction
      * @return Result<Unit> indicating success or failure
@@ -106,12 +96,7 @@ class CategoryManager(
         manualOverrides.remove(smsId)
 
         // Remove from database
-        return if (repository != null) {
-            repository!!.removeCategoryOverride(smsId).mapCatching { Unit }
-        } else {
-            // If no repository, still succeed (in-memory only)
-            Result.success(Unit)
-        }
+        return repository.removeCategoryOverride(smsId).mapCatching { Unit }
     }
 
     fun getManualOverride(smsId: Long): Category? = manualOverrides[smsId]
