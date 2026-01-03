@@ -1,6 +1,7 @@
 package com.example.kanakku
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -33,6 +34,13 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    /**
+     * Initial navigation destination from widget deep link.
+     * When a widget is tapped, the intent contains a destination extra
+     * that determines which screen to navigate to.
+     */
+    private val initialDestination = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Widget configuration for Recent Transactions Widget (Large, 4x3).
+
+    This widget displays a list of the 5 most recent transactions with
+    merchant name, amount (color-coded by type), and transaction date.
+    Size: 4 cells wide x 3 cells tall (approximately 250dp x 180dp minimum)
+
+    Update mechanism:
+    - updatePeriodMillis is set to 30 minutes (1800000ms)
+    - Actual updates are managed by WorkManager for better battery efficiency
+    - The system may update less frequently to conserve battery
+    - Widget updates when new transactions are added
+
+    Features:
+    - Shows up to 5 recent transactions
+    - Color-coded amounts: red for debits, green for credits
+    - Empty state message when no transactions exist
+    - Resizable for user convenience
+
+    See: RecentTransactionsWidget, RecentTransactionsWidgetReceiver
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="180dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="3"
+    android:updatePeriodMillis="1800000"
+    android:previewImage="@drawable/widget_preview_recent_transactions"
+    android:description="@string/widget_recent_transactions_description"
+    android:widgetCategory="home_screen"
+    android:resizeMode="horizontal|vertical" />

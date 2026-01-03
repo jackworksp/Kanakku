@@ -1,3 +1,33 @@
 <resources>
     <string name="app_name">Kanakku</string>
+
+    <!-- Widget descriptions -->
+    <string name="widget_today_spending_description">View today\'s total spending at a glance</string>
+    <string name="widget_budget_progress_description">Track your weekly spending against your budget</string>
+    <string name="widget_recent_transactions_description">View your recent transactions on the home screen</string>
+
+    <!-- Widget content strings -->
+    <string name="widget_today_spending_title">Today\'s Spending</string>
+    <string name="widget_updated_prefix">Updated: %s</string>
+
+    <string name="widget_weekly_budget_title">Weekly Budget</string>
+    <string name="widget_budget_status_over">Over budget (%s)</string>
+    <string name="widget_budget_status_approaching">Approaching limit (%s)</string>
+    <string name="widget_budget_status_normal">%s spent</string>
+    <string name="widget_no_budget_set">No budget set</string>
+    <string name="widget_configure_prompt">Configure widget to start tracking</string>
+
+    <string name="widget_recent_transactions_title">Recent Transactions</string>
+    <string name="widget_no_transactions">No transactions yet</string>
+    <string name="widget_transactions_empty_hint">Transactions will appear here</string>
+
+    <!-- Budget configuration screen -->
+    <string name="budget_config_title">Weekly Budget</string>
+    <string name="budget_config_description">Set your weekly spending limit to track budget progress</string>
+    <string name="budget_config_amount_label">Budget Amount</string>
+    <string name="budget_config_amount_placeholder">e.g., 10000</string>
+    <string name="budget_config_error">Please enter a valid amount greater than 0</string>
+    <string name="budget_config_save">Save Budget</string>
+    <string name="budget_config_cancel">Cancel</string>
+    <string name="currency_symbol">₹</string>
 </resources>
