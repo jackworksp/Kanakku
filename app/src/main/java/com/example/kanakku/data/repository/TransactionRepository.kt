@@ -46,7 +46,7 @@ import kotlinx.coroutines.sync.withLock
  *
  * @param database The Room database instance
  */
-class TransactionRepository(private val database: KanakkuDatabase) {
+class TransactionRepository(private val database: KanakkuDatabase) : ITransactionRepository {
 
     // DAOs for database access
     private val transactionDao = database.transactionDao()
@@ -117,7 +117,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param transaction The parsed transaction to save
      * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun saveTransaction(transaction: ParsedTransaction): Result<Unit> {
+    override suspend fun saveTransaction(transaction: ParsedTransaction): Result<Unit> {
         return ErrorHandler.runSuspendCatching("Save transaction") {
             transactionDao.insert(transaction.toEntity())
             invalidateCache()
@@ -132,7 +132,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param transactions List of parsed transactions to save
      * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun saveTransactions(transactions: List<ParsedTransaction>): Result<Unit> {
+    override suspend fun saveTransactions(transactions: List<ParsedTransaction>): Result<Unit> {
         return ErrorHandler.runSuspendCatching("Save transactions") {
             transactionDao.insertAll(transactions.map { it.toEntity() })
             invalidateCache()
@@ -146,7 +146,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Flow emitting list of parsed transactions, sorted by date (newest first)
      */
-    fun getAllTransactions(): Flow<List<ParsedTransaction>> {
+    override fun getAllTransactions(): Flow<List<ParsedTransaction>> {
         return transactionDao.getAllTransactions()
             .map { entities -> entities.map { it.toDomain() } }
             .catch { throwable ->
@@ -162,7 +162,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<List<ParsedTransaction>> containing transactions or error information
      */
-    suspend fun getAllTransactionsSnapshot(): Result<List<ParsedTransaction>> {
+    override suspend fun getAllTransactionsSnapshot(): Result<List<ParsedTransaction>> {
         return ErrorHandler.runSuspendCatching("Get all transactions snapshot") {
             // Check cache first
             val cached = cacheMutex.withLock { transactionsCache }
@@ -190,7 +190,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param type The transaction type to filter by (DEBIT/CREDIT/UNKNOWN)
      * @return Flow emitting list of transactions matching the type
      */
-    fun getTransactionsByType(type: TransactionType): Flow<List<ParsedTransaction>> {
+    override fun getTransactionsByType(type: TransactionType): Flow<List<ParsedTransaction>> {
         return transactionDao.getTransactionsByType(type)
             .map { entities -> entities.map { it.toDomain() } }
             .catch { throwable ->
@@ -207,7 +207,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param endDate End timestamp (inclusive)
      * @return Flow emitting list of transactions within the date range
      */
-    fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<ParsedTransaction>> {
+    override fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<ParsedTransaction>> {
         return transactionDao.getTransactionsByDateRange(startDate, endDate)
             .map { entities -> entities.map { it.toDomain() } }
             .catch { throwable ->
@@ -223,7 +223,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param timestamp The timestamp to query after
      * @return Result<List<ParsedTransaction>> containing transactions or error information
      */
-    suspend fun getTransactionsAfter(timestamp: Long): Result<List<ParsedTransaction>> {
+    override suspend fun getTransactionsAfter(timestamp: Long): Result<List<ParsedTransaction>> {
         return ErrorHandler.runSuspendCatching("Get transactions after timestamp") {
             transactionDao.getTransactionsAfter(timestamp)
                 .map { it.toDomain() }
@@ -236,7 +236,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param smsId The SMS ID to check
      * @return Result<Boolean> indicating if transaction exists or error information
      */
-    suspend fun transactionExists(smsId: Long): Result<Boolean> {
+    override suspend fun transactionExists(smsId: Long): Result<Boolean> {
         return ErrorHandler.runSuspendCatching("Check transaction exists") {
             transactionDao.exists(smsId)
         }
@@ -249,7 +249,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param smsId The SMS ID of the transaction to delete
      * @return Result<Boolean> indicating if transaction was deleted or error information
      */
-    suspend fun deleteTransaction(smsId: Long): Result<Boolean> {
+    override suspend fun deleteTransaction(smsId: Long): Result<Boolean> {
         return ErrorHandler.runSuspendCatching("Delete transaction") {
             val deleted = transactionDao.deleteById(smsId) > 0
             if (deleted) {
@@ -266,7 +266,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Int> containing number of transactions deleted or error information
      */
-    suspend fun deleteAllTransactions(): Result<Int> {
+    override suspend fun deleteAllTransactions(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Delete all transactions") {
             val deletedCount = transactionDao.deleteAll()
             if (deletedCount > 0) {
@@ -282,7 +282,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Int> containing total number of transactions or error information
      */
-    suspend fun getTransactionCount(): Result<Int> {
+    override suspend fun getTransactionCount(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Get transaction count") {
             // Check cache first
             val cached = cacheMutex.withLock { transactionCountCache }
@@ -309,7 +309,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Long?> containing timestamp of most recent transaction or error information
      */
-    suspend fun getLatestTransactionDate(): Result<Long?> {
+    override suspend fun getLatestTransactionDate(): Result<Long?> {
         return ErrorHandler.runSuspendCatching("Get latest transaction date") {
             // Check cache first
             val cached = cacheMutex.withLock { latestTransactionDateCache }
@@ -338,7 +338,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param categoryId The category ID to override with
      * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun setCategoryOverride(smsId: Long, categoryId: String): Result<Unit> {
+    override suspend fun setCategoryOverride(smsId: Long, categoryId: String): Result<Unit> {
         return ErrorHandler.runSuspendCatching("Set category override") {
             categoryOverrideDao.insert(CategoryOverrideEntity(smsId, categoryId))
         }
@@ -350,7 +350,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param smsId The SMS ID of the transaction
      * @return Result<String?> containing category ID override or error information
      */
-    suspend fun getCategoryOverride(smsId: Long): Result<String?> {
+    override suspend fun getCategoryOverride(smsId: Long): Result<String?> {
         return ErrorHandler.runSuspendCatching("Get category override") {
             categoryOverrideDao.getOverride(smsId)?.categoryId
         }
@@ -361,7 +361,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Map<Long, String>> containing map of SMS ID to category ID or error information
      */
-    suspend fun getAllCategoryOverrides(): Result<Map<Long, String>> {
+    override suspend fun getAllCategoryOverrides(): Result<Map<Long, String>> {
         return ErrorHandler.runSuspendCatching("Get all category overrides") {
             categoryOverrideDao.getAllOverridesSnapshot()
                 .associate { it.smsId to it.categoryId }
@@ -374,7 +374,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Flow emitting Map of SMS ID to category ID
      */
-    fun getAllCategoryOverridesFlow(): Flow<Map<Long, String>> {
+    override fun getAllCategoryOverridesFlow(): Flow<Map<Long, String>> {
         return categoryOverrideDao.getAllOverrides()
             .map { overrides -> overrides.associate { it.smsId to it.categoryId } }
             .catch { throwable ->
@@ -389,7 +389,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param smsId The SMS ID of the transaction
      * @return Result<Boolean> indicating if override was removed or error information
      */
-    suspend fun removeCategoryOverride(smsId: Long): Result<Boolean> {
+    override suspend fun removeCategoryOverride(smsId: Long): Result<Boolean> {
         return ErrorHandler.runSuspendCatching("Remove category override") {
             categoryOverrideDao.deleteOverride(smsId) > 0
         }
@@ -400,7 +400,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Int> containing number of overrides removed or error information
      */
-    suspend fun removeAllCategoryOverrides(): Result<Int> {
+    override suspend fun removeAllCategoryOverrides(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Remove all category overrides") {
             categoryOverrideDao.deleteAll()
         }
@@ -414,7 +414,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Long?> containing last sync timestamp in milliseconds or error information
      */
-    suspend fun getLastSyncTimestamp(): Result<Long?> {
+    override suspend fun getLastSyncTimestamp(): Result<Long?> {
         return ErrorHandler.runSuspendCatching("Get last sync timestamp") {
             syncMetadataDao.getValue(KEY_LAST_SYNC_TIMESTAMP)?.toLongOrNull()
         }
@@ -427,7 +427,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param timestamp The sync timestamp in milliseconds
      * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun setLastSyncTimestamp(timestamp: Long): Result<Unit> {
+    override suspend fun setLastSyncTimestamp(timestamp: Long): Result<Unit> {
         return ErrorHandler.runSuspendCatching("Set last sync timestamp") {
             syncMetadataDao.insert(
                 SyncMetadataEntity(KEY_LAST_SYNC_TIMESTAMP, timestamp.toString())
@@ -441,7 +441,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Long?> containing last processed SMS ID or error information
      */
-    suspend fun getLastProcessedSmsId(): Result<Long?> {
+    override suspend fun getLastProcessedSmsId(): Result<Long?> {
         return ErrorHandler.runSuspendCatching("Get last processed SMS ID") {
             syncMetadataDao.getValue(KEY_LAST_PROCESSED_SMS_ID)?.toLongOrNull()
         }
@@ -454,7 +454,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      * @param smsId The SMS ID that was processed
      * @return Result<Unit> indicating success or failure with error information
      */
-    suspend fun setLastProcessedSmsId(smsId: Long): Result<Unit> {
+    override suspend fun setLastProcessedSmsId(smsId: Long): Result<Unit> {
         return ErrorHandler.runSuspendCatching("Set last processed SMS ID") {
             syncMetadataDao.insert(
                 SyncMetadataEntity(KEY_LAST_PROCESSED_SMS_ID, smsId.toString())
@@ -468,7 +468,7 @@ class TransactionRepository(private val database: KanakkuDatabase) {
      *
      * @return Result<Int> containing number of metadata entries removed or error information
      */
-    suspend fun clearSyncMetadata(): Result<Int> {
+    override suspend fun clearSyncMetadata(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Clear sync metadata") {
             syncMetadataDao.deleteAll()
         }
