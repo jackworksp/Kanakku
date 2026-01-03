@@ -333,6 +333,76 @@ class BankSmsParser {
     }
 
     /**
+     * Parse a UPI transaction SMS into a structured transaction.
+     *
+     * This method is specifically designed for UPI transactions and uses
+     * UPI-specific extraction logic for better accuracy:
+     * - Extracts UPI VPA (Virtual Payment Address) using extractVpa()
+     * - Extracts merchant using extractUpiMerchant() with UPI-specific patterns
+     * - Sets paymentMethod to "UPI"
+     * - Handles both P2P and P2M UPI transactions
+     *
+     * @param sms The UPI transaction SMS message to parse
+     * @return ParsedTransaction with UPI-specific fields populated, or null if parsing fails
+     */
+    fun parseUpiSms(sms: SmsMessage): ParsedTransaction? {
+        if (!isUpiTransactionSms(sms)) {
+            return null
+        }
+
+        val body = sms.body
+
+        // Extract amount
+        val amountMatch = AMOUNT_PATTERN.find(body)
+        val amount = amountMatch?.groupValues?.get(1)
+            ?.replace(",", "")
+            ?.toDoubleOrNull() ?: return null
+
+        // Determine transaction type
+        val type = when {
+            DEBIT_KEYWORDS.containsMatchIn(body) -> TransactionType.DEBIT
+            CREDIT_KEYWORDS.containsMatchIn(body) -> TransactionType.CREDIT
+            else -> TransactionType.UNKNOWN
+        }
+
+        // Extract UPI VPA (Virtual Payment Address)
+        val upiId = extractVpa(body)
+
+        // Extract merchant/payee using UPI-specific patterns
+        val merchant = extractUpiMerchant(body)
+
+        // Extract reference number
+        val referenceMatch = REFERENCE_PATTERN.find(body)
+        val referenceNumber = referenceMatch?.groupValues?.get(1)
+
+        // Extract account number
+        val accountMatch = ACCOUNT_PATTERN.find(body)
+        val accountNumber = accountMatch?.groupValues?.get(1)
+
+        // Extract balance after transaction
+        val balanceMatch = BALANCE_PATTERN.find(body)
+        val balanceAfter = balanceMatch?.groupValues?.get(1)
+            ?.replace(",", "")
+            ?.toDoubleOrNull()
+
+        return ParsedTransaction(
+            smsId = sms.id,
+            amount = amount,
+            type = type,
+            merchant = merchant,
+            accountNumber = accountNumber,
+            referenceNumber = referenceNumber,
+            date = sms.date,
+            rawSms = sms.body,
+            senderAddress = sms.address,
+            balanceAfter = balanceAfter,
+            location = null,  // UPI transactions typically don't have location
+            upiId = upiId,
+            paymentMethod = "UPI"
+        )
+    }
+
+    /**
      * Check if SMS is likely a bank transaction message
      */
     fun isBankTransactionSms(sms: SmsMessage): Boolean {
