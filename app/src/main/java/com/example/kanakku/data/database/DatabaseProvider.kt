@@ -333,6 +333,20 @@ object DatabaseProvider {
         smsDataSource = null
         repository = null
     }
+
+    /**
+     * Sets a test repository instance for testing purposes.
+     * This allows tests to inject their own repository with test databases.
+     *
+     * WARNING: This should only be used in tests.
+     *
+     * @param testRepository The test repository instance to use
+     */
+    @Synchronized
+    fun setTestRepository(testRepository: TransactionRepository) {
+        repository = testRepository
+        Log.d(TAG, "Test repository injected")
+    }
 }
 
 /**

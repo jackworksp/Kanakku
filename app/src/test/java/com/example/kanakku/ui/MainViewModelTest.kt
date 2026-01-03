@@ -6,6 +6,7 @@ import com.example.kanakku.data.category.CategoryManager
 import com.example.kanakku.data.database.DatabaseProvider
 import com.example.kanakku.data.database.KanakkuDatabase
 import com.example.kanakku.data.model.Category
+import com.example.kanakku.data.model.DefaultCategories
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.TransactionType
 import com.example.kanakku.data.repository.SyncResult
@@ -71,7 +72,7 @@ class MainViewModelTest {
 
         // Initialize DatabaseProvider with test instances
         DatabaseProvider.resetInstance()
-        // We'll need to work around singleton, so we'll inject repository manually
+        DatabaseProvider.setTestRepository(repository)
 
         viewModel = MainViewModel()
     }
@@ -365,12 +366,12 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         // When - update category
-        viewModel.updateTransactionCategory(1L, Category.SHOPPING)
+        viewModel.updateTransactionCategory(1L, DefaultCategories.SHOPPING)
         advanceUntilIdle()
 
         // Then - category map is updated
         val categoryMap = viewModel.categoryMap.value
-        assertEquals(Category.SHOPPING, categoryMap[1L])
+        assertEquals(DefaultCategories.SHOPPING, categoryMap[1L])
     }
 
     @Test
@@ -385,13 +386,13 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         // When - update category
-        viewModel.updateTransactionCategory(1L, Category.FOOD)
+        viewModel.updateTransactionCategory(1L, DefaultCategories.FOOD)
         advanceUntilIdle()
 
         // Then - verify override was saved to repository
         val override = repository.getCategoryOverride(1L).getOrNull()
         assertNotNull(override)
-        assertEquals(Category.FOOD, override)
+        assertEquals(DefaultCategories.FOOD, override)
     }
 
     @Test
@@ -408,7 +409,7 @@ class MainViewModelTest {
         database.close()
 
         // When - try to update category
-        viewModel.updateTransactionCategory(1L, Category.SHOPPING)
+        viewModel.updateTransactionCategory(1L, DefaultCategories.SHOPPING)
         advanceUntilIdle()
 
         // Then - error is handled (no crash)
@@ -516,18 +517,18 @@ class MainViewModelTest {
         assertEquals(1, viewModel.uiState.value.transactions.size)
 
         // When - update category
-        viewModel.updateTransactionCategory(1L, Category.SHOPPING)
+        viewModel.updateTransactionCategory(1L, DefaultCategories.SHOPPING)
         advanceUntilIdle()
 
         // Then - category is updated
-        assertEquals(Category.SHOPPING, viewModel.categoryMap.value[1L])
+        assertEquals(DefaultCategories.SHOPPING, viewModel.categoryMap.value[1L])
 
         // When - reload data
         viewModel.loadSmsData(context, daysAgo = 30)
         advanceUntilIdle()
 
         // Then - category override persists
-        assertEquals(Category.SHOPPING, viewModel.categoryMap.value[1L])
+        assertEquals(DefaultCategories.SHOPPING, viewModel.categoryMap.value[1L])
     }
 
     @Test

@@ -36,7 +36,7 @@ class TransactionRepositoryTest {
 
     @Before
     fun setup() {
-        val context = ApplicationProvider.getApplicationContext()
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
         // Create in-memory database for testing
         database = Room.inMemoryDatabaseBuilder(
