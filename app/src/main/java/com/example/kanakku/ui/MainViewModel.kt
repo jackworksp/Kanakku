@@ -231,6 +231,26 @@ class MainViewModel : ViewModel() {
                         // Continue - not critical
                     }
 
+                // Step 6.5: Trigger recurring transaction detection after sync
+                if (deduplicated.isNotEmpty() || existingTransactions.isNotEmpty()) {
+                    // Only run detection if we have transactions to analyze
+                    repo.detectAndSaveRecurringPatterns()
+                        .onSuccess { patternsCount ->
+                            ErrorHandler.logInfo(
+                                "Detected $patternsCount recurring transaction patterns",
+                                "loadSmsData"
+                            )
+                        }
+                        .onFailure { throwable ->
+                            val errorInfo = throwable.toErrorInfo()
+                            ErrorHandler.logWarning(
+                                "Failed to detect recurring patterns: ${errorInfo.technicalMessage}",
+                                "loadSmsData"
+                            )
+                            // Continue - recurring detection is non-critical
+                        }
+                }
+
                 // Step 7: Load final state from database (includes both old and new)
                 val allTransactions = repo.getAllTransactionsSnapshot()
                     .onFailure { throwable ->
