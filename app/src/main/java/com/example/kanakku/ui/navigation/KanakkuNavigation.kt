@@ -17,7 +17,9 @@ import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.ui.MainUiState
 import com.example.kanakku.ui.screens.AnalyticsScreen
 import com.example.kanakku.ui.screens.CategoriesScreen
+import com.example.kanakku.ui.screens.SettingsScreen
 import com.example.kanakku.ui.screens.TransactionsScreen
+import com.example.kanakku.ui.theme.ThemeViewModel
 
 @Composable
 fun KanakkuNavHost(
@@ -25,6 +27,7 @@ fun KanakkuNavHost(
     categoryMap: Map<Long, Category>,
     onRefresh: () -> Unit,
     onCategoryChange: (Long, Category) -> Unit,
+    themeViewModel: ThemeViewModel,
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController()
 ) {
@@ -58,6 +61,11 @@ fun KanakkuNavHost(
                     transactions = uiState.transactions,
                     categoryMap = categoryMap,
                     onCategoryChange = onCategoryChange
+                )
+            }
+            composable(BottomNavItem.Settings.route) {
+                SettingsScreen(
+                    themeViewModel = themeViewModel
                 )
             }
         }

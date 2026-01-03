@@ -23,6 +23,7 @@ import com.example.kanakku.ui.MainViewModel
 import com.example.kanakku.ui.components.PrivacyInfoDialog
 import com.example.kanakku.ui.navigation.KanakkuNavHost
 import com.example.kanakku.ui.theme.KanakkuTheme
+import com.example.kanakku.ui.theme.ThemeViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,11 +42,19 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
+fun KanakkuApp(
+    viewModel: MainViewModel = viewModel(),
+    themeViewModel: ThemeViewModel = viewModel()
+) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val categoryMap by viewModel.categoryMap.collectAsState()
     val appPrefs = remember { AppPreferences.getInstance(context) }
+
+    // Initialize ThemeViewModel
+    LaunchedEffect(Unit) {
+        themeViewModel.initialize(context)
+    }
 
     // Track whether to show the privacy dialog
     var showPrivacyDialog by remember {
@@ -105,6 +114,7 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
                     onCategoryChange = { smsId, category ->
                         viewModel.updateTransactionCategory(smsId, category)
                     },
+                    themeViewModel = themeViewModel,
                     modifier = Modifier.padding(innerPadding)
                 )
             }
