@@ -328,6 +328,56 @@ class MainViewModel : ViewModel() {
     }
 
     /**
+     * Resets all learned merchant-to-category mappings.
+     * Clears the learned preferences and re-categorizes all transactions using default rules.
+     *
+     * Error Handling:
+     * - Database errors when deleting mappings
+     * - Errors are logged and shown to user with clear messages
+     */
+    fun resetLearnedMappings() {
+        viewModelScope.launch {
+            try {
+                categoryManager.resetAllMerchantMappings()
+                    .onSuccess { count ->
+                        // Re-categorize all transactions with default rules
+                        val transactions = _uiState.value.transactions
+                        if (transactions.isNotEmpty()) {
+                            val categories = try {
+                                categoryManager.categorizeAll(transactions)
+                            } catch (e: Exception) {
+                                val errorInfo = ErrorHandler.handleError(e, "Re-categorize after reset")
+                                ErrorHandler.logWarning(
+                                    "Failed to re-categorize after reset: ${errorInfo.technicalMessage}",
+                                    "resetLearnedMappings"
+                                )
+                                emptyMap() // Continue with uncategorized transactions
+                            }
+                            _categoryMap.value = categories
+                        }
+
+                        ErrorHandler.logInfo(
+                            "Reset $count learned merchant mappings",
+                            "resetLearnedMappings"
+                        )
+                    }
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        _uiState.value = _uiState.value.copy(
+                            errorMessage = "Failed to reset learned preferences: ${errorInfo.userMessage}"
+                        )
+                    }
+            } catch (e: Exception) {
+                // Catch-all for unexpected errors
+                val errorInfo = ErrorHandler.handleError(e, "resetLearnedMappings")
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = errorInfo.userMessage
+                )
+            }
+        }
+    }
+
+    /**
      * Clears any error message from the UI state.
      * Should be called after the user has acknowledged the error.
      */
