@@ -90,6 +90,21 @@ class BankSmsParser {
             """(?:to|from|VPA:?|UPI\s*ID:?|paid\s*to|received\s*from|sent\s*to)\s+([a-zA-Z0-9][a-zA-Z0-9._-]{2,}@(?:paytm|okaxis|okicici|okhdfcbank|okhdfc|oksbi|ybl|ibl|axl|axisbank|axis|sbi|sbibank|icici|icicib(?:ank)?|hdfc|hdfcbank|upi|apl|indianbank|indbank|pnb|bob|unionbank|ubibank|canara|canarabank|cboi|cbin|barodapay|federal|rbl|idfc|idfcbank|kotak|kotakbank|indus|indusind|yes|yesbank|dbs|sc|hsbc|citi|citibank|jupiter|freecharge|mobikwik|airtel|olamoney|jio|postbank|equitas|dcu|cub))""",
             RegexOption.IGNORE_CASE
         )
+
+        // UPI-specific merchant extraction patterns
+        // Handles UPI-specific context keywords for P2P and P2M transactions
+        // Matches patterns like:
+        // - "to Merchant Name" (debit to merchant)
+        // - "paid to XYZ" (payment to merchant)
+        // - "sent to ABC" (money sent to person/merchant)
+        // - "from Person Name" (credit from person/merchant)
+        // - "received from DEF" (money received from person/merchant)
+        // - "transferred to GHI" (transfer to person/merchant)
+        // Captures name until common terminators (Ref, UPI, on, A/c, Rs, ₹, ., @, etc.)
+        private val UPI_MERCHANT_PATTERN = Regex(
+            """(?:(?:paid|sent|transferred)\s+to|to|from|received\s+from)\s+([A-Za-z0-9][A-Za-z0-9\s&.',-]{1,48}?)(?:\s+(?:on|Ref|UPI|A/?c|Rs\.?|₹|INR|@)|[.@]|\s*$)""",
+            RegexOption.IGNORE_CASE
+        )
     }
 
     /**
@@ -113,6 +128,35 @@ class BankSmsParser {
         // Fallback: Extract any VPA from the message
         val vpaMatch = VPA_PATTERN.find(smsBody)
         return vpaMatch?.groupValues?.getOrNull(1)?.lowercase()
+    }
+
+    /**
+     * Extract merchant/payee name from UPI transaction SMS.
+     *
+     * Uses UPI-specific patterns to extract merchant names from messages:
+     * - "paid to Merchant Name" (P2M payment)
+     * - "to XYZ" (transfer to merchant/person)
+     * - "sent to ABC" (money sent to person/merchant)
+     * - "from Person Name" (credit from person/merchant)
+     * - "received from DEF" (money received)
+     * - "transferred to GHI" (transfer to person)
+     *
+     * This method prioritizes UPI-specific context keywords over generic merchant patterns,
+     * providing better accuracy for UPI transactions.
+     *
+     * @param smsBody The SMS message body
+     * @return Merchant/payee name or null if not found
+     */
+    fun extractUpiMerchant(smsBody: String): String? {
+        // Try UPI-specific merchant pattern first (most accurate for UPI)
+        val upiMerchantMatch = UPI_MERCHANT_PATTERN.find(smsBody)
+        if (upiMerchantMatch != null) {
+            return upiMerchantMatch.groupValues.getOrNull(1)?.trim()?.take(50)
+        }
+
+        // Fallback to generic merchant pattern
+        val merchantMatch = MERCHANT_PATTERN.find(smsBody)
+        return merchantMatch?.groupValues?.getOrNull(1)?.trim()?.take(50)
     }
 
     /**
