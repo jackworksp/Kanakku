@@ -17,6 +17,7 @@ import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.ui.MainUiState
 import com.example.kanakku.ui.screens.AnalyticsScreen
 import com.example.kanakku.ui.screens.CategoriesScreen
+import com.example.kanakku.ui.screens.SettingsScreen
 import com.example.kanakku.ui.screens.TransactionsScreen
 
 @Composable
@@ -59,6 +60,9 @@ fun KanakkuNavHost(
                     categoryMap = categoryMap,
                     onCategoryChange = onCategoryChange
                 )
+            }
+            composable(BottomNavItem.Settings.route) {
+                SettingsScreen()
             }
         }
     }

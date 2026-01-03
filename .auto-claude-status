@@ -3,7 +3,7 @@
   "spec": "009-settings-screen-with-user-preferences",
   "state": "building",
   "subtasks": {
-    "completed": 3,
+    "completed": 4,
     "total": 20,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 5,
+    "number": 6,
     "started_at": "2026-01-03T17:28:37.113136"
   },
-  "last_update": "2026-01-03T17:50:55.293107"
+  "last_update": "2026-01-03T17:54:21.198600"
 }
