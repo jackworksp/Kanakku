@@ -213,7 +213,7 @@ class RecurringTransactionDetector {
 
         // Predict next expected date based on frequency and historical patterns
         val nextExpected = calculateNextExpectedDate(
-            transactions = sorted,
+            transactions = transactions.sortedBy { it.date },
             frequency = frequency,
             lastOccurrence = lastTransaction.date,
             averageInterval = averageInterval

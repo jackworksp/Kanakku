@@ -9,6 +9,7 @@ import com.example.kanakku.data.database.toDomain
 import com.example.kanakku.data.database.toEntity
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.TransactionType
+import com.example.kanakku.domain.recurring.RecurringTransactionDetector
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -471,6 +472,69 @@ class TransactionRepository(private val database: KanakkuDatabase) {
     suspend fun clearSyncMetadata(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Clear sync metadata") {
             syncMetadataDao.deleteAll()
+        }
+    }
+
+    // ==================== Recurring Transaction Detection ====================
+
+    /**
+     * Detects and saves recurring transaction patterns from all transactions.
+     *
+     * This method analyzes all stored transactions to identify recurring patterns
+     * based on merchant similarity, amount tolerance, and time intervals. Detected
+     * patterns are saved to the recurring transactions table.
+     *
+     * The detection algorithm:
+     * 1. Groups transactions by normalized merchant name
+     * 2. Identifies amount similarity (±5% tolerance)
+     * 3. Analyzes time intervals to detect frequency (weekly, monthly, etc.)
+     * 4. Requires minimum 3 matching transactions to establish a pattern
+     * 5. Validates interval consistency (±20% tolerance)
+     *
+     * Should be called after:
+     * - Initial SMS sync completes
+     * - New transactions are saved
+     * - User requests pattern refresh
+     *
+     * Note: This method clears all existing recurring patterns and re-detects from scratch.
+     * Future enhancement: Preserve user confirmations during re-detection.
+     *
+     * @return Result<Int> containing number of recurring patterns detected or error information
+     */
+    suspend fun detectAndSaveRecurringPatterns(): Result<Int> {
+        return ErrorHandler.runSuspendCatching("Detect and save recurring patterns") {
+            // Get all transactions for analysis
+            val transactions = transactionDao.getAllTransactionsSnapshot()
+                .map { it.toDomain() }
+
+            ErrorHandler.logDebug(
+                "Analyzing ${transactions.size} transactions for recurring patterns",
+                "TransactionRepository"
+            )
+
+            // Detect recurring patterns using the detector
+            val detector = RecurringTransactionDetector()
+            val patterns = detector.detectRecurringPatterns(transactions)
+
+            ErrorHandler.logDebug(
+                "Detected ${patterns.size} recurring patterns",
+                "TransactionRepository"
+            )
+
+            // Save detected patterns to database
+            if (patterns.isNotEmpty()) {
+                val recurringRepository = RecurringTransactionRepository(database)
+
+                // Clear existing patterns before saving new ones
+                // TODO: Future enhancement - preserve user confirmations during re-detection
+                recurringRepository.deleteAllRecurringTransactions()
+
+                // Save new patterns
+                recurringRepository.saveRecurringTransactions(patterns)
+                    .getOrThrow() // Propagate error if save fails
+            }
+
+            patterns.size
         }
     }
 }
