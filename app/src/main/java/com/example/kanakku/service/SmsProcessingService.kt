@@ -9,6 +9,7 @@ import androidx.work.WorkManager
 import com.example.kanakku.core.error.ErrorHandler
 import com.example.kanakku.data.database.DatabaseProvider
 import com.example.kanakku.data.model.SmsMessage
+import com.example.kanakku.data.preferences.AppPreferences
 import com.example.kanakku.data.sms.BankSmsParser
 import com.example.kanakku.notification.TransactionNotificationManager
 
@@ -220,19 +221,30 @@ class SmsProcessingService(
             )
 
             // Show notification for the new transaction
-            // TransactionNotificationManager handles checking if notifications are enabled
+            // Check user preferences before showing notification
             try {
-                val notificationManager = TransactionNotificationManager(applicationContext)
-                val notificationShown = notificationManager.showTransactionNotification(parsedTransaction)
+                val appPreferences = AppPreferences.getInstance(applicationContext)
 
-                if (notificationShown) {
-                    ErrorHandler.logInfo(
-                        "Notification shown for transaction ${parsedTransaction.smsId}",
-                        "SmsProcessingService.doWork"
-                    )
+                // Check if user has enabled notifications in app preferences
+                if (appPreferences.areNotificationsEnabled()) {
+                    val notificationManager = TransactionNotificationManager(applicationContext)
+                    val notificationShown = notificationManager.showTransactionNotification(parsedTransaction)
+
+                    if (notificationShown) {
+                        ErrorHandler.logInfo(
+                            "Notification shown for transaction ${parsedTransaction.smsId}",
+                            "SmsProcessingService.doWork"
+                        )
+                    } else {
+                        ErrorHandler.logInfo(
+                            "Notification not shown (system notifications disabled)",
+                            "SmsProcessingService.doWork"
+                        )
+                    }
                 } else {
+                    // User has disabled notifications in app preferences
                     ErrorHandler.logInfo(
-                        "Notification not shown (disabled or error)",
+                        "Notification not shown (disabled by user in app preferences)",
                         "SmsProcessingService.doWork"
                     )
                 }

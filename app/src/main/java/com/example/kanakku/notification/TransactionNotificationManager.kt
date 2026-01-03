@@ -13,6 +13,7 @@ import com.example.kanakku.R
 import com.example.kanakku.core.error.ErrorHandler
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.TransactionType
+import com.example.kanakku.data.preferences.AppPreferences
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -26,11 +27,18 @@ import java.util.Locale
  * - Rich notification building for transaction alerts
  * - Separate styling for debit vs credit transactions
  * - Tap-to-open functionality to launch the app
+ * - Respect for user privacy preferences (balance, account, reference visibility)
  *
  * Notification Channels:
  * - TRANSACTIONS: High importance channel for all transaction alerts
  *   - Shows badge, sound, and heads-up notifications
  *   - User can customize notification behavior in system settings
+ *
+ * Privacy Settings:
+ * The notification content respects user preferences from AppPreferences:
+ * - Show/hide balance in notification
+ * - Show/hide account number in notification
+ * - Show/hide reference number in notification
  *
  * Thread-safety: All methods are thread-safe and can be called from any thread.
  * The NotificationManagerCompat handles thread-safety internally.
@@ -141,9 +149,17 @@ class TransactionNotificationManager(private val context: Context) {
      * - Transaction type icon (↓ for debit, ↑ for credit)
      * - Amount formatted as currency
      * - Merchant name or sender address
-     * - Account number (if available)
-     * - Transaction timestamp
+     * - Account number (if available and user allows it)
+     * - Balance after transaction (if available and user allows it)
+     * - Transaction timestamp (always shown)
+     * - Reference number (if available and user allows it)
      * - Color coding (red for debit, green for credit)
+     *
+     * Privacy Settings:
+     * The notification respects user preferences from AppPreferences:
+     * - shouldShowBalanceInNotification() - controls balance visibility
+     * - shouldShowAccountInNotification() - controls account number visibility
+     * - shouldShowReferenceInNotification() - controls reference number visibility
      *
      * The notification will:
      * - Show as a heads-up notification (if importance is HIGH)
@@ -245,30 +261,42 @@ class TransactionNotificationManager(private val context: Context) {
             }
         }
 
-        // Build expanded text with additional details
+        // Get user preferences for privacy settings
+        val appPreferences = AppPreferences.getInstance(context)
+        val showBalance = appPreferences.shouldShowBalanceInNotification()
+        val showAccount = appPreferences.shouldShowAccountInNotification()
+        val showReference = appPreferences.shouldShowReferenceInNotification()
+
+        // Build expanded text with additional details (respecting privacy preferences)
         val expandedText = buildString {
             append(contentText)
 
-            // Add account number if available
-            transaction.accountNumber?.let {
-                append("\n")
-                append("Account: **** $it")
+            // Add account number if available and user allows it
+            if (showAccount) {
+                transaction.accountNumber?.let {
+                    append("\n")
+                    append("Account: **** $it")
+                }
             }
 
-            // Add balance if available
-            transaction.balanceAfter?.let {
-                append("\n")
-                append("Balance: ${currencyFormatter.format(it)}")
+            // Add balance if available and user allows it
+            if (showBalance) {
+                transaction.balanceAfter?.let {
+                    append("\n")
+                    append("Balance: ${currencyFormatter.format(it)}")
+                }
             }
 
-            // Add timestamp
+            // Add timestamp (always shown)
             append("\n")
             append("Time: ${dateFormatter.format(Date(transaction.date))}")
 
-            // Add reference number if available
-            transaction.referenceNumber?.let {
-                append("\n")
-                append("Ref: $it")
+            // Add reference number if available and user allows it
+            if (showReference) {
+                transaction.referenceNumber?.let {
+                    append("\n")
+                    append("Ref: $it")
+                }
             }
         }
 
