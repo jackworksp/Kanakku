@@ -58,24 +58,34 @@ fun ExportScreen(
         viewModel.initialize(context)
     }
 
-    // Handle error messages
+    // Handle error messages with retry option
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let { errorMessage ->
-            snackbarHostState.showSnackbar(
+            val snackbarResult = snackbarHostState.showSnackbar(
                 message = errorMessage,
+                actionLabel = "Retry",
                 duration = SnackbarDuration.Long
             )
-            viewModel.clearError()
+            when (snackbarResult) {
+                SnackbarResult.ActionPerformed -> {
+                    // User clicked retry
+                    viewModel.exportData()
+                }
+                SnackbarResult.Dismissed -> {
+                    viewModel.clearError()
+                }
+            }
         }
     }
 
-    // Handle successful export
+    // Handle successful export with file size and path
     LaunchedEffect(uiState.exportResult) {
         if (uiState.exportResult is ExportResult.Success) {
             val result = uiState.exportResult as ExportResult.Success
+            val fileSize = formatFileSize(result.fileSizeBytes)
             snackbarHostState.showSnackbar(
-                message = "Export successful: ${result.fileName}",
-                duration = SnackbarDuration.Short
+                message = "✓ Exported ${result.fileName} ($fileSize)",
+                duration = SnackbarDuration.Long
             )
         }
     }
@@ -441,6 +451,7 @@ private fun ExportActionButtons(
         if (uiState.exportResult is ExportResult.Success) {
             Spacer(modifier = Modifier.height(12.dp))
 
+            val result = uiState.exportResult as ExportResult.Success
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -448,28 +459,47 @@ private fun ExportActionButtons(
                 ),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(12.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "✓ Export successful",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color(0xFF4CAF50),
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = (uiState.exportResult as ExportResult.Success).fileName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
+                    Text(
+                        text = "✓ Export successful",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFF4CAF50),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = result.fileName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Size: ${formatFileSize(result.fileSizeBytes)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
                 }
             }
         }
+    }
+}
+
+/**
+ * Formats file size in bytes to a human-readable string.
+ *
+ * @param bytes File size in bytes
+ * @return Formatted string (e.g., "1.5 MB", "256 KB")
+ */
+private fun formatFileSize(bytes: Long): String {
+    return when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> String.format("%.1f KB", bytes / 1024.0)
+        bytes < 1024 * 1024 * 1024 -> String.format("%.1f MB", bytes / (1024.0 * 1024.0))
+        else -> String.format("%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0))
     }
 }
