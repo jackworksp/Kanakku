@@ -211,6 +211,26 @@ class CategoryManager(
         }
     }
 
+    /**
+     * Resets all learned merchant-to-category mappings.
+     * Clears both in-memory cache and database records.
+     *
+     * @return Result<Int> containing the number of mappings deleted, or error information
+     */
+    suspend fun resetAllMerchantMappings(): Result<Int> {
+        val repo = repository ?: return Result.success(0) // No repository, nothing to delete
+
+        // Remove all mappings from database
+        return repo.removeAllMerchantMappings()
+            .onSuccess { count ->
+                // Clear in-memory cache on success
+                merchantMappings.clear()
+            }
+            .onFailure {
+                // Keep in-memory cache intact on failure
+            }
+    }
+
     fun getManualOverride(smsId: Long): Category? = manualOverrides[smsId]
 
     fun hasManualOverride(smsId: Long): Boolean = manualOverrides.containsKey(smsId)
