@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -20,6 +21,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kanakku.data.preferences.AppPreferences
 import com.example.kanakku.ui.MainViewModel
+import com.example.kanakku.ui.components.InitialSyncProgress
 import com.example.kanakku.ui.components.PrivacyInfoDialog
 import com.example.kanakku.ui.navigation.KanakkuNavHost
 import com.example.kanakku.ui.theme.KanakkuTheme
@@ -93,6 +95,25 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
                         permissionLauncher.launch(Manifest.permission.READ_SMS)
                     }
                 )
+            }
+            uiState.isInitialSync -> {
+                // Show initial sync progress during first-time full history sync
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    InitialSyncProgress(
+                        progress = uiState.syncProgress,
+                        total = uiState.syncTotal,
+                        statusMessage = uiState.syncStatusMessage,
+                        onCancel = { viewModel.cancelSync() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    )
+                }
             }
             uiState.isLoading -> {
                 LoadingScreen(modifier = Modifier.padding(innerPadding))
