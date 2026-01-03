@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.kanakku.data.database.KanakkuDatabase
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.TransactionType
+import com.example.kanakku.data.sms.SmsDataSource
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -31,18 +32,24 @@ class TransactionRepositoryTest {
 
     private lateinit var database: KanakkuDatabase
     private lateinit var repository: TransactionRepository
+    private lateinit var smsDataSource: SmsDataSource
 
     @Before
     fun setup() {
+        val context = ApplicationProvider.getApplicationContext()
+
         // Create in-memory database for testing
         database = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext(),
+            context,
             KanakkuDatabase::class.java
         )
             .allowMainThreadQueries() // For testing only
             .build()
 
-        repository = TransactionRepository(database)
+        // Create SmsDataSource for repository
+        smsDataSource = SmsDataSource(context)
+
+        repository = TransactionRepository(database, smsDataSource)
     }
 
     @After

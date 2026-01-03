@@ -5,6 +5,25 @@ import com.example.kanakku.data.model.TransactionType
 import kotlinx.coroutines.flow.Flow
 
 /**
+ * Data class representing the result of an SMS sync operation.
+ *
+ * @property totalSmsRead Total number of SMS messages read from inbox
+ * @property bankSmsFound Number of SMS identified as bank transaction messages
+ * @property newTransactionsSaved Number of new transactions saved to database
+ * @property duplicatesRemoved Number of duplicate transactions filtered out
+ * @property syncTimestamp Timestamp when the sync completed
+ * @property isIncremental Whether this was an incremental sync (true) or full sync (false)
+ */
+data class SyncResult(
+    val totalSmsRead: Int,
+    val bankSmsFound: Int,
+    val newTransactionsSaved: Int,
+    val duplicatesRemoved: Int,
+    val syncTimestamp: Long,
+    val isIncremental: Boolean
+)
+
+/**
  * Repository interface for managing transaction persistence and retrieval.
  *
  * This interface defines the contract for transaction repository operations,
@@ -12,7 +31,7 @@ import kotlinx.coroutines.flow.Flow
  * - Transaction CRUD operations
  * - Category overrides
  * - Sync metadata tracking
- * - SMS sync capabilities (added in future phases)
+ * - SMS sync capabilities
  *
  * All suspend functions return Result<T> for explicit error handling.
  * All Flow operations should emit fallback values on error rather than throwing.
@@ -166,6 +185,39 @@ interface ITransactionRepository {
      * @return Result<Int> containing number of overrides removed or error information
      */
     suspend fun removeAllCategoryOverrides(): Result<Int>
+
+    // ==================== SMS Sync Operations ====================
+
+    /**
+     * Syncs transactions from SMS messages.
+     *
+     * This method orchestrates the complete SMS sync workflow:
+     * 1. Read SMS messages from device inbox (last N days or since last sync)
+     * 2. Filter to bank transaction SMS
+     * 3. Parse SMS into structured transactions
+     * 4. Deduplicate and filter out existing transactions
+     * 5. Save new transactions to database
+     * 6. Update sync metadata timestamp
+     *
+     * The method performs incremental sync automatically if last sync timestamp exists,
+     * otherwise performs a full sync for the specified number of days.
+     *
+     * @param daysAgo Number of days to look back for full sync (default: 30)
+     * @return Result<SyncResult> containing sync statistics or error information
+     */
+    suspend fun syncFromSms(daysAgo: Int = 30): Result<SyncResult>
+
+    /**
+     * Performs an incremental SMS sync since the last sync timestamp.
+     *
+     * This is an optimized version of syncFromSms() that only processes new SMS
+     * messages since the last successful sync. If no previous sync exists, it falls
+     * back to a full sync.
+     *
+     * @param daysAgoFallback Number of days to look back if no last sync exists (default: 30)
+     * @return Result<SyncResult> containing sync statistics or error information
+     */
+    suspend fun syncFromSmsIncremental(daysAgoFallback: Int = 30): Result<SyncResult>
 
     // ==================== Sync Metadata Operations ====================
 

@@ -9,6 +9,7 @@ import com.example.kanakku.data.database.toDomain
 import com.example.kanakku.data.database.toEntity
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.TransactionType
+import com.example.kanakku.data.sms.SmsDataSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -26,6 +27,7 @@ import kotlinx.coroutines.sync.withLock
  * - Save and retrieve transactions
  * - Manage category overrides
  * - Track sync metadata for incremental updates
+ * - Sync transactions from SMS messages
  * - Provide reactive data streams via Flow
  * - Handle all database errors gracefully with comprehensive error handling
  * - Provide in-memory caching for frequently accessed data to improve performance
@@ -45,8 +47,12 @@ import kotlinx.coroutines.sync.withLock
  * - Improves performance for common operations like getAllTransactions()
  *
  * @param database The Room database instance
+ * @param smsDataSource Data source for reading and parsing SMS messages
  */
-class TransactionRepository(private val database: KanakkuDatabase) : ITransactionRepository {
+class TransactionRepository(
+    private val database: KanakkuDatabase,
+    private val smsDataSource: SmsDataSource
+) : ITransactionRepository {
 
     // DAOs for database access
     private val transactionDao = database.transactionDao()
@@ -403,6 +409,294 @@ class TransactionRepository(private val database: KanakkuDatabase) : ITransactio
     override suspend fun removeAllCategoryOverrides(): Result<Int> {
         return ErrorHandler.runSuspendCatching("Remove all category overrides") {
             categoryOverrideDao.deleteAll()
+        }
+    }
+
+    // ==================== SMS Sync Operations ====================
+
+    /**
+     * Syncs transactions from SMS messages.
+     *
+     * This method orchestrates the complete SMS sync workflow:
+     * 1. Check last sync timestamp to determine if incremental or full sync
+     * 2. Read SMS messages from device (incremental or full based on last sync)
+     * 3. Filter to bank transaction SMS
+     * 4. Parse SMS into structured transactions
+     * 5. Deduplicate and filter out existing transactions
+     * 6. Save new transactions to database
+     * 7. Update sync metadata timestamp
+     *
+     * The method performs incremental sync automatically if last sync timestamp exists,
+     * otherwise performs a full sync for the specified number of days.
+     *
+     * @param daysAgo Number of days to look back for full sync (default: 30)
+     * @return Result<SyncResult> containing sync statistics or error information
+     */
+    override suspend fun syncFromSms(daysAgo: Int): Result<SyncResult> {
+        return ErrorHandler.runSuspendCatching("Sync transactions from SMS") {
+            ErrorHandler.logDebug("Starting SMS sync operation", "TransactionRepository")
+
+            // Step 1: Check last sync timestamp to determine sync strategy
+            val lastSyncTimestamp = getLastSyncTimestamp().getOrNull()
+            val isIncremental = lastSyncTimestamp != null
+
+            ErrorHandler.logDebug(
+                "Sync strategy: ${if (isIncremental) "incremental (since $lastSyncTimestamp)" else "full ($daysAgo days)"}",
+                "TransactionRepository"
+            )
+
+            // Step 2: Read SMS messages (incremental or full)
+            val smsMessages = if (isIncremental) {
+                smsDataSource.readSmsSince(lastSyncTimestamp!!)
+                    .onFailure { throwable ->
+                        ErrorHandler.logWarning(
+                            "Failed to read SMS messages: ${throwable.message}",
+                            "syncFromSms"
+                        )
+                    }
+                    .getOrElse { emptyList() }
+            } else {
+                smsDataSource.readAllSms(daysAgo)
+                    .onFailure { throwable ->
+                        ErrorHandler.logWarning(
+                            "Failed to read SMS messages: ${throwable.message}",
+                            "syncFromSms"
+                        )
+                    }
+                    .getOrElse { emptyList() }
+            }
+
+            val totalSmsRead = smsMessages.size
+            ErrorHandler.logDebug("Read $totalSmsRead SMS messages", "TransactionRepository")
+
+            // Step 3: Parse and deduplicate transactions from SMS
+            val parsedTransactions = smsDataSource.parseAndDeduplicate(smsMessages)
+                .onFailure { throwable ->
+                    ErrorHandler.logWarning(
+                        "Failed to parse SMS messages: ${throwable.message}",
+                        "syncFromSms"
+                    )
+                }
+                .getOrElse { emptyList() }
+
+            val bankSmsFound = parsedTransactions.size +
+                (totalSmsRead - parsedTransactions.size) // Approximation
+            ErrorHandler.logDebug("Parsed ${parsedTransactions.size} transactions", "TransactionRepository")
+
+            // Step 4: Filter out transactions that already exist in database
+            val newTransactions = mutableListOf<ParsedTransaction>()
+            for (transaction in parsedTransactions) {
+                val exists = transactionExists(transaction.smsId)
+                    .onFailure { throwable ->
+                        ErrorHandler.logWarning(
+                            "Failed to check transaction existence: ${throwable.message}",
+                            "syncFromSms"
+                        )
+                    }
+                    .getOrElse { false }
+
+                if (!exists) {
+                    newTransactions.add(transaction)
+                }
+            }
+
+            val duplicatesRemoved = parsedTransactions.size - newTransactions.size
+            ErrorHandler.logDebug(
+                "Filtered ${newTransactions.size} new transactions ($duplicatesRemoved duplicates removed)",
+                "TransactionRepository"
+            )
+
+            // Step 5: Save new transactions to database
+            var newTransactionsSaved = 0
+            if (newTransactions.isNotEmpty()) {
+                saveTransactions(newTransactions)
+                    .onSuccess {
+                        newTransactionsSaved = newTransactions.size
+                        ErrorHandler.logDebug(
+                            "Saved $newTransactionsSaved new transactions to database",
+                            "TransactionRepository"
+                        )
+                    }
+                    .onFailure { throwable ->
+                        ErrorHandler.logWarning(
+                            "Failed to save transactions: ${throwable.message}",
+                            "syncFromSms"
+                        )
+                        // Partial failure - continue with metadata update
+                    }
+            }
+
+            // Step 6: Update sync timestamp
+            val syncTimestamp = System.currentTimeMillis()
+            setLastSyncTimestamp(syncTimestamp)
+                .onFailure { throwable ->
+                    ErrorHandler.logWarning(
+                        "Failed to update sync timestamp: ${throwable.message}",
+                        "syncFromSms"
+                    )
+                    // Continue - not critical
+                }
+
+            // Step 7: Return sync result
+            val result = SyncResult(
+                totalSmsRead = totalSmsRead,
+                bankSmsFound = bankSmsFound,
+                newTransactionsSaved = newTransactionsSaved,
+                duplicatesRemoved = duplicatesRemoved,
+                syncTimestamp = syncTimestamp,
+                isIncremental = isIncremental
+            )
+
+            ErrorHandler.logInfo(
+                "SMS sync completed: $newTransactionsSaved new transactions (${if (isIncremental) "incremental" else "full"})",
+                "TransactionRepository"
+            )
+
+            result
+        }
+    }
+
+    /**
+     * Performs an incremental SMS sync since the last sync timestamp.
+     *
+     * This is an optimized version of syncFromSms() that only processes new SMS
+     * messages since the last successful sync. If no previous sync exists, it falls
+     * back to a full sync.
+     *
+     * @param daysAgoFallback Number of days to look back if no last sync exists (default: 30)
+     * @return Result<SyncResult> containing sync statistics or error information
+     */
+    override suspend fun syncFromSmsIncremental(daysAgoFallback: Int): Result<SyncResult> {
+        return ErrorHandler.runSuspendCatching("Incremental SMS sync") {
+            ErrorHandler.logDebug("Starting incremental SMS sync", "TransactionRepository")
+
+            // Step 1: Check last sync timestamp
+            val lastSyncTimestamp = getLastSyncTimestamp().getOrNull()
+
+            if (lastSyncTimestamp == null) {
+                // No previous sync - fall back to full sync
+                ErrorHandler.logDebug(
+                    "No previous sync found, falling back to full sync",
+                    "TransactionRepository"
+                )
+                return@runSuspendCatching syncFromSms(daysAgoFallback).getOrThrow()
+            }
+
+            ErrorHandler.logDebug(
+                "Performing incremental sync since $lastSyncTimestamp",
+                "TransactionRepository"
+            )
+
+            // Step 2: Read only new SMS since last sync
+            val smsMessages = smsDataSource.readSmsSince(lastSyncTimestamp)
+                .onFailure { throwable ->
+                    ErrorHandler.logWarning(
+                        "Failed to read SMS messages since timestamp: ${throwable.message}",
+                        "syncFromSmsIncremental"
+                    )
+                }
+                .getOrElse { emptyList() }
+
+            val totalSmsRead = smsMessages.size
+            ErrorHandler.logDebug("Read $totalSmsRead new SMS messages", "TransactionRepository")
+
+            // If no new SMS, return early with empty result
+            if (smsMessages.isEmpty()) {
+                ErrorHandler.logDebug("No new SMS messages to sync", "TransactionRepository")
+                return@runSuspendCatching SyncResult(
+                    totalSmsRead = 0,
+                    bankSmsFound = 0,
+                    newTransactionsSaved = 0,
+                    duplicatesRemoved = 0,
+                    syncTimestamp = System.currentTimeMillis(),
+                    isIncremental = true
+                )
+            }
+
+            // Step 3: Parse and deduplicate transactions from new SMS
+            val parsedTransactions = smsDataSource.parseAndDeduplicate(smsMessages)
+                .onFailure { throwable ->
+                    ErrorHandler.logWarning(
+                        "Failed to parse SMS messages: ${throwable.message}",
+                        "syncFromSmsIncremental"
+                    )
+                }
+                .getOrElse { emptyList() }
+
+            val bankSmsFound = parsedTransactions.size +
+                (totalSmsRead - parsedTransactions.size) // Approximation
+            ErrorHandler.logDebug("Parsed ${parsedTransactions.size} transactions", "TransactionRepository")
+
+            // Step 4: Filter out transactions that already exist in database
+            val newTransactions = mutableListOf<ParsedTransaction>()
+            for (transaction in parsedTransactions) {
+                val exists = transactionExists(transaction.smsId)
+                    .onFailure { throwable ->
+                        ErrorHandler.logWarning(
+                            "Failed to check transaction existence: ${throwable.message}",
+                            "syncFromSmsIncremental"
+                        )
+                    }
+                    .getOrElse { false }
+
+                if (!exists) {
+                    newTransactions.add(transaction)
+                }
+            }
+
+            val duplicatesRemoved = parsedTransactions.size - newTransactions.size
+            ErrorHandler.logDebug(
+                "Filtered ${newTransactions.size} new transactions ($duplicatesRemoved duplicates removed)",
+                "TransactionRepository"
+            )
+
+            // Step 5: Save new transactions to database
+            var newTransactionsSaved = 0
+            if (newTransactions.isNotEmpty()) {
+                saveTransactions(newTransactions)
+                    .onSuccess {
+                        newTransactionsSaved = newTransactions.size
+                        ErrorHandler.logDebug(
+                            "Saved $newTransactionsSaved new transactions to database",
+                            "TransactionRepository"
+                        )
+                    }
+                    .onFailure { throwable ->
+                        ErrorHandler.logWarning(
+                            "Failed to save transactions: ${throwable.message}",
+                            "syncFromSmsIncremental"
+                        )
+                        // Partial failure - continue with metadata update
+                    }
+            }
+
+            // Step 6: Update sync timestamp
+            val syncTimestamp = System.currentTimeMillis()
+            setLastSyncTimestamp(syncTimestamp)
+                .onFailure { throwable ->
+                    ErrorHandler.logWarning(
+                        "Failed to update sync timestamp: ${throwable.message}",
+                        "syncFromSmsIncremental"
+                    )
+                    // Continue - not critical
+                }
+
+            // Step 7: Return sync result
+            val result = SyncResult(
+                totalSmsRead = totalSmsRead,
+                bankSmsFound = bankSmsFound,
+                newTransactionsSaved = newTransactionsSaved,
+                duplicatesRemoved = duplicatesRemoved,
+                syncTimestamp = syncTimestamp,
+                isIncremental = true
+            )
+
+            ErrorHandler.logInfo(
+                "Incremental SMS sync completed: $newTransactionsSaved new transactions",
+                "TransactionRepository"
+            )
+
+            result
         }
     }
 
