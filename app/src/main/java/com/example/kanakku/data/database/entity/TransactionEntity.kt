@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.kanakku.data.model.TransactionType
+import com.example.kanakku.data.model.TransactionSource
 
 /**
  * Room entity for persisting parsed transactions.
@@ -28,5 +29,7 @@ data class TransactionEntity(
     val rawSms: String,
     val senderAddress: String,
     val balanceAfter: Double?,
-    val location: String?
+    val location: String?,
+    val source: TransactionSource = TransactionSource.SMS,
+    val notes: String? = null
 )
