@@ -2,6 +2,7 @@ package com.example.kanakku
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -21,6 +22,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kanakku.data.preferences.AppPreferences
 import com.example.kanakku.notification.TransactionNotificationManager
 import com.example.kanakku.ui.MainViewModel
+import com.example.kanakku.ui.components.NotificationPermissionDialog
 import com.example.kanakku.ui.components.PrivacyInfoDialog
 import com.example.kanakku.ui.navigation.KanakkuNavHost
 import com.example.kanakku.ui.theme.KanakkuTheme
@@ -58,6 +60,29 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
         mutableStateOf(!appPrefs.isPrivacyDialogShown())
     }
 
+    // Track whether to show the notification permission dialog (Android 13+)
+    var showNotificationPermissionDialog by remember {
+        mutableStateOf(false)
+    }
+
+    // Permission launcher for POST_NOTIFICATIONS (Android 13+ only)
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            android.util.Log.i(
+                "MainActivity",
+                "POST_NOTIFICATIONS permission granted - transaction notifications enabled"
+            )
+        } else {
+            android.util.Log.i(
+                "MainActivity",
+                "POST_NOTIFICATIONS permission denied - transaction notifications disabled"
+            )
+        }
+        // App continues to work regardless of permission result
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -76,6 +101,19 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
                     "MainActivity",
                     "RECEIVE_SMS permission denied - real-time transaction detection disabled"
                 )
+            }
+
+            // On Android 13+, prompt for notification permission after SMS permissions are granted
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val hasNotificationPermission = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+
+                // Show explanation dialog if permission is not already granted
+                if (!hasNotificationPermission) {
+                    showNotificationPermissionDialog = true
+                }
             }
         }
     }
@@ -112,6 +150,27 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
             onDismiss = {
                 appPrefs.setPrivacyDialogShown()
                 showPrivacyDialog = false
+            }
+        )
+    }
+
+    // Show notification permission dialog on Android 13+ (after SMS permissions granted)
+    if (showNotificationPermissionDialog) {
+        NotificationPermissionDialog(
+            onDismiss = {
+                // User chose "Not Now" - app continues to work without notifications
+                showNotificationPermissionDialog = false
+                android.util.Log.i(
+                    "MainActivity",
+                    "User declined notification permission prompt - notifications disabled"
+                )
+            },
+            onGrantPermission = {
+                // User chose "Enable Notifications" - request the permission
+                showNotificationPermissionDialog = false
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
             }
         )
     }
