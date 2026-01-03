@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.kanakku.data.model.*
 import com.example.kanakku.ui.MainUiState
+import com.example.kanakku.ui.SearchFilterState
 import com.example.kanakku.ui.components.CategoryPickerSheet
 import java.text.SimpleDateFormat
 import java.util.*
@@ -24,12 +25,17 @@ import java.util.*
 @Composable
 fun TransactionsScreen(
     uiState: MainUiState,
+    searchFilterState: SearchFilterState,
     categoryMap: Map<Long, Category>,
     onRefresh: () -> Unit,
-    onCategoryChange: (Long, Category) -> Unit
+    onCategoryChange: (Long, Category) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onFilterChange: (TransactionFilter) -> Unit,
+    onClearFilters: () -> Unit
 ) {
     var selectedTransaction by remember { mutableStateOf<ParsedTransaction?>(null) }
     var showCategoryPicker by remember { mutableStateOf(false) }
+    var showFilterSheet by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TransactionsHeader(uiState = uiState, onRefresh = onRefresh)
