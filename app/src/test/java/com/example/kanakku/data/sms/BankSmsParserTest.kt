@@ -759,6 +759,550 @@ class BankSmsParserTest {
         assertEquals("user2@okaxis", vpa)
     }
 
+    // Additional VPA format tests for various UPI ID formats
+
+    @Test
+    fun extractVpa_extractsWithUnderscore() {
+        // Given
+        val body = "Rs.500 paid to user_name@paytm via UPI"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("user_name@paytm", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithMultipleDots() {
+        // Given
+        val body = "Payment to first.middle.last@okaxis successful"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("first.middle.last@okaxis", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithHyphen() {
+        // Given
+        val body = "You sent Rs.250 to user-name@ybl using PhonePe"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("user-name@ybl", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithNumbers() {
+        // Given
+        val body = "Rs.300 debited to user123@paytm. Ref 456789"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("user123@paytm", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithDotsAndNumbers() {
+        // Given
+        val body = "UPI payment to user.123@okicici completed"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("user.123@okicici", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithMixedFormat() {
+        // Given
+        val body = "Rs.750 sent to user_123.name@hdfcbank via UPI"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("user_123.name@hdfcbank", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithContext_VPA() {
+        // Given
+        val body = "UPI transfer successful. VPA: merchant@axisbank Ref 123456"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("merchant@axisbank", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithContext_VPAColon() {
+        // Given
+        val body = "Transaction to VPA:swiggy@okhdfc completed"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("swiggy@okhdfc", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithContext_UpiId() {
+        // Given
+        val body = "Payment sent. UPI ID: zomato@oksbi Txn ID 789012"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("zomato@oksbi", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithContext_UpiIdColon() {
+        // Given
+        val body = "UPI ID:amazon.pay@icici. Amount Rs.500"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("amazon.pay@icici", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithContext_sentTo() {
+        // Given
+        val body = "You sent Rs.1000 sent to landlord@sbi via PhonePe"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("landlord@sbi", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromSbiHandle() {
+        // Given
+        val body = "Rs.450 debited to friend@sbi. UPI Ref 123456789"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("friend@sbi", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromSbiBankHandle() {
+        // Given
+        val body = "Payment to employer@sbibank successful"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("employer@sbibank", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromAxisHandle() {
+        // Given
+        val body = "Rs.899 paid to store@axis via Google Pay"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("store@axis", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromKotakHandle() {
+        // Given
+        val body = "UPI received from client@kotak. Amount Rs.5000"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("client@kotak", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromKotakBankHandle() {
+        // Given
+        val body = "Rs.1200 sent to vendor@kotakbank via UPI"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("vendor@kotakbank", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromFederalHandle() {
+        // Given
+        val body = "Payment to merchant@federal completed. Ref 567890"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("merchant@federal", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromIdfcHandle() {
+        // Given
+        val body = "Rs.2500 debited to service@idfc on 02-Jan"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("service@idfc", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromIdfcBankHandle() {
+        // Given
+        val body = "You paid Rs.350 to shop@idfcbank via PhonePe"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("shop@idfcbank", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromYesBankHandle() {
+        // Given
+        val body = "UPI payment to contractor@yesbank. Txn ID 123456"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("contractor@yesbank", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromRblHandle() {
+        // Given
+        val body = "Rs.750 sent to partner@rbl via Google Pay"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("partner@rbl", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromIblHandle() {
+        // Given
+        val body = "Payment received from customer@ibl. Ref 987654"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("customer@ibl", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromAxlHandle() {
+        // Given
+        val body = "Rs.1500 debited to seller@axl on 01-Jan-26"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("seller@axl", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromAplHandle() {
+        // Given
+        val body = "UPI transfer to provider@apl completed successfully"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("provider@apl", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromIndianBankHandle() {
+        // Given
+        val body = "You paid Rs.600 to outlet@indianbank via UPI"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("outlet@indianbank", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromPnbHandle() {
+        // Given
+        val body = "Rs.950 sent to business@pnb. PhonePe Txn ID PP123"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("business@pnb", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromBobHandle() {
+        // Given
+        val body = "Payment to supplier@bob successful. Ref 456789"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("supplier@bob", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromUnionBankHandle() {
+        // Given
+        val body = "Rs.1800 debited to dealer@unionbank via Google Pay"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("dealer@unionbank", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromCanaraHandle() {
+        // Given
+        val body = "UPI received from agent@canara. Amount Rs.3000"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("agent@canara", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromCanaraBankHandle() {
+        // Given
+        val body = "You sent Rs.2200 to trader@canarabank via Paytm"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("trader@canarabank", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromBarodaPayHandle() {
+        // Given
+        val body = "Rs.1100 paid to retailer@barodapay. UPI Ref 789123"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("retailer@barodapay", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromFreechargeHandle() {
+        // Given
+        val body = "Payment to wallet@freecharge completed successfully"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("wallet@freecharge", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromMobikwikHandle() {
+        // Given
+        val body = "Rs.450 sent to recharge@mobikwik via UPI"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("recharge@mobikwik", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromAirtelHandle() {
+        // Given
+        val body = "UPI payment to payment@airtel. Txn ID 112233"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("payment@airtel", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromUpiHandle() {
+        // Given
+        val body = "You paid Rs.550 to generic@upi via PhonePe"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("generic@upi", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsVpaAtStartOfMessage() {
+        // Given
+        val body = "merchant@paytm received Rs.750 via Google Pay"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("merchant@paytm", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsVpaAtEndOfMessage() {
+        // Given
+        val body = "Rs.899 UPI payment completed to shop@okaxis"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("shop@okaxis", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithMultipleHyphens() {
+        // Given
+        val body = "Payment to user-with-many-hyphens@paytm successful"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("user-with-many-hyphens@paytm", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithMultipleUnderscores() {
+        // Given
+        val body = "Rs.650 sent to user_with_many_underscores@ybl"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("user_with_many_underscores@ybl", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsComplexMixedFormat() {
+        // Given
+        val body = "UPI to first.middle_last-name123@hdfcbank. Ref 555666"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("first.middle_last-name123@hdfcbank", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsCaseInsensitive() {
+        // Given
+        val body = "You paid Rs.400 to MerChant@PAYTM via Google Pay"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        // VPA should be returned in lowercase
+        assertEquals("merchant@paytm", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromIciciBankHandle() {
+        // Given
+        val body = "Rs.1250 debited to store@icicibank via UPI"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("store@icicibank", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsFromDifferentContextKeywords() {
+        // Given
+        val body = "UPI transfer of Rs.2000 transferred to recipient@okaxis"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        // Note: "transferred to" is not a direct context keyword but "to" is
+        assertEquals("recipient@okaxis", vpa)
+    }
+
+    @Test
+    fun extractVpa_extractsWithMinimalUsernameLength() {
+        // Given - minimum 3 characters for username (based on regex {2,} which is 2+ after first char = 3 total)
+        val body = "Payment to abc@paytm successful"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("abc@paytm", vpa)
+    }
+
+    @Test
+    fun extractVpa_handlesVpaWithSpecialMerchantNames() {
+        // Given
+        val body = "Rs.1999 paid to amazon.pay.store@okicici via PhonePe"
+
+        // When
+        val vpa = parser.extractVpa(body)
+
+        // Then
+        assertEquals("amazon.pay.store@okicici", vpa)
+    }
+
     // ==================== Merchant Extraction Tests ====================
 
     @Test
