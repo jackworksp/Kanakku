@@ -3,23 +3,23 @@
   "spec": "017-savings-goals-and-targets",
   "state": "building",
   "subtasks": {
-    "completed": 6,
+    "completed": 8,
     "total": 27,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Data Layer - Domain Models and Repository",
-    "id": 2,
-    "total": 3
+    "current": "Domain Layer - Calculators",
+    "id": 3,
+    "total": 2
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 8,
+    "number": 10,
     "started_at": "2026-01-03T08:13:32.251077"
   },
-  "last_update": "2026-01-03T08:37:56.054038"
+  "last_update": "2026-01-03T08:44:50.274463"
 }
