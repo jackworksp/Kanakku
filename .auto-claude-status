@@ -3,23 +3,23 @@
   "spec": "013-spending-notifications-and-alerts",
   "state": "building",
   "subtasks": {
-    "completed": 13,
+    "completed": 14,
     "total": 23,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Alert Logic and Services",
+    "current": "Settings UI",
     "id": null,
-    "total": 5
+    "total": 4
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 15,
+    "number": 16,
     "started_at": "2026-01-03T14:07:23.960540"
   },
-  "last_update": "2026-01-03T15:54:08.567819"
+  "last_update": "2026-01-03T15:58:20.775301"
 }
