@@ -59,7 +59,7 @@ fun KanakkuApp(viewModel: MainViewModel = hiltViewModel()) {
     ) { isGranted ->
         viewModel.updatePermissionStatus(isGranted)
         if (isGranted) {
-            viewModel.loadSmsData(context)
+            viewModel.loadSmsData()
         }
     }
 
@@ -72,7 +72,7 @@ fun KanakkuApp(viewModel: MainViewModel = hiltViewModel()) {
         viewModel.updatePermissionStatus(hasPermission)
 
         if (hasPermission) {
-            viewModel.loadSmsData(context)
+            viewModel.loadSmsData()
         }
     }
 
@@ -103,7 +103,7 @@ fun KanakkuApp(viewModel: MainViewModel = hiltViewModel()) {
                 KanakkuNavHost(
                     uiState = uiState,
                     categoryMap = categoryMap,
-                    onRefresh = { viewModel.loadSmsData(context) },
+                    onRefresh = { viewModel.loadSmsData() },
                     onCategoryChange = { smsId, category ->
                         viewModel.updateTransactionCategory(smsId, category)
                     },
