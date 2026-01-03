@@ -93,6 +93,8 @@ fun TransactionsScreen(
     uiState: MainUiState,
     searchFilterState: SearchFilterState,
     categoryMap: Map<Long, Category>,
+    selectedDateRange: DateRange,
+    onDateRangeChange: (DateRange) -> Unit,
     onRefresh: () -> Unit,
     onCategoryChange: (Long, Category) -> Unit,
     onSearchQueryChange: (String) -> Unit,
@@ -203,10 +205,25 @@ fun TransactionsScreen(
             }
         )
     }
+
+    // Date Range Picker Sheet
+    if (showDateRangePicker) {
+        DateRangePickerSheet(
+            currentDateRange = selectedDateRange,
+            onDateRangeSelected = { newRange ->
+                onDateRangeChange(newRange)
+                showDateRangePicker = false
+            },
+            onDismiss = {
+                showDateRangePicker = false
+            }
+        )
+    }
 }
 
 @Composable
 private fun TransactionsHeader(
+    transactions: List<ParsedTransaction>,
     uiState: MainUiState,
     searchFilterState: SearchFilterState,
     onRefresh: () -> Unit

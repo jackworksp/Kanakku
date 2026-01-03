@@ -9,7 +9,7 @@ enum class TimePeriod(val displayName: String, val days: Int) {
 }
 
 data class PeriodSummary(
-    val period: TimePeriod,
+    val period: TimePeriod? = null,
     val totalSpent: Double,
     val totalReceived: Double,
     val transactionCount: Int,
