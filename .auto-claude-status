@@ -3,13 +3,13 @@
   "spec": "020-expanded-bank-sms-pattern-support",
   "state": "building",
   "subtasks": {
-    "completed": 13,
+    "completed": 17,
     "total": 52,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Major Banks Support (Top 10)",
+    "current": "Regional & Other Banks (10-20)",
     "id": null,
     "total": 10
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 15,
+    "number": 19,
     "started_at": "2026-01-03T08:13:01.602926"
   },
-  "last_update": "2026-01-03T09:02:19.028766"
+  "last_update": "2026-01-03T09:14:56.786216"
 }
