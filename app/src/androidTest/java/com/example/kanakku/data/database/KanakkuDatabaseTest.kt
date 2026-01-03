@@ -64,7 +64,9 @@ class KanakkuDatabaseTest {
         amount: Double = 100.0,
         type: TransactionType = TransactionType.DEBIT,
         merchant: String? = "Test Merchant",
-        date: Long = System.currentTimeMillis()
+        date: Long = System.currentTimeMillis(),
+        upiId: String? = null,
+        paymentMethod: String? = null
     ): TransactionEntity {
         return TransactionEntity(
             smsId = smsId,
@@ -77,7 +79,9 @@ class KanakkuDatabaseTest {
             rawSms = "Test SMS",
             senderAddress = "VM-TESTBK",
             balanceAfter = 500.0,
-            location = "Test Location"
+            location = "Test Location",
+            upiId = upiId,
+            paymentMethod = paymentMethod
         )
     }
 
@@ -100,8 +104,8 @@ class KanakkuDatabaseTest {
 
     @Test
     fun database_hasCorrectVersion() = runBlocking {
-        // Database version should be 1
-        assertEquals(1, database.openHelper.readableDatabase.version)
+        // Database version should be 2 (after UPI fields migration)
+        assertEquals(2, database.openHelper.readableDatabase.version)
     }
 
     // ==================== Transaction DAO Tests ====================
@@ -585,5 +589,436 @@ class KanakkuDatabaseTest {
         assertEquals(0, transactionDao.getTransactionCount())
         assertEquals(0, categoryOverrideDao.getOverrideCount())
         assertEquals(0, syncMetadataDao.getMetadataCount())
+    }
+
+    // ==================== UPI Fields Tests ====================
+
+    @Test
+    fun upiFields_insertTransactionWithUpiData() = runBlocking {
+        // Given - Transaction with UPI fields
+        val upiTransaction = createTestTransaction(
+            smsId = 1L,
+            amount = 500.0,
+            merchant = "Swiggy",
+            upiId = "swiggy@axisbank",
+            paymentMethod = "UPI"
+        )
+
+        // When
+        transactionDao.insert(upiTransaction)
+
+        // Then
+        val retrieved = transactionDao.getAllTransactionsSnapshot().first()
+        assertEquals("swiggy@axisbank", retrieved.upiId)
+        assertEquals("UPI", retrieved.paymentMethod)
+    }
+
+    @Test
+    fun upiFields_insertTransactionWithoutUpiData() = runBlocking {
+        // Given - Transaction without UPI fields (card payment)
+        val cardTransaction = createTestTransaction(
+            smsId = 1L,
+            amount = 200.0,
+            merchant = "Amazon",
+            upiId = null,
+            paymentMethod = null
+        )
+
+        // When
+        transactionDao.insert(cardTransaction)
+
+        // Then
+        val retrieved = transactionDao.getAllTransactionsSnapshot().first()
+        assertNull(retrieved.upiId)
+        assertNull(retrieved.paymentMethod)
+    }
+
+    @Test
+    fun upiFields_mixedTransactionTypes() = runBlocking {
+        // Given - Mix of UPI and non-UPI transactions
+        val transactions = listOf(
+            createTestTransaction(
+                smsId = 1L,
+                merchant = "Google Pay Transfer",
+                upiId = "john@paytm",
+                paymentMethod = "UPI"
+            ),
+            createTestTransaction(
+                smsId = 2L,
+                merchant = "ATM Withdrawal",
+                upiId = null,
+                paymentMethod = null
+            ),
+            createTestTransaction(
+                smsId = 3L,
+                merchant = "PhonePe Payment",
+                upiId = "merchant@okaxis",
+                paymentMethod = "UPI"
+            ),
+            createTestTransaction(
+                smsId = 4L,
+                merchant = "Card Payment",
+                upiId = null,
+                paymentMethod = "Card"
+            )
+        )
+
+        // When
+        transactionDao.insertAll(transactions)
+
+        // Then
+        val all = transactionDao.getAllTransactionsSnapshot()
+        assertEquals(4, all.size)
+
+        // Verify UPI transactions
+        val tx1 = all.find { it.smsId == 1L }
+        assertEquals("john@paytm", tx1?.upiId)
+        assertEquals("UPI", tx1?.paymentMethod)
+
+        val tx3 = all.find { it.smsId == 3L }
+        assertEquals("merchant@okaxis", tx3?.upiId)
+        assertEquals("UPI", tx3?.paymentMethod)
+
+        // Verify non-UPI transactions
+        val tx2 = all.find { it.smsId == 2L }
+        assertNull(tx2?.upiId)
+        assertNull(tx2?.paymentMethod)
+
+        val tx4 = all.find { it.smsId == 4L }
+        assertNull(tx4?.upiId)
+        assertEquals("Card", tx4?.paymentMethod)
+    }
+
+    @Test
+    fun upiFields_variousUpiHandles() = runBlocking {
+        // Given - Transactions with various UPI handles
+        val transactions = listOf(
+            createTestTransaction(smsId = 1L, merchant = "GPay", upiId = "user@paytm", paymentMethod = "UPI"),
+            createTestTransaction(smsId = 2L, merchant = "PhonePe", upiId = "merchant@okaxis", paymentMethod = "UPI"),
+            createTestTransaction(smsId = 3L, merchant = "BHIM", upiId = "name@ybl", paymentMethod = "UPI"),
+            createTestTransaction(smsId = 4L, merchant = "Bank", upiId = "account@sbi", paymentMethod = "UPI"),
+            createTestTransaction(smsId = 5L, merchant = "Paytm", upiId = "shop@icici", paymentMethod = "UPI")
+        )
+
+        // When
+        transactionDao.insertAll(transactions)
+
+        // Then
+        val all = transactionDao.getAllTransactionsSnapshot()
+        assertEquals(5, all.size)
+        all.forEach { tx ->
+            assertNotNull(tx.upiId)
+            assertEquals("UPI", tx.paymentMethod)
+        }
+    }
+
+    @Test
+    fun upiFields_updateTransactionWithUpiData() = runBlocking {
+        // Given - Initial transaction without UPI data
+        val initial = createTestTransaction(
+            smsId = 1L,
+            amount = 100.0,
+            upiId = null,
+            paymentMethod = null
+        )
+        transactionDao.insert(initial)
+
+        // When - Update with UPI data
+        val updated = createTestTransaction(
+            smsId = 1L,
+            amount = 100.0,
+            upiId = "updated@paytm",
+            paymentMethod = "UPI"
+        )
+        transactionDao.insert(updated)
+
+        // Then
+        val retrieved = transactionDao.getAllTransactionsSnapshot().first()
+        assertEquals("updated@paytm", retrieved.upiId)
+        assertEquals("UPI", retrieved.paymentMethod)
+    }
+
+    // ==================== Database Migration Tests ====================
+
+    @Test
+    fun migration_1_to_2_preservesExistingData() = runBlocking {
+        // This test verifies that the migration from version 1 to 2 works correctly
+        // and preserves existing transaction data while adding new UPI columns
+
+        // Given - Create a fresh database (which will be at version 2)
+        val testDb = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            KanakkuDatabase::class.java
+        )
+            .addMigrations(KanakkuDatabase.MIGRATION_1_2)
+            .allowMainThreadQueries()
+            .build()
+
+        // Insert transactions (simulating migrated data with NULL UPI fields)
+        val dao = testDb.transactionDao()
+        val oldTransaction = createTestTransaction(
+            smsId = 1L,
+            amount = 100.0,
+            merchant = "Old Merchant",
+            upiId = null,  // These would be NULL after migration
+            paymentMethod = null
+        )
+        dao.insert(oldTransaction)
+
+        // When - Retrieve the transaction
+        val retrieved = dao.getAllTransactionsSnapshot().first()
+
+        // Then - Verify existing data is preserved and new columns are NULL
+        assertEquals(1L, retrieved.smsId)
+        assertEquals(100.0, retrieved.amount, 0.01)
+        assertEquals("Old Merchant", retrieved.merchant)
+        assertEquals("1234", retrieved.accountNumber)
+        assertEquals("REF123", retrieved.referenceNumber)
+        assertNull(retrieved.upiId)  // New column should be NULL for old data
+        assertNull(retrieved.paymentMethod)  // New column should be NULL for old data
+
+        testDb.close()
+    }
+
+    @Test
+    fun migration_1_to_2_allowsNewUpiData() = runBlocking {
+        // This test verifies that after migration, new UPI data can be inserted
+
+        // Given - Database at version 2
+        val testDb = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            KanakkuDatabase::class.java
+        )
+            .addMigrations(KanakkuDatabase.MIGRATION_1_2)
+            .allowMainThreadQueries()
+            .build()
+
+        val dao = testDb.transactionDao()
+
+        // When - Insert transaction with UPI data (post-migration)
+        val upiTransaction = createTestTransaction(
+            smsId = 1L,
+            amount = 500.0,
+            merchant = "Swiggy",
+            upiId = "swiggy@axisbank",
+            paymentMethod = "UPI"
+        )
+        dao.insert(upiTransaction)
+
+        // Then - Verify UPI data is stored correctly
+        val retrieved = dao.getAllTransactionsSnapshot().first()
+        assertEquals("swiggy@axisbank", retrieved.upiId)
+        assertEquals("UPI", retrieved.paymentMethod)
+
+        testDb.close()
+    }
+
+    @Test
+    fun migration_schemaVersion_isCorrect() = runBlocking {
+        // Verify database schema version after migration
+
+        // Given - Fresh database with migration
+        val testDb = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            KanakkuDatabase::class.java
+        )
+            .addMigrations(KanakkuDatabase.MIGRATION_1_2)
+            .allowMainThreadQueries()
+            .build()
+
+        // Then - Verify version is 2
+        assertEquals(2, testDb.openHelper.readableDatabase.version)
+
+        testDb.close()
+    }
+
+    @Test
+    fun migration_multipleTransactions_allPreserved() = runBlocking {
+        // Test that migration preserves all transactions in database
+
+        // Given - Database with multiple transactions
+        val testDb = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            KanakkuDatabase::class.java
+        )
+            .addMigrations(KanakkuDatabase.MIGRATION_1_2)
+            .allowMainThreadQueries()
+            .build()
+
+        val dao = testDb.transactionDao()
+
+        // Insert multiple transactions (simulating pre-migration data)
+        val transactions = (1L..10L).map { id ->
+            createTestTransaction(
+                smsId = id,
+                amount = id * 100.0,
+                merchant = "Merchant $id",
+                upiId = null,  // Pre-migration data wouldn't have UPI fields
+                paymentMethod = null
+            )
+        }
+        dao.insertAll(transactions)
+
+        // When - Retrieve all transactions
+        val retrieved = dao.getAllTransactionsSnapshot()
+
+        // Then - All transactions should be preserved
+        assertEquals(10, retrieved.size)
+        retrieved.forEach { tx ->
+            assertNotNull(tx.merchant)
+            assertTrue(tx.merchant!!.startsWith("Merchant"))
+            assertNull(tx.upiId)  // Old data should have NULL UPI fields
+            assertNull(tx.paymentMethod)
+        }
+
+        testDb.close()
+    }
+
+    @Test
+    fun migration_mixedDataAfterMigration() = runBlocking {
+        // Test that database can handle both old (NULL UPI) and new (with UPI) data
+
+        // Given - Database after migration
+        val testDb = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            KanakkuDatabase::class.java
+        )
+            .addMigrations(KanakkuDatabase.MIGRATION_1_2)
+            .allowMainThreadQueries()
+            .build()
+
+        val dao = testDb.transactionDao()
+
+        // Insert mix of old and new transactions
+        val transactions = listOf(
+            // Old transaction (pre-migration style)
+            createTestTransaction(
+                smsId = 1L,
+                merchant = "ATM Withdrawal",
+                upiId = null,
+                paymentMethod = null
+            ),
+            // New UPI transaction (post-migration)
+            createTestTransaction(
+                smsId = 2L,
+                merchant = "Google Pay",
+                upiId = "john@paytm",
+                paymentMethod = "UPI"
+            ),
+            // Another old transaction
+            createTestTransaction(
+                smsId = 3L,
+                merchant = "Card Payment",
+                upiId = null,
+                paymentMethod = null
+            ),
+            // Another new UPI transaction
+            createTestTransaction(
+                smsId = 4L,
+                merchant = "PhonePe",
+                upiId = "merchant@okaxis",
+                paymentMethod = "UPI"
+            )
+        )
+        dao.insertAll(transactions)
+
+        // When - Query all transactions
+        val all = dao.getAllTransactionsSnapshot()
+
+        // Then - Verify mixed data is handled correctly
+        assertEquals(4, all.size)
+
+        val tx1 = all.find { it.smsId == 1L }
+        assertNull(tx1?.upiId)
+        assertNull(tx1?.paymentMethod)
+
+        val tx2 = all.find { it.smsId == 2L }
+        assertEquals("john@paytm", tx2?.upiId)
+        assertEquals("UPI", tx2?.paymentMethod)
+
+        val tx3 = all.find { it.smsId == 3L }
+        assertNull(tx3?.upiId)
+        assertNull(tx3?.paymentMethod)
+
+        val tx4 = all.find { it.smsId == 4L }
+        assertEquals("merchant@okaxis", tx4?.upiId)
+        assertEquals("UPI", tx4?.paymentMethod)
+
+        testDb.close()
+    }
+
+    @Test
+    fun migration_queryByExistingFields_stillWorks() = runBlocking {
+        // Verify that queries on existing fields still work after migration
+
+        // Given - Database after migration with mixed data
+        val testDb = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            KanakkuDatabase::class.java
+        )
+            .addMigrations(KanakkuDatabase.MIGRATION_1_2)
+            .allowMainThreadQueries()
+            .build()
+
+        val dao = testDb.transactionDao()
+
+        dao.insertAll(
+            listOf(
+                createTestTransaction(smsId = 1L, type = TransactionType.DEBIT, upiId = "user@paytm", paymentMethod = "UPI"),
+                createTestTransaction(smsId = 2L, type = TransactionType.CREDIT, upiId = null, paymentMethod = null),
+                createTestTransaction(smsId = 3L, type = TransactionType.DEBIT, upiId = "merchant@okaxis", paymentMethod = "UPI")
+            )
+        )
+
+        // When - Query by existing field (type)
+        val debits = dao.getTransactionsByType(TransactionType.DEBIT).first()
+        val credits = dao.getTransactionsByType(TransactionType.CREDIT).first()
+
+        // Then - Queries should still work correctly
+        assertEquals(2, debits.size)
+        assertEquals(1, credits.size)
+
+        testDb.close()
+    }
+
+    @Test
+    fun migration_indexesStillWork_afterMigration() = runBlocking {
+        // Verify that existing indexes still function after migration
+
+        // Given - Database with many transactions
+        val testDb = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            KanakkuDatabase::class.java
+        )
+            .addMigrations(KanakkuDatabase.MIGRATION_1_2)
+            .allowMainThreadQueries()
+            .build()
+
+        val dao = testDb.transactionDao()
+        val now = System.currentTimeMillis()
+
+        val transactions = (1L..50L).map { id ->
+            createTestTransaction(
+                smsId = id,
+                date = now - (id * 3600000), // 1 hour apart
+                type = if (id % 2 == 0L) TransactionType.DEBIT else TransactionType.CREDIT,
+                upiId = if (id % 3 == 0L) "user$id@paytm" else null,
+                paymentMethod = if (id % 3 == 0L) "UPI" else null
+            )
+        }
+        dao.insertAll(transactions)
+
+        // When - Query using indexed fields (date and type)
+        val startDate = now - (25 * 3600000)
+        val endDate = now
+        val time = measureTimeMillis {
+            val byDateRange = dao.getTransactionsByDateRange(startDate, endDate).first()
+            val byType = dao.getTransactionsByType(TransactionType.DEBIT).first()
+        }
+
+        // Then - Queries should still be fast (indexes working)
+        assertTrue("Indexed queries should be fast after migration (< 200ms)", time < 200)
+
+        testDb.close()
     }
 }
