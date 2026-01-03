@@ -4,6 +4,7 @@ import com.example.kanakku.data.database.entity.BudgetEntity
 import com.example.kanakku.data.database.entity.TransactionEntity
 import com.example.kanakku.data.model.Budget
 import com.example.kanakku.data.model.ParsedTransaction
+import com.example.kanakku.data.model.RecurringTransaction
 
 /**
  * Extension functions for mapping between database entities and domain models.
@@ -90,5 +91,49 @@ fun BudgetEntity.toDomain(): Budget {
         month = this.month,
         year = this.year,
         createdAt = this.createdAt
+    )
+}
+
+/**
+ * Converts a RecurringTransaction domain model to a RecurringTransactionEntity for database storage.
+ *
+ * @return RecurringTransactionEntity with all fields mapped from the domain model
+ */
+fun RecurringTransaction.toEntity(): RecurringTransactionEntity {
+    return RecurringTransactionEntity(
+        id = this.id,
+        merchantPattern = this.merchantPattern,
+        amount = this.amount,
+        frequency = this.frequency,
+        averageInterval = this.averageInterval,
+        lastOccurrence = this.lastOccurrence,
+        nextExpected = this.nextExpected,
+        transactionIds = this.transactionIds.joinToString(","),
+        isUserConfirmed = this.isUserConfirmed,
+        type = this.type
+    )
+}
+
+/**
+ * Converts a RecurringTransactionEntity from the database to a RecurringTransaction domain model.
+ *
+ * @return RecurringTransaction with all fields mapped from the database entity
+ */
+fun RecurringTransactionEntity.toDomain(): RecurringTransaction {
+    return RecurringTransaction(
+        id = this.id,
+        merchantPattern = this.merchantPattern,
+        amount = this.amount,
+        frequency = this.frequency,
+        averageInterval = this.averageInterval,
+        lastOccurrence = this.lastOccurrence,
+        nextExpected = this.nextExpected,
+        transactionIds = if (this.transactionIds.isBlank()) {
+            emptyList()
+        } else {
+            this.transactionIds.split(",").mapNotNull { it.toLongOrNull() }
+        },
+        isUserConfirmed = this.isUserConfirmed,
+        type = this.type
     )
 }
