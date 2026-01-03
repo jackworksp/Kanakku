@@ -1,15 +1,15 @@
 {
   "active": true,
-  "spec": "001-room-database-for-transaction-persistence",
-  "state": "complete",
+  "spec": "021-upi-transaction-detection-enhancement",
+  "state": "building",
   "subtasks": {
-    "completed": 18,
-    "total": 18,
-    "in_progress": 0,
+    "completed": 1,
+    "total": 24,
+    "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Testing and Verification",
+    "current": "UPI Sender Detection",
     "id": null,
     "total": 3
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 4,
-    "started_at": "2026-01-03T01:04:20.700076"
+    "number": 3,
+    "started_at": "2026-01-03T08:12:55.133052"
   },
-  "last_update": "2026-01-03T01:42:56.116881"
+  "last_update": "2026-01-03T08:23:00.344758"
 }

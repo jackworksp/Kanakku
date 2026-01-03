@@ -32,15 +32,15 @@ class BankSmsParser {
             RegexOption.IGNORE_CASE
         )
 
-        // Debit keywords
+        // Debit keywords (includes UPI-specific terms)
         private val DEBIT_KEYWORDS = Regex(
-            """(debited|debit|spent|paid|purchase|withdrawn|sent|payment|transferred)""",
+            """(debited|debit|spent|paid|purchase|withdrawn|sent|payment|transferred|UPI[\s-](?:txn|transaction|payment|transfer|sent|paid|debit|debited))""",
             RegexOption.IGNORE_CASE
         )
 
-        // Credit keywords
+        // Credit keywords (includes UPI-specific terms)
         private val CREDIT_KEYWORDS = Regex(
-            """(credited|credit|received|deposited|refund|cashback|reversed)""",
+            """(credited|credit|received|deposited|refund|cashback|reversed|UPI[\s-](?:txn|transaction|credit|credited|received|refund))""",
             RegexOption.IGNORE_CASE
         )
 
