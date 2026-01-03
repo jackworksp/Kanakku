@@ -3,23 +3,23 @@
   "spec": "010-manual-transaction-entry",
   "state": "building",
   "subtasks": {
-    "completed": 9,
+    "completed": 10,
     "total": 15,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "ViewModel Integration",
+    "current": "UI Layer - Visual Distinction & Edit/Delete",
     "id": null,
-    "total": 2
+    "total": 3
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 11,
+    "number": 12,
     "started_at": "2026-01-03T17:28:14.088204"
   },
-  "last_update": "2026-01-03T18:23:28.953379"
+  "last_update": "2026-01-03T18:27:14.354780"
 }
