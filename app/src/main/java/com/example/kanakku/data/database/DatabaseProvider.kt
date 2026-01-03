@@ -5,6 +5,7 @@ import android.database.SQLException
 import android.database.sqlite.SQLiteException
 import android.util.Log
 import androidx.room.Room
+import com.example.kanakku.data.repository.RecurringTransactionRepository
 import com.example.kanakku.data.repository.TransactionRepository
 import java.io.File
 
@@ -32,6 +33,9 @@ object DatabaseProvider {
 
     @Volatile
     private var repository: TransactionRepository? = null
+
+    @Volatile
+    private var recurringRepository: RecurringTransactionRepository? = null
 
     /**
      * Gets the singleton database instance.
@@ -63,6 +67,23 @@ object DatabaseProvider {
             repository ?: TransactionRepository(getDatabase(context)).also {
                 repository = it
                 Log.i(TAG, "Repository initialized successfully")
+            }
+        }
+    }
+
+    /**
+     * Gets the singleton recurring transaction repository instance.
+     * Creates both database and repository on first access.
+     *
+     * @param context Application or Activity context (applicationContext is used internally)
+     * @return The RecurringTransactionRepository instance
+     * @throws DatabaseInitializationException if database cannot be created after recovery attempts
+     */
+    fun getRecurringRepository(context: Context): RecurringTransactionRepository {
+        return recurringRepository ?: synchronized(this) {
+            recurringRepository ?: RecurringTransactionRepository(getDatabase(context)).also {
+                recurringRepository = it
+                Log.i(TAG, "RecurringTransactionRepository initialized successfully")
             }
         }
     }
@@ -299,6 +320,7 @@ object DatabaseProvider {
         }
         database = null
         repository = null
+        recurringRepository = null
     }
 }
 
