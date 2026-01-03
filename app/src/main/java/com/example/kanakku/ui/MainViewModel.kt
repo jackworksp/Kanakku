@@ -3,6 +3,8 @@ package com.example.kanakku.ui
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.kanakku.core.error.ErrorHandler
+import com.example.kanakku.core.error.toErrorInfo
 import com.example.kanakku.data.category.CategoryManager
 import com.example.kanakku.data.database.DatabaseProvider
 import com.example.kanakku.data.model.Category
@@ -26,7 +28,8 @@ data class MainUiState(
     val rawBankSms: List<SmsMessage> = emptyList(),
     val errorMessage: String? = null,
     val isLoadedFromDatabase: Boolean = false,
-    val newTransactionsSynced: Int = 0
+    val newTransactionsSynced: Int = 0,
+    val lastSyncTimestamp: Long? = null
 )
 
 class MainViewModel : ViewModel() {
@@ -55,37 +58,80 @@ class MainViewModel : ViewModel() {
      * 3. Only parse SMS newer than last sync
      * 4. Save new transactions to database
      * 5. Update sync timestamp
+     *
+     * Error Handling:
+     * - Database initialization failures
+     * - Permission denied when reading SMS
+     * - Database read/write errors
+     * - All errors provide user-friendly messages via ErrorHandler
      */
     fun loadSmsData(context: Context, daysAgo: Int = 30) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
             try {
-                // Initialize repository if not already done
+                // Step 0: Initialize repository if not already done
                 if (repository == null) {
-                    repository = DatabaseProvider.getRepository(context)
-                    // Initialize CategoryManager with repository and load overrides
-                    categoryManager.initialize(repository!!)
+                    try {
+                        repository = DatabaseProvider.getRepository(context)
+                        // Initialize CategoryManager with repository and load overrides
+                        categoryManager.initialize(repository!!)
+                    } catch (e: Exception) {
+                        val errorInfo = ErrorHandler.handleError(e, "Database initialization")
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            errorMessage = errorInfo.userMessage
+                        )
+                        return@launch
+                    }
                 }
                 val repo = repository!!
 
                 // Step 1: Load existing transactions from database (FAST)
                 val existingTransactions = repo.getAllTransactionsSnapshot()
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        ErrorHandler.logWarning(
+                            "Failed to load existing transactions: ${errorInfo.technicalMessage}",
+                            "loadSmsData"
+                        )
+                        // Continue with empty list - not critical
+                    }
+                    .getOrElse { emptyList() }
+
+                // Step 2: Check last sync timestamp (before showing existing data)
+                val lastSyncTimestamp = repo.getLastSyncTimestamp()
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        ErrorHandler.logWarning(
+                            "Failed to get last sync timestamp: ${errorInfo.technicalMessage}",
+                            "loadSmsData"
+                        )
+                        // Continue with null - will do full sync
+                    }
+                    .getOrNull()
 
                 if (existingTransactions.isNotEmpty()) {
                     // Show existing data immediately for fast startup
-                    val categories = categoryManager.categorizeAll(existingTransactions)
+                    val categories = try {
+                        categoryManager.categorizeAll(existingTransactions)
+                    } catch (e: Exception) {
+                        val errorInfo = ErrorHandler.handleError(e, "Categorize existing transactions")
+                        ErrorHandler.logWarning(
+                            "Failed to categorize existing transactions: ${errorInfo.technicalMessage}",
+                            "loadSmsData"
+                        )
+                        emptyMap() // Continue with uncategorized transactions
+                    }
                     _categoryMap.value = categories
 
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         transactions = existingTransactions,
-                        isLoadedFromDatabase = true
+                        isLoadedFromDatabase = true,
+                        lastSyncTimestamp = lastSyncTimestamp
                     )
                 }
-
-                // Step 2: Check last sync timestamp
-                val lastSyncTimestamp = repo.getLastSyncTimestamp()
 
                 // Step 3: Read only new SMS since last sync
                 val smsReader = SmsReader(context)
@@ -97,31 +143,116 @@ class MainViewModel : ViewModel() {
                     smsReader.readInboxSms(sinceDaysAgo = daysAgo)
                 }
 
+                // Check if SMS reading returned empty due to permission issues
+                if (newSms.isEmpty() && existingTransactions.isEmpty()) {
+                    // No existing data and no new SMS - likely permission issue
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = "No SMS messages found. Please ensure SMS permission is granted and you have bank SMS messages."
+                    )
+                    return@launch
+                }
+
                 // Step 4: Parse and filter only new bank SMS
-                val newBankSms = parser.filterBankSms(newSms)
-                val newParsed = parser.parseAllBankSms(newBankSms)
+                val newBankSms = try {
+                    parser.filterBankSms(newSms)
+                } catch (e: Exception) {
+                    val errorInfo = ErrorHandler.handleError(e, "Filter bank SMS")
+                    ErrorHandler.logWarning(
+                        "Failed to filter bank SMS: ${errorInfo.technicalMessage}",
+                        "loadSmsData"
+                    )
+                    emptyList() // Continue with empty list
+                }
+
+                val newParsed = try {
+                    parser.parseAllBankSms(newBankSms)
+                } catch (e: Exception) {
+                    val errorInfo = ErrorHandler.handleError(e, "Parse bank SMS")
+                    ErrorHandler.logWarning(
+                        "Failed to parse bank SMS: ${errorInfo.technicalMessage}",
+                        "loadSmsData"
+                    )
+                    emptyList() // Continue with empty list
+                }
 
                 // Filter out transactions that already exist in database
                 val newTransactions = mutableListOf<ParsedTransaction>()
                 for (transaction in newParsed) {
-                    if (!repo.transactionExists(transaction.smsId)) {
+                    val exists = repo.transactionExists(transaction.smsId)
+                        .onFailure { throwable ->
+                            val errorInfo = throwable.toErrorInfo()
+                            ErrorHandler.logWarning(
+                                "Failed to check transaction existence: ${errorInfo.technicalMessage}",
+                                "loadSmsData"
+                            )
+                            // Assume doesn't exist to avoid skipping
+                        }
+                        .getOrElse { false }
+
+                    if (!exists) {
                         newTransactions.add(transaction)
                     }
                 }
-                val deduplicated = parser.removeDuplicates(newTransactions)
+
+                val deduplicated = try {
+                    parser.removeDuplicates(newTransactions)
+                } catch (e: Exception) {
+                    val errorInfo = ErrorHandler.handleError(e, "Remove duplicate transactions")
+                    ErrorHandler.logWarning(
+                        "Failed to remove duplicates: ${errorInfo.technicalMessage}, using all transactions",
+                        "loadSmsData"
+                    )
+                    newTransactions // Continue with potentially duplicate transactions
+                }
 
                 // Step 5: Save new transactions to database
                 if (deduplicated.isNotEmpty()) {
                     repo.saveTransactions(deduplicated)
+                        .onFailure { throwable ->
+                            val errorInfo = throwable.toErrorInfo()
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                errorMessage = "Failed to save transactions: ${errorInfo.userMessage}"
+                            )
+                            return@launch
+                        }
                 }
 
                 // Step 6: Update sync timestamp
                 val currentTimestamp = System.currentTimeMillis()
                 repo.setLastSyncTimestamp(currentTimestamp)
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        ErrorHandler.logWarning(
+                            "Failed to update sync timestamp: ${errorInfo.technicalMessage}",
+                            "loadSmsData"
+                        )
+                        // Continue - not critical
+                    }
 
                 // Step 7: Load final state from database (includes both old and new)
                 val allTransactions = repo.getAllTransactionsSnapshot()
-                val categories = categoryManager.categorizeAll(allTransactions)
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            errorMessage = "Failed to load transactions: ${errorInfo.userMessage}"
+                        )
+                        return@launch
+                    }
+                    .getOrElse { emptyList() }
+
+                val categories = try {
+                    categoryManager.categorizeAll(allTransactions)
+                } catch (e: Exception) {
+                    val errorInfo = ErrorHandler.handleError(e, "Categorize all transactions")
+                    ErrorHandler.logWarning(
+                        "Failed to categorize all transactions: ${errorInfo.technicalMessage}",
+                        "loadSmsData"
+                    )
+                    emptyMap() // Continue with uncategorized transactions
+                }
                 _categoryMap.value = categories
 
                 // Calculate stats
@@ -139,12 +270,20 @@ class MainViewModel : ViewModel() {
                     transactions = allTransactions,
                     rawBankSms = newBankSms,
                     isLoadedFromDatabase = true,
-                    newTransactionsSynced = deduplicated.size
+                    newTransactionsSynced = deduplicated.size,
+                    lastSyncTimestamp = currentTimestamp
+                )
+
+                ErrorHandler.logInfo(
+                    "Successfully loaded ${allTransactions.size} transactions (${deduplicated.size} new)",
+                    "loadSmsData"
                 )
             } catch (e: Exception) {
+                // Catch-all for unexpected errors
+                val errorInfo = ErrorHandler.handleError(e, "loadSmsData")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = "Error reading SMS: ${e.message}"
+                    errorMessage = errorInfo.userMessage
                 )
             }
         }
@@ -152,14 +291,47 @@ class MainViewModel : ViewModel() {
 
     /**
      * Updates a transaction's category and persists the override to database.
+     *
+     * Error Handling:
+     * - Database write failures when saving category override
+     * - Errors are logged and shown to user with clear messages
      */
     fun updateTransactionCategory(smsId: Long, category: Category) {
         viewModelScope.launch {
-            // Update in-memory state and persist to database
-            categoryManager.setManualOverride(smsId, category)
-            _categoryMap.value = _categoryMap.value.toMutableMap().apply {
-                put(smsId, category)
+            try {
+                // Update in-memory state and persist to database
+                categoryManager.setManualOverride(smsId, category)
+                    .onSuccess {
+                        // Update UI state only on successful save
+                        _categoryMap.value = _categoryMap.value.toMutableMap().apply {
+                            put(smsId, category)
+                        }
+                        ErrorHandler.logInfo(
+                            "Category updated for transaction $smsId to ${category.name}",
+                            "updateTransactionCategory"
+                        )
+                    }
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        _uiState.value = _uiState.value.copy(
+                            errorMessage = "Failed to update category: ${errorInfo.userMessage}"
+                        )
+                    }
+            } catch (e: Exception) {
+                // Catch-all for unexpected errors
+                val errorInfo = ErrorHandler.handleError(e, "updateTransactionCategory")
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = errorInfo.userMessage
+                )
             }
         }
+    }
+
+    /**
+     * Clears any error message from the UI state.
+     * Should be called after the user has acknowledged the error.
+     */
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(errorMessage = null)
     }
 }

@@ -170,6 +170,17 @@ private fun TransactionsHeader(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        // Display last sync timestamp if available
+        uiState.lastSyncTimestamp?.let { timestamp ->
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Last synced: ${formatRelativeTime(timestamp)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Normal
+            )
+        }
     }
 }
 
@@ -278,4 +289,33 @@ private fun formatAmount(amount: Double): String {
 private fun formatDate(timestamp: Long): String {
     val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
     return sdf.format(Date(timestamp))
+}
+
+/**
+ * Formats a timestamp as a relative time string (e.g., "just now", "5 minutes ago", "2 hours ago").
+ * For times older than 24 hours, displays absolute date and time.
+ *
+ * @param timestamp The timestamp in milliseconds
+ * @return A user-friendly relative time string
+ */
+private fun formatRelativeTime(timestamp: Long): String {
+    val now = System.currentTimeMillis()
+    val diff = now - timestamp
+
+    return when {
+        diff < 60_000 -> "just now" // Less than 1 minute
+        diff < 3600_000 -> { // Less than 1 hour
+            val minutes = (diff / 60_000).toInt()
+            if (minutes == 1) "1 minute ago" else "$minutes minutes ago"
+        }
+        diff < 86400_000 -> { // Less than 24 hours
+            val hours = (diff / 3600_000).toInt()
+            if (hours == 1) "1 hour ago" else "$hours hours ago"
+        }
+        else -> {
+            // More than 24 hours - show absolute date and time
+            val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+            sdf.format(Date(timestamp))
+        }
+    }
 }

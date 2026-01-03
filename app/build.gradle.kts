@@ -7,9 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.kanakku"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.kanakku"
@@ -68,6 +66,9 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+
+    // Security - EncryptedSharedPreferences
+    implementation(libs.androidx.security.crypto)
 
     testImplementation(libs.junit)
     testImplementation(libs.androidx.room.testing)

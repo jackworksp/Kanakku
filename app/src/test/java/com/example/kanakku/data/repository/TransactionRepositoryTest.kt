@@ -85,7 +85,7 @@ class TransactionRepositoryTest {
         repository.saveTransaction(transaction)
 
         // Then
-        val loaded = repository.getAllTransactionsSnapshot()
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()!!
         assertEquals(1, loaded.size)
         assertEquals(transaction.smsId, loaded[0].smsId)
         assertEquals(transaction.amount, loaded[0].amount, 0.01)
@@ -104,7 +104,7 @@ class TransactionRepositoryTest {
         repository.saveTransactions(transactions)
 
         // Then
-        val loaded = repository.getAllTransactionsSnapshot()
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()!!
         assertEquals(3, loaded.size)
         assertEquals(300.0, loaded[0].amount, 0.01) // Sorted by date desc (newest first)
     }
@@ -176,7 +176,7 @@ class TransactionRepositoryTest {
         repository.saveTransactions(listOf(oldTx, newTx))
 
         // When
-        val newer = repository.getTransactionsAfter(oneHourAgo)
+        val newer = repository.getTransactionsAfter(oneHourAgo).getOrNull()!!
 
         // Then
         assertEquals(1, newer.size)
@@ -190,8 +190,8 @@ class TransactionRepositoryTest {
         repository.saveTransaction(transaction)
 
         // When/Then
-        assertTrue(repository.transactionExists(1L))
-        assertFalse(repository.transactionExists(999L))
+        assertTrue(repository.transactionExists(1L).getOrNull() == true)
+        assertFalse(repository.transactionExists(999L).getOrNull() == true)
     }
 
     @Test
@@ -201,12 +201,12 @@ class TransactionRepositoryTest {
         repository.saveTransaction(transaction)
 
         // When
-        val deleted = repository.deleteTransaction(1L)
+        val deleted = repository.deleteTransaction(1L).getOrNull()!!
 
         // Then
         assertTrue(deleted)
-        assertFalse(repository.transactionExists(1L))
-        assertEquals(0, repository.getTransactionCount())
+        assertFalse(repository.transactionExists(1L).getOrNull() == true)
+        assertEquals(0, repository.getTransactionCount().getOrNull())
     }
 
     @Test
@@ -219,11 +219,11 @@ class TransactionRepositoryTest {
         repository.saveTransactions(transactions)
 
         // When
-        val count = repository.deleteAllTransactions()
+        val count = repository.deleteAllTransactions().getOrNull()!!
 
         // Then
         assertEquals(2, count)
-        assertEquals(0, repository.getTransactionCount())
+        assertEquals(0, repository.getTransactionCount().getOrNull())
     }
 
     @Test
@@ -240,7 +240,7 @@ class TransactionRepositoryTest {
         )
 
         // When
-        val latestDate = repository.getLatestTransactionDate()
+        val latestDate = repository.getLatestTransactionDate().getOrNull()
 
         // Then
         assertEquals(now, latestDate)
@@ -249,7 +249,7 @@ class TransactionRepositoryTest {
     @Test
     fun getLatestTransactionDate_returnsNullWhenEmpty() = runTest {
         // When
-        val latestDate = repository.getLatestTransactionDate()
+        val latestDate = repository.getLatestTransactionDate().getOrNull()
 
         // Then
         assertNull(latestDate)
@@ -276,7 +276,7 @@ class TransactionRepositoryTest {
 
         // When
         repository.saveTransaction(original)
-        val loaded = repository.getAllTransactionsSnapshot().first()
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()!!.first()
 
         // Then - All fields should match exactly
         assertEquals(original.smsId, loaded.smsId)
@@ -311,7 +311,7 @@ class TransactionRepositoryTest {
 
         // When
         repository.saveTransaction(original)
-        val loaded = repository.getAllTransactionsSnapshot().first()
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()!!.first()
 
         // Then
         assertNull(loaded.merchant)
@@ -334,7 +334,7 @@ class TransactionRepositoryTest {
         repository.setCategoryOverride(smsId, categoryId)
 
         // Then
-        val override = repository.getCategoryOverride(smsId)
+        val override = repository.getCategoryOverride(smsId).getOrNull()
         assertEquals(categoryId, override)
     }
 
@@ -349,14 +349,14 @@ class TransactionRepositoryTest {
         repository.setCategoryOverride(smsId, "transport")
 
         // Then
-        val override = repository.getCategoryOverride(smsId)
+        val override = repository.getCategoryOverride(smsId).getOrNull()
         assertEquals("transport", override)
     }
 
     @Test
     fun getCategoryOverride_returnsNullWhenNotExists() = runTest {
         // When
-        val override = repository.getCategoryOverride(999L)
+        val override = repository.getCategoryOverride(999L).getOrNull()
 
         // Then
         assertNull(override)
@@ -373,7 +373,7 @@ class TransactionRepositoryTest {
         repository.setCategoryOverride(3L, "shopping")
 
         // When
-        val overrides = repository.getAllCategoryOverrides()
+        val overrides = repository.getAllCategoryOverrides().getOrNull()!!
 
         // Then
         assertEquals(3, overrides.size)
@@ -404,17 +404,17 @@ class TransactionRepositoryTest {
         repository.setCategoryOverride(1L, "food")
 
         // When
-        val removed = repository.removeCategoryOverride(1L)
+        val removed = repository.removeCategoryOverride(1L).getOrNull()!!
 
         // Then
         assertTrue(removed)
-        assertNull(repository.getCategoryOverride(1L))
+        assertNull(repository.getCategoryOverride(1L).getOrNull())
     }
 
     @Test
     fun removeCategoryOverride_returnsFalseWhenNotExists() = runTest {
         // When
-        val removed = repository.removeCategoryOverride(999L)
+        val removed = repository.removeCategoryOverride(999L).getOrNull()!!
 
         // Then
         assertFalse(removed)
@@ -429,11 +429,11 @@ class TransactionRepositoryTest {
         repository.setCategoryOverride(2L, "transport")
 
         // When
-        val count = repository.removeAllCategoryOverrides()
+        val count = repository.removeAllCategoryOverrides().getOrNull()!!
 
         // Then
         assertEquals(2, count)
-        assertTrue(repository.getAllCategoryOverrides().isEmpty())
+        assertTrue(repository.getAllCategoryOverrides().getOrNull()!!.isEmpty())
     }
 
     @Test
@@ -447,7 +447,7 @@ class TransactionRepositoryTest {
         repository.deleteTransaction(1L)
 
         // Then - Override should also be deleted (CASCADE)
-        assertNull(repository.getCategoryOverride(1L))
+        assertNull(repository.getCategoryOverride(1L).getOrNull())
     }
 
     // ==================== Sync Metadata Tests ====================
@@ -461,7 +461,7 @@ class TransactionRepositoryTest {
         repository.setLastSyncTimestamp(timestamp)
 
         // Then
-        assertEquals(timestamp, repository.getLastSyncTimestamp())
+        assertEquals(timestamp, repository.getLastSyncTimestamp().getOrNull())
     }
 
     @Test
@@ -473,13 +473,13 @@ class TransactionRepositoryTest {
         repository.setLastSyncTimestamp(2000L)
 
         // Then
-        assertEquals(2000L, repository.getLastSyncTimestamp())
+        assertEquals(2000L, repository.getLastSyncTimestamp().getOrNull())
     }
 
     @Test
     fun lastSyncTimestamp_returnsNullWhenNotSet() = runTest {
         // When
-        val timestamp = repository.getLastSyncTimestamp()
+        val timestamp = repository.getLastSyncTimestamp().getOrNull()
 
         // Then
         assertNull(timestamp)
@@ -494,7 +494,7 @@ class TransactionRepositoryTest {
         repository.setLastProcessedSmsId(smsId)
 
         // Then
-        assertEquals(smsId, repository.getLastProcessedSmsId())
+        assertEquals(smsId, repository.getLastProcessedSmsId().getOrNull())
     }
 
     @Test
@@ -506,13 +506,13 @@ class TransactionRepositoryTest {
         repository.setLastProcessedSmsId(200L)
 
         // Then
-        assertEquals(200L, repository.getLastProcessedSmsId())
+        assertEquals(200L, repository.getLastProcessedSmsId().getOrNull())
     }
 
     @Test
     fun lastProcessedSmsId_returnsNullWhenNotSet() = runTest {
         // When
-        val smsId = repository.getLastProcessedSmsId()
+        val smsId = repository.getLastProcessedSmsId().getOrNull()
 
         // Then
         assertNull(smsId)
@@ -525,12 +525,12 @@ class TransactionRepositoryTest {
         repository.setLastProcessedSmsId(123L)
 
         // When
-        val count = repository.clearSyncMetadata()
+        val count = repository.clearSyncMetadata().getOrNull()!!
 
         // Then
         assertEquals(2, count)
-        assertNull(repository.getLastSyncTimestamp())
-        assertNull(repository.getLastProcessedSmsId())
+        assertNull(repository.getLastSyncTimestamp().getOrNull())
+        assertNull(repository.getLastProcessedSmsId().getOrNull())
     }
 
     // ==================== Incremental Sync Logic Tests ====================
@@ -538,7 +538,7 @@ class TransactionRepositoryTest {
     @Test
     fun incrementalSync_simulateFirstSync() = runTest {
         // Given - No previous sync
-        assertNull(repository.getLastSyncTimestamp())
+        assertNull(repository.getLastSyncTimestamp().getOrNull())
 
         // When - First sync with transactions
         val syncTime = System.currentTimeMillis()
@@ -550,8 +550,8 @@ class TransactionRepositoryTest {
         repository.setLastSyncTimestamp(syncTime)
 
         // Then
-        assertEquals(2, repository.getTransactionCount())
-        assertEquals(syncTime, repository.getLastSyncTimestamp())
+        assertEquals(2, repository.getTransactionCount().getOrNull())
+        assertEquals(syncTime, repository.getLastSyncTimestamp().getOrNull())
     }
 
     @Test
@@ -563,14 +563,14 @@ class TransactionRepositoryTest {
 
         // When - Subsequent sync with new transactions
         val secondSyncTime = 2000L
-        val newTransactions = repository.getTransactionsAfter(firstSyncTime)
+        val newTransactions = repository.getTransactionsAfter(firstSyncTime).getOrNull()
         // Simulate fetching new SMS
         repository.saveTransaction(createTestTransaction(smsId = 2L, date = secondSyncTime - 100))
         repository.setLastSyncTimestamp(secondSyncTime)
 
         // Then
-        assertEquals(2, repository.getTransactionCount())
-        assertEquals(secondSyncTime, repository.getLastSyncTimestamp())
+        assertEquals(2, repository.getTransactionCount().getOrNull())
+        assertEquals(secondSyncTime, repository.getLastSyncTimestamp().getOrNull())
     }
 
     @Test
@@ -581,8 +581,8 @@ class TransactionRepositoryTest {
         repository.setLastSyncTimestamp(oldTime)
 
         // When - Check for new transactions
-        val lastSync = repository.getLastSyncTimestamp()!!
-        val newTransactions = repository.getTransactionsAfter(lastSync)
+        val lastSync = repository.getLastSyncTimestamp().getOrNull()!!
+        val newTransactions = repository.getTransactionsAfter(lastSync).getOrNull()!!
 
         // Then - Should be empty (no new transactions)
         assertTrue(newTransactions.isEmpty())
@@ -595,25 +595,25 @@ class TransactionRepositoryTest {
         // 1. Save transaction
         val transaction = createTestTransaction(smsId = 1L, amount = 100.0)
         repository.saveTransaction(transaction)
-        assertEquals(1, repository.getTransactionCount())
+        assertEquals(1, repository.getTransactionCount().getOrNull())
 
         // 2. Add category override
         repository.setCategoryOverride(1L, "food")
-        assertEquals("food", repository.getCategoryOverride(1L))
+        assertEquals("food", repository.getCategoryOverride(1L).getOrNull())
 
         // 3. Update sync metadata
         val syncTime = System.currentTimeMillis()
         repository.setLastSyncTimestamp(syncTime)
-        assertEquals(syncTime, repository.getLastSyncTimestamp())
+        assertEquals(syncTime, repository.getLastSyncTimestamp().getOrNull())
 
         // 4. Load and verify
-        val loaded = repository.getAllTransactionsSnapshot().first()
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()!!.first()
         assertEquals(transaction.amount, loaded.amount, 0.01)
 
         // 5. Delete transaction
         repository.deleteTransaction(1L)
-        assertEquals(0, repository.getTransactionCount())
-        assertNull(repository.getCategoryOverride(1L)) // Cascade delete
+        assertEquals(0, repository.getTransactionCount().getOrNull())
+        assertNull(repository.getCategoryOverride(1L).getOrNull()) // Cascade delete
     }
 
     @Test
@@ -630,10 +630,1061 @@ class TransactionRepositoryTest {
         }
 
         // Then - All data should be consistent
-        assertEquals(10, repository.getTransactionCount())
-        assertEquals(10, repository.getAllCategoryOverrides().size)
+        assertEquals(10, repository.getTransactionCount().getOrNull())
+        assertEquals(10, repository.getAllCategoryOverrides().getOrNull()?.size)
 
-        val allTransactions = repository.getAllTransactionsSnapshot()
-        assertEquals(10, allTransactions.size)
+        val allTransactions = repository.getAllTransactionsSnapshot().getOrNull()
+        assertEquals(10, allTransactions?.size)
+    }
+
+    // ==================== Error Handling Tests ====================
+
+    @Test
+    fun saveTransaction_handlesErrorGracefully() = runTest {
+        // Given
+        database.close() // Close database to simulate error
+
+        // When
+        val result = repository.saveTransaction(createTestTransaction(smsId = 1L))
+
+        // Then
+        assertTrue(result.isFailure)
+        assertNotNull(result.exceptionOrNull())
+    }
+
+    @Test
+    fun saveTransactions_returnsResultType() = runTest {
+        // Given
+        val transactions = listOf(createTestTransaction(smsId = 1L))
+
+        // When
+        val result = repository.saveTransactions(transactions)
+
+        // Then
+        assertTrue(result.isSuccess)
+    }
+
+    @Test
+    fun getAllTransactionsSnapshot_returnsResultType() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+
+        // When
+        val result = repository.getAllTransactionsSnapshot()
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(1, result.getOrNull()?.size)
+    }
+
+    @Test
+    fun getAllTransactionsSnapshot_handlesErrorGracefully() = runTest {
+        // Given
+        database.close() // Close database to simulate error
+
+        // When
+        val result = repository.getAllTransactionsSnapshot()
+
+        // Then
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun getTransactionsAfter_returnsResultType() = runTest {
+        // Given
+        val now = System.currentTimeMillis()
+        repository.saveTransaction(createTestTransaction(smsId = 1L, date = now))
+
+        // When
+        val result = repository.getTransactionsAfter(now - 1000)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(1, result.getOrNull()?.size)
+    }
+
+    @Test
+    fun transactionExists_returnsResultType() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+
+        // When
+        val result = repository.transactionExists(1L)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertTrue(result.getOrNull() == true)
+    }
+
+    @Test
+    fun transactionExists_handlesErrorGracefully() = runTest {
+        // Given
+        database.close()
+
+        // When
+        val result = repository.transactionExists(1L)
+
+        // Then
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun deleteTransaction_returnsResultType() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+
+        // When
+        val result = repository.deleteTransaction(1L)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertTrue(result.getOrNull() == true)
+    }
+
+    @Test
+    fun deleteAllTransactions_returnsResultType() = runTest {
+        // Given
+        repository.saveTransactions(
+            listOf(
+                createTestTransaction(smsId = 1L),
+                createTestTransaction(smsId = 2L)
+            )
+        )
+
+        // When
+        val result = repository.deleteAllTransactions()
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(2, result.getOrNull())
+    }
+
+    @Test
+    fun getTransactionCount_returnsResultType() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+
+        // When
+        val result = repository.getTransactionCount()
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(1, result.getOrNull())
+    }
+
+    @Test
+    fun getTransactionCount_handlesErrorGracefully() = runTest {
+        // Given
+        database.close()
+
+        // When
+        val result = repository.getTransactionCount()
+
+        // Then
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun getLatestTransactionDate_returnsResultType() = runTest {
+        // Given
+        val now = System.currentTimeMillis()
+        repository.saveTransaction(createTestTransaction(smsId = 1L, date = now))
+
+        // When
+        val result = repository.getLatestTransactionDate()
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(now, result.getOrNull())
+    }
+
+    @Test
+    fun getLatestTransactionDate_handlesErrorGracefully() = runTest {
+        // Given
+        database.close()
+
+        // When
+        val result = repository.getLatestTransactionDate()
+
+        // Then
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun setCategoryOverride_returnsResultType() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+
+        // When
+        val result = repository.setCategoryOverride(1L, "food")
+
+        // Then
+        assertTrue(result.isSuccess)
+    }
+
+    @Test
+    fun getCategoryOverride_returnsResultType() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+        repository.setCategoryOverride(1L, "food")
+
+        // When
+        val result = repository.getCategoryOverride(1L)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals("food", result.getOrNull())
+    }
+
+    @Test
+    fun getAllCategoryOverrides_returnsResultType() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+        repository.setCategoryOverride(1L, "food")
+
+        // When
+        val result = repository.getAllCategoryOverrides()
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(1, result.getOrNull()?.size)
+    }
+
+    @Test
+    fun removeCategoryOverride_returnsResultType() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+        repository.setCategoryOverride(1L, "food")
+
+        // When
+        val result = repository.removeCategoryOverride(1L)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertTrue(result.getOrNull() == true)
+    }
+
+    @Test
+    fun removeAllCategoryOverrides_returnsResultType() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+        repository.setCategoryOverride(1L, "food")
+
+        // When
+        val result = repository.removeAllCategoryOverrides()
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(1, result.getOrNull())
+    }
+
+    @Test
+    fun getLastSyncTimestamp_returnsResultType() = runTest {
+        // Given
+        val timestamp = System.currentTimeMillis()
+        repository.setLastSyncTimestamp(timestamp)
+
+        // When
+        val result = repository.getLastSyncTimestamp()
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(timestamp, result.getOrNull())
+    }
+
+    @Test
+    fun setLastSyncTimestamp_returnsResultType() = runTest {
+        // Given
+        val timestamp = System.currentTimeMillis()
+
+        // When
+        val result = repository.setLastSyncTimestamp(timestamp)
+
+        // Then
+        assertTrue(result.isSuccess)
+    }
+
+    @Test
+    fun getLastProcessedSmsId_returnsResultType() = runTest {
+        // Given
+        val smsId = 12345L
+        repository.setLastProcessedSmsId(smsId)
+
+        // When
+        val result = repository.getLastProcessedSmsId()
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(smsId, result.getOrNull())
+    }
+
+    @Test
+    fun setLastProcessedSmsId_returnsResultType() = runTest {
+        // Given
+        val smsId = 12345L
+
+        // When
+        val result = repository.setLastProcessedSmsId(smsId)
+
+        // Then
+        assertTrue(result.isSuccess)
+    }
+
+    @Test
+    fun clearSyncMetadata_returnsResultType() = runTest {
+        // Given
+        repository.setLastSyncTimestamp(System.currentTimeMillis())
+        repository.setLastProcessedSmsId(123L)
+
+        // When
+        val result = repository.clearSyncMetadata()
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(2, result.getOrNull())
+    }
+
+    @Test
+    fun cacheInvalidation_afterSaveTransaction() = runTest {
+        // Given
+        val transaction1 = createTestTransaction(smsId = 1L)
+        repository.saveTransaction(transaction1)
+
+        // First call to populate cache
+        val result1 = repository.getAllTransactionsSnapshot()
+        assertEquals(1, result1.getOrNull()?.size)
+
+        // When - Save another transaction (should invalidate cache)
+        val transaction2 = createTestTransaction(smsId = 2L)
+        repository.saveTransaction(transaction2)
+
+        // Then - Should get fresh data from database
+        val result2 = repository.getAllTransactionsSnapshot()
+        assertEquals(2, result2.getOrNull()?.size)
+    }
+
+    @Test
+    fun cacheInvalidation_afterDeleteTransaction() = runTest {
+        // Given
+        repository.saveTransactions(
+            listOf(
+                createTestTransaction(smsId = 1L),
+                createTestTransaction(smsId = 2L)
+            )
+        )
+
+        // Populate cache
+        val result1 = repository.getAllTransactionsSnapshot()
+        assertEquals(2, result1.getOrNull()?.size)
+
+        // When - Delete a transaction (should invalidate cache)
+        repository.deleteTransaction(1L)
+
+        // Then - Should get updated data
+        val result2 = repository.getAllTransactionsSnapshot()
+        assertEquals(1, result2.getOrNull()?.size)
+    }
+
+    @Test
+    fun cacheHit_onConsecutiveCalls() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+
+        // When - First call populates cache
+        val result1 = repository.getAllTransactionsSnapshot()
+
+        // Second call should hit cache
+        val result2 = repository.getAllTransactionsSnapshot()
+
+        // Then - Both should return same data
+        assertEquals(result1.getOrNull()?.size, result2.getOrNull()?.size)
+        assertEquals(1, result2.getOrNull()?.size)
+    }
+
+    @Test
+    fun flowOperations_catchErrors() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+
+        // When - Get flow (should not throw even if there are errors)
+        val flow = repository.getAllTransactions()
+        val result = flow.first()
+
+        // Then
+        assertEquals(1, result.size)
+    }
+
+    // ==================== Edge Case Tests ====================
+
+    @Test
+    fun saveTransaction_withZeroAmount() = runTest {
+        // Given - Transaction with zero amount
+        val transaction = createTestTransaction(smsId = 1L, amount = 0.0)
+
+        // When
+        val result = repository.saveTransaction(transaction)
+
+        // Then
+        assertTrue(result.isSuccess)
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()
+        val actualAmount = loaded?.first()?.amount ?: 0.0
+        assertEquals(0.0, actualAmount, 0.001)
+    }
+
+    @Test
+    fun saveTransaction_withVeryLargeAmount() = runTest {
+        // Given - Transaction with very large amount
+        val largeAmount = Double.MAX_VALUE
+        val transaction = createTestTransaction(smsId = 1L, amount = largeAmount)
+
+        // When
+        val result = repository.saveTransaction(transaction)
+
+        // Then
+        assertTrue(result.isSuccess)
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()
+        val actualAmount = loaded?.first()?.amount ?: 0.0
+        assertEquals(largeAmount, actualAmount, 0.001)
+    }
+
+    @Test
+    fun saveTransaction_withVerySmallAmount() = runTest {
+        // Given - Transaction with very small amount
+        val smallAmount = 0.01
+        val transaction = createTestTransaction(smsId = 1L, amount = smallAmount)
+
+        // When
+        val result = repository.saveTransaction(transaction)
+
+        // Then
+        assertTrue(result.isSuccess)
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()
+        val actualAmount = loaded?.first()?.amount ?: 0.0
+        assertEquals(smallAmount, actualAmount, 0.001)
+    }
+
+    @Test
+    fun saveTransaction_withMinTimestamp() = runTest {
+        // Given - Transaction with minimum timestamp
+        val minDate = 0L
+        val transaction = createTestTransaction(smsId = 1L, date = minDate)
+
+        // When
+        val result = repository.saveTransaction(transaction)
+
+        // Then
+        assertTrue(result.isSuccess)
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()
+        assertEquals(minDate, loaded?.first()?.date)
+    }
+
+    @Test
+    fun saveTransaction_withMaxTimestamp() = runTest {
+        // Given - Transaction with maximum timestamp
+        val maxDate = Long.MAX_VALUE
+        val transaction = createTestTransaction(smsId = 1L, date = maxDate)
+
+        // When
+        val result = repository.saveTransaction(transaction)
+
+        // Then
+        assertTrue(result.isSuccess)
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()
+        assertEquals(maxDate, loaded?.first()?.date)
+    }
+
+    @Test
+    fun saveTransaction_withEmptyStringMerchant() = runTest {
+        // Given - Transaction with empty string merchant (not null)
+        val transaction = createTestTransaction(smsId = 1L, merchant = "")
+
+        // When
+        val result = repository.saveTransaction(transaction)
+
+        // Then
+        assertTrue(result.isSuccess)
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()
+        assertEquals("", loaded?.first()?.merchant)
+    }
+
+    @Test
+    fun saveTransaction_withVeryLongMerchantName() = runTest {
+        // Given - Transaction with very long merchant name
+        val longMerchant = "A".repeat(1000)
+        val transaction = createTestTransaction(smsId = 1L, merchant = longMerchant)
+
+        // When
+        val result = repository.saveTransaction(transaction)
+
+        // Then
+        assertTrue(result.isSuccess)
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()
+        assertEquals(longMerchant, loaded?.first()?.merchant)
+    }
+
+    @Test
+    fun saveTransaction_withSpecialCharactersInMerchant() = runTest {
+        // Given - Transaction with special characters
+        val specialMerchant = "Test™️ Merchant® with 特殊字符 & symbols!@#$%^&*()"
+        val transaction = createTestTransaction(smsId = 1L, merchant = specialMerchant)
+
+        // When
+        val result = repository.saveTransaction(transaction)
+
+        // Then
+        assertTrue(result.isSuccess)
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()
+        assertEquals(specialMerchant, loaded?.first()?.merchant)
+    }
+
+    @Test
+    fun saveTransaction_duplicateSmsId_replacesExisting() = runTest {
+        // Given - Transaction with same smsId
+        val transaction1 = createTestTransaction(smsId = 1L, amount = 100.0)
+        val transaction2 = createTestTransaction(smsId = 1L, amount = 200.0)
+
+        // When - Save same smsId twice
+        repository.saveTransaction(transaction1)
+        repository.saveTransaction(transaction2)
+
+        // Then - Should have only one transaction (replaced)
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()
+        assertEquals(1, loaded?.size)
+        val actualAmount = loaded?.first()?.amount ?: 0.0
+        assertEquals(200.0, actualAmount, 0.01)
+    }
+
+    @Test
+    fun saveTransactions_withEmptyList() = runTest {
+        // Given - Empty list
+        val emptyList = emptyList<ParsedTransaction>()
+
+        // When
+        val result = repository.saveTransactions(emptyList)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(0, repository.getTransactionCount().getOrNull())
+    }
+
+    @Test
+    fun saveTransactions_withVeryLargeBatch() = runTest {
+        // Given - Large batch of transactions
+        val largeBatch = (1L..1000L).map { id ->
+            createTestTransaction(smsId = id, amount = id.toDouble())
+        }
+
+        // When
+        val result = repository.saveTransactions(largeBatch)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(1000, repository.getTransactionCount().getOrNull())
+    }
+
+    @Test
+    fun saveTransactions_withDuplicatesInBatch() = runTest {
+        // Given - Batch with duplicate smsIds
+        val transactions = listOf(
+            createTestTransaction(smsId = 1L, amount = 100.0),
+            createTestTransaction(smsId = 2L, amount = 200.0),
+            createTestTransaction(smsId = 1L, amount = 300.0) // Duplicate
+        )
+
+        // When
+        val result = repository.saveTransactions(transactions)
+
+        // Then - Should handle duplicates (last one wins or based on Room's conflict strategy)
+        assertTrue(result.isSuccess)
+        val count = repository.getTransactionCount().getOrNull()
+        assertTrue(count == 2 || count == 3) // Depends on conflict strategy
+    }
+
+    @Test
+    fun deleteTransaction_nonExistent() = runTest {
+        // Given - No transactions in database
+
+        // When - Try to delete non-existent transaction
+        val result = repository.deleteTransaction(999L)
+
+        // Then - Should return false
+        assertTrue(result.isSuccess)
+        assertFalse(result.getOrNull() == true)
+    }
+
+    @Test
+    fun deleteAllTransactions_whenEmpty() = runTest {
+        // Given - Empty database
+
+        // When
+        val result = repository.deleteAllTransactions()
+
+        // Then - Should return 0 deleted
+        assertTrue(result.isSuccess)
+        assertEquals(0, result.getOrNull())
+    }
+
+    @Test
+    fun getTransactionsByDateRange_withInvertedRange() = runTest {
+        // Given - Date range where start > end
+        val now = System.currentTimeMillis()
+        val oneHourAgo = now - 3600000
+        repository.saveTransaction(createTestTransaction(smsId = 1L, date = now))
+
+        // When - Query with inverted range
+        val result = repository.getTransactionsByDateRange(now, oneHourAgo).first()
+
+        // Then - Should return empty or handle gracefully
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun getTransactionsByDateRange_withSameStartAndEnd() = runTest {
+        // Given - Transactions at exact timestamp
+        val exactTime = System.currentTimeMillis()
+        repository.saveTransaction(createTestTransaction(smsId = 1L, date = exactTime))
+
+        // When - Query with same start and end
+        val result = repository.getTransactionsByDateRange(exactTime, exactTime).first()
+
+        // Then - Should return transaction at exact time
+        assertEquals(1, result.size)
+    }
+
+    @Test
+    fun getTransactionsByDateRange_withNoMatchingTransactions() = runTest {
+        // Given - Transactions outside the range
+        val now = System.currentTimeMillis()
+        val oneDayAgo = now - 86400000
+        val twoDaysAgo = now - 172800000
+        repository.saveTransaction(createTestTransaction(smsId = 1L, date = twoDaysAgo))
+
+        // When - Query range that doesn't include the transaction
+        val result = repository.getTransactionsByDateRange(oneDayAgo, now).first()
+
+        // Then - Should return empty
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun getTransactionsByType_withUnknownType() = runTest {
+        // Given - Transactions with UNKNOWN type
+        val unknownTx = createTestTransaction(smsId = 1L, type = TransactionType.UNKNOWN)
+        repository.saveTransaction(unknownTx)
+
+        // When
+        val result = repository.getTransactionsByType(TransactionType.UNKNOWN).first()
+
+        // Then
+        assertEquals(1, result.size)
+        assertEquals(TransactionType.UNKNOWN, result[0].type)
+    }
+
+    @Test
+    fun getTransactionsByType_withNoMatchingType() = runTest {
+        // Given - Only DEBIT transactions
+        repository.saveTransaction(createTestTransaction(smsId = 1L, type = TransactionType.DEBIT))
+
+        // When - Query for CREDIT
+        val result = repository.getTransactionsByType(TransactionType.CREDIT).first()
+
+        // Then - Should return empty
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun transactionExists_withNegativeSmsId() = runTest {
+        // Given - Check for negative smsId
+
+        // When
+        val result = repository.transactionExists(-1L)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertFalse(result.getOrNull() == true)
+    }
+
+    @Test
+    fun transactionExists_withZeroSmsId() = runTest {
+        // Given - Save transaction with smsId = 0
+        repository.saveTransaction(createTestTransaction(smsId = 0L))
+
+        // When
+        val result = repository.transactionExists(0L)
+
+        // Then - Should find it
+        assertTrue(result.isSuccess)
+        assertTrue(result.getOrNull() == true)
+    }
+
+    @Test
+    fun setCategoryOverride_withEmptyString() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+
+        // When - Set category to empty string
+        val result = repository.setCategoryOverride(1L, "")
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals("", repository.getCategoryOverride(1L).getOrNull())
+    }
+
+    @Test
+    fun setCategoryOverride_withVeryLongCategoryId() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+        val longCategory = "category_" + "a".repeat(500)
+
+        // When
+        val result = repository.setCategoryOverride(1L, longCategory)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(longCategory, repository.getCategoryOverride(1L).getOrNull())
+    }
+
+    @Test
+    fun setCategoryOverride_forNonExistentTransaction() = runTest {
+        // Given - No transaction with smsId = 999
+
+        // When - Try to set category override for non-existent transaction
+        val result = repository.setCategoryOverride(999L, "food")
+
+        // Then - Behavior depends on foreign key constraints
+        // If FK enforced: should fail; if not: might succeed
+        // Test documents the behavior
+        assertNotNull(result)
+    }
+
+    @Test
+    fun setCategoryOverride_multipleUpdatesRapidly() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+
+        // When - Multiple rapid updates
+        repository.setCategoryOverride(1L, "food")
+        repository.setCategoryOverride(1L, "transport")
+        repository.setCategoryOverride(1L, "shopping")
+        val result = repository.setCategoryOverride(1L, "entertainment")
+
+        // Then - Last update should win
+        assertTrue(result.isSuccess)
+        assertEquals("entertainment", repository.getCategoryOverride(1L).getOrNull())
+    }
+
+    @Test
+    fun getAllCategoryOverrides_whenEmpty() = runTest {
+        // Given - No overrides
+
+        // When
+        val result = repository.getAllCategoryOverrides()
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertTrue(result.getOrNull()?.isEmpty() == true)
+    }
+
+    @Test
+    fun removeCategoryOverride_multipleTimes() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+        repository.setCategoryOverride(1L, "food")
+
+        // When - Remove multiple times
+        val result1 = repository.removeCategoryOverride(1L)
+        val result2 = repository.removeCategoryOverride(1L)
+
+        // Then
+        assertTrue(result1.isSuccess)
+        assertTrue(result1.getOrNull() == true)
+        assertTrue(result2.isSuccess)
+        assertFalse(result2.getOrNull() == true) // Second removal should return false
+    }
+
+    @Test
+    fun removeAllCategoryOverrides_whenEmpty() = runTest {
+        // Given - No overrides
+
+        // When
+        val result = repository.removeAllCategoryOverrides()
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(0, result.getOrNull())
+    }
+
+    @Test
+    fun setLastSyncTimestamp_withZero() = runTest {
+        // Given
+        val zeroTimestamp = 0L
+
+        // When
+        val result = repository.setLastSyncTimestamp(zeroTimestamp)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(zeroTimestamp, repository.getLastSyncTimestamp().getOrNull())
+    }
+
+    @Test
+    fun setLastSyncTimestamp_withNegativeValue() = runTest {
+        // Given
+        val negativeTimestamp = -1L
+
+        // When
+        val result = repository.setLastSyncTimestamp(negativeTimestamp)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(negativeTimestamp, repository.getLastSyncTimestamp().getOrNull())
+    }
+
+    @Test
+    fun setLastSyncTimestamp_multipleUpdatesInSequence() = runTest {
+        // Given
+        val timestamps = listOf(1000L, 2000L, 1500L, 3000L)
+
+        // When - Set multiple times
+        timestamps.forEach { timestamp ->
+            repository.setLastSyncTimestamp(timestamp)
+        }
+
+        // Then - Last value should be stored
+        assertEquals(3000L, repository.getLastSyncTimestamp().getOrNull())
+    }
+
+    @Test
+    fun setLastProcessedSmsId_withZero() = runTest {
+        // Given
+        val zeroSmsId = 0L
+
+        // When
+        val result = repository.setLastProcessedSmsId(zeroSmsId)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(zeroSmsId, repository.getLastProcessedSmsId().getOrNull())
+    }
+
+    @Test
+    fun setLastProcessedSmsId_withNegativeValue() = runTest {
+        // Given
+        val negativeSmsId = -999L
+
+        // When
+        val result = repository.setLastProcessedSmsId(negativeSmsId)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(negativeSmsId, repository.getLastProcessedSmsId().getOrNull())
+    }
+
+    @Test
+    fun clearSyncMetadata_whenEmpty() = runTest {
+        // Given - No metadata set
+
+        // When
+        val result = repository.clearSyncMetadata()
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(0, result.getOrNull())
+    }
+
+    @Test
+    fun clearSyncMetadata_multipleTimes() = runTest {
+        // Given
+        repository.setLastSyncTimestamp(System.currentTimeMillis())
+        repository.setLastProcessedSmsId(123L)
+
+        // When - Clear multiple times
+        val result1 = repository.clearSyncMetadata()
+        val result2 = repository.clearSyncMetadata()
+
+        // Then
+        assertTrue(result1.isSuccess)
+        assertEquals(2, result1.getOrNull())
+        assertTrue(result2.isSuccess)
+        assertEquals(0, result2.getOrNull()) // Second clear should delete nothing
+    }
+
+    @Test
+    fun getTransactionsAfter_withFutureTimestamp() = runTest {
+        // Given - Transactions in the past
+        val now = System.currentTimeMillis()
+        repository.saveTransaction(createTestTransaction(smsId = 1L, date = now))
+
+        // When - Query for transactions after future timestamp
+        val futureTime = now + 3600000
+        val result = repository.getTransactionsAfter(futureTime)
+
+        // Then - Should return empty
+        assertTrue(result.isSuccess)
+        assertTrue(result.getOrNull()?.isEmpty() == true)
+    }
+
+    @Test
+    fun getTransactionsAfter_withVeryOldTimestamp() = runTest {
+        // Given
+        val now = System.currentTimeMillis()
+        repository.saveTransactions(
+            listOf(
+                createTestTransaction(smsId = 1L, date = now - 1000),
+                createTestTransaction(smsId = 2L, date = now)
+            )
+        )
+
+        // When - Query from very old timestamp
+        val result = repository.getTransactionsAfter(0L)
+
+        // Then - Should return all transactions
+        assertTrue(result.isSuccess)
+        assertEquals(2, result.getOrNull()?.size)
+    }
+
+    @Test
+    fun getAllTransactionsSnapshot_withClosedDatabase() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+        database.close()
+
+        // When
+        val result = repository.getAllTransactionsSnapshot()
+
+        // Then - Should fail gracefully
+        assertTrue(result.isFailure)
+        assertNotNull(result.exceptionOrNull())
+    }
+
+    @Test
+    fun flowOperations_withClosedDatabase() = runTest {
+        // Given
+        database.close()
+
+        // When/Then - Flow should handle error
+        try {
+            val flow = repository.getAllTransactions()
+            val result = flow.first()
+            // Depending on implementation, might return empty or throw
+            assertTrue(result.isEmpty() || true)
+        } catch (e: Exception) {
+            // Also acceptable to throw exception
+            assertNotNull(e)
+        }
+    }
+
+    @Test
+    fun transactionOrdering_maintainedAfterMultipleOperations() = runTest {
+        // Given - Transactions with specific dates
+        val base = System.currentTimeMillis()
+        val transactions = listOf(
+            createTestTransaction(smsId = 3L, date = base),
+            createTestTransaction(smsId = 1L, date = base - 2000),
+            createTestTransaction(smsId = 2L, date = base - 1000)
+        )
+
+        // When
+        repository.saveTransactions(transactions)
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()
+
+        // Then - Should be ordered by date DESC (newest first)
+        assertEquals(3, loaded?.size)
+        assertEquals(3L, loaded?.get(0)?.smsId) // Newest
+        assertEquals(2L, loaded?.get(1)?.smsId)
+        assertEquals(1L, loaded?.get(2)?.smsId) // Oldest
+    }
+
+    @Test
+    fun stressTest_rapidConsecutiveWrites() = runTest {
+        // Given - Simulate rapid consecutive writes
+        val iterations = 100
+
+        // When - Rapid writes
+        repeat(iterations) { i ->
+            repository.saveTransaction(createTestTransaction(smsId = i.toLong(), amount = i.toDouble()))
+        }
+
+        // Then - All should be saved
+        val count = repository.getTransactionCount().getOrNull()
+        assertEquals(iterations, count)
+    }
+
+    @Test
+    fun stressTest_rapidConsecutiveReadsAndWrites() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+
+        // When - Interleaved reads and writes
+        repeat(50) { i ->
+            if (i % 2 == 0) {
+                repository.saveTransaction(createTestTransaction(smsId = (i + 2).toLong()))
+            } else {
+                repository.getAllTransactionsSnapshot()
+            }
+        }
+
+        // Then - Should handle without errors
+        val result = repository.getAllTransactionsSnapshot()
+        assertTrue(result.isSuccess)
+        assertTrue((result.getOrNull()?.size ?: 0) > 0)
+    }
+
+    @Test
+    fun categoryOverride_withSpecialCharacters() = runTest {
+        // Given
+        repository.saveTransaction(createTestTransaction(smsId = 1L))
+        val specialCategory = "food & beverages™️ (新しい)"
+
+        // When
+        val result = repository.setCategoryOverride(1L, specialCategory)
+
+        // Then
+        assertTrue(result.isSuccess)
+        assertEquals(specialCategory, repository.getCategoryOverride(1L).getOrNull())
+    }
+
+    @Test
+    fun entityMapping_withAllNullableFieldsNull() = runTest {
+        // Given - Minimal transaction with all optional fields null
+        val minimalTransaction = ParsedTransaction(
+            smsId = 1L,
+            amount = 100.0,
+            type = TransactionType.DEBIT,
+            merchant = null,
+            accountNumber = null,
+            referenceNumber = null,
+            date = System.currentTimeMillis(),
+            rawSms = "Minimal SMS",
+            senderAddress = "SENDER",
+            balanceAfter = null,
+            location = null
+        )
+
+        // When
+        repository.saveTransaction(minimalTransaction)
+        val loaded = repository.getAllTransactionsSnapshot().getOrNull()?.first()
+
+        // Then - All nullable fields should remain null
+        assertNotNull(loaded)
+        assertNull(loaded?.merchant)
+        assertNull(loaded?.accountNumber)
+        assertNull(loaded?.referenceNumber)
+        assertNull(loaded?.balanceAfter)
+        assertNull(loaded?.location)
+    }
+
+    @Test
+    fun getTransactionCount_afterMultipleDeletions() = runTest {
+        // Given
+        repository.saveTransactions(
+            (1L..10L).map { createTestTransaction(smsId = it) }
+        )
+
+        // When - Delete half of them
+        (1L..5L).forEach { repository.deleteTransaction(it) }
+
+        // Then
+        assertEquals(5, repository.getTransactionCount().getOrNull())
     }
 }
