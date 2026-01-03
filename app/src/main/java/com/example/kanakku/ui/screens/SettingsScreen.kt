@@ -1,11 +1,15 @@
 package com.example.kanakku.ui.screens
 
 import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -55,19 +59,61 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Placeholder for settings sections
-        // Sections will be added in subsequent subtasks:
-        // - Display Settings (4.2)
+        // Display Settings Section
+        SettingsSection(title = "Display") {
+            // Dark Mode Toggle (System/Light/Dark options)
+            SettingsDarkModeItem(
+                isDarkMode = uiState.isDarkMode,
+                onDarkModeChange = { viewModel.updateDarkMode(it) }
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            // Dynamic Colors Toggle
+            SettingsToggleItem(
+                title = "Dynamic Colors",
+                description = "Use colors from your wallpaper",
+                checked = uiState.isDynamicColors,
+                onCheckedChange = { viewModel.updateDynamicColors(it) }
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            // Compact View Toggle
+            SettingsToggleItem(
+                title = "Compact View",
+                description = "Show more transactions on screen",
+                checked = uiState.isCompactView,
+                onCheckedChange = { viewModel.updateCompactView(it) }
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            // Show Offline Badge Toggle
+            SettingsToggleItem(
+                title = "Show Offline Badge",
+                description = "Display 'Local Data' indicator",
+                checked = uiState.showOfflineBadge,
+                onCheckedChange = { viewModel.updateShowOfflineBadge(it) }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Placeholder for remaining sections
         // - Notifications (4.3)
         // - Analytics Preferences (4.4)
         // - Data Management (4.5)
         // - About (4.6)
-
-        Text(
-            text = "Settings sections coming soon...",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 
     // Error Snackbar
@@ -81,6 +127,148 @@ fun SettingsScreen(
             }
         ) {
             Text(error)
+        }
+    }
+}
+
+/**
+ * Settings section composable that groups related settings under a title.
+ *
+ * @param title The section title to display
+ * @param content The settings items to display in this section
+ */
+@Composable
+private fun SettingsSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+/**
+ * Settings toggle item with title, description, and switch.
+ *
+ * @param title The main title for the setting
+ * @param description Optional description text explaining the setting
+ * @param checked Current toggle state
+ * @param onCheckedChange Callback when toggle state changes
+ */
+@Composable
+private fun SettingsToggleItem(
+    title: String,
+    description: String? = null,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+            if (description != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
+    }
+}
+
+/**
+ * Dark mode settings item with System/Light/Dark options.
+ *
+ * @param isDarkMode Current dark mode setting: true = dark, false = light, null = system
+ * @param onDarkModeChange Callback when dark mode setting changes
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsDarkModeItem(
+    isDarkMode: Boolean?,
+    onDarkModeChange: (Boolean?) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Dark Mode",
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Choose your preferred theme",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Segmented button for System/Light/Dark
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            val options = listOf(
+                Triple("System", null as Boolean?, 0),
+                Triple("Light", false, 1),
+                Triple("Dark", true, 2)
+            )
+
+            options.forEach { (label, value, index) ->
+                SegmentedButton(
+                    selected = isDarkMode == value,
+                    onClick = { onDarkModeChange(value) },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = index,
+                        count = options.size
+                    )
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
         }
     }
 }
