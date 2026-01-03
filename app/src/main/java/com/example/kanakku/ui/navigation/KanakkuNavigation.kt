@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -15,8 +16,10 @@ import androidx.navigation.compose.rememberNavController
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.ui.MainUiState
+import com.example.kanakku.ui.export.ExportViewModel
 import com.example.kanakku.ui.screens.AnalyticsScreen
 import com.example.kanakku.ui.screens.CategoriesScreen
+import com.example.kanakku.ui.screens.ExportScreen
 import com.example.kanakku.ui.screens.TransactionsScreen
 
 @Composable
@@ -58,6 +61,13 @@ fun KanakkuNavHost(
                     transactions = uiState.transactions,
                     categoryMap = categoryMap,
                     onCategoryChange = onCategoryChange
+                )
+            }
+            composable(BottomNavItem.Export.route) {
+                val exportViewModel: ExportViewModel = viewModel()
+                ExportScreen(
+                    viewModel = exportViewModel,
+                    transactions = uiState.transactions
                 )
             }
         }
