@@ -3,10 +3,14 @@ package com.example.kanakku.data.database
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.kanakku.data.database.dao.BudgetDao
 import com.example.kanakku.data.database.dao.CategoryOverrideDao
 import com.example.kanakku.data.database.dao.MerchantCategoryMappingDao
 import com.example.kanakku.data.database.dao.SyncMetadataDao
 import com.example.kanakku.data.database.dao.TransactionDao
+import com.example.kanakku.data.database.entity.BudgetEntity
 import com.example.kanakku.data.database.entity.CategoryOverrideEntity
 import com.example.kanakku.data.database.entity.MerchantCategoryMappingEntity
 import com.example.kanakku.data.database.entity.SyncMetadataEntity
@@ -21,6 +25,7 @@ import com.example.kanakku.data.database.entity.TransactionEntity
  * - User's manual category assignments
  * - Learned merchant-to-category mappings
  * - Synchronization metadata for incremental updates
+ * - Monthly budgets (overall and per-category)
  */
 @Database(
     entities = [

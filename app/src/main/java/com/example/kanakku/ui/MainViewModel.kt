@@ -6,6 +6,7 @@ import com.example.kanakku.core.error.ErrorHandler
 import com.example.kanakku.core.error.toErrorInfo
 import com.example.kanakku.data.category.CategoryManager
 import com.example.kanakku.data.model.Category
+import com.example.kanakku.data.model.CategoryBudgetProgress
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.SmsMessage
 import com.example.kanakku.data.model.TransactionFilter
@@ -108,6 +109,7 @@ class MainViewModel @Inject constructor(
                 if (repository == null) {
                     try {
                         repository = DatabaseProvider.getRepository(context)
+                        budgetRepository = DatabaseProvider.getBudgetRepository(context)
                         // Initialize CategoryManager with repository and load overrides
                         categoryManager.initialize(repository!!)
                     } catch (e: Exception) {
@@ -600,6 +602,10 @@ class MainViewModel @Inject constructor(
                     "Successfully loaded ${allTransactions.size} transactions (${deduplicated.size} new)${if (isInitialSync) " - Initial sync complete" else ""}",
                     "loadSmsData"
                 )
+
+                // Step 8: Load budget summary for current month
+                loadBudgetSummary(context)
+
             } catch (e: Exception) {
                 // Catch-all for unexpected errors
                 val errorInfo = ErrorHandler.handleError(e, "loadSmsData")

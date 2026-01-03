@@ -85,6 +85,9 @@ object DatabaseProvider {
     @Volatile
     private var repository: TransactionRepository? = null
 
+    @Volatile
+    private var budgetRepository: BudgetRepository? = null
+
     /**
      * Migration from database version 1 to version 2.
      * Adds the merchant_category_mappings table for storing learned merchant-to-category mappings.
@@ -433,6 +436,7 @@ object DatabaseProvider {
         database = null
         smsDataSource = null
         repository = null
+        budgetRepository = null
     }
 
     /**

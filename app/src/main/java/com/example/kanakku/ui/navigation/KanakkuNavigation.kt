@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -65,7 +66,52 @@ fun KanakkuNavHost(
             composable(BottomNavItem.Analytics.route) {
                 AnalyticsScreen(
                     transactions = uiState.transactions,
-                    categoryMap = categoryMap
+                    categoryMap = categoryMap,
+                    budgetSummary = uiState.budgetSummary,
+                    onNavigateToBudget = {
+                        navController.navigate(BottomNavItem.Budget.route) {
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+            composable(BottomNavItem.Budget.route) {
+                val context = LocalContext.current
+                val budgetViewModel: BudgetViewModel = viewModel()
+                val budgetUiState by budgetViewModel.uiState.collectAsState()
+
+                LaunchedEffect(Unit) {
+                    budgetViewModel.initialize(context)
+                    budgetViewModel.updateCategoryMap(categoryMap)
+                    budgetViewModel.loadBudgets()
+                }
+
+                BudgetScreen(
+                    uiState = budgetUiState,
+                    onEditBudget = { budget ->
+                        budgetViewModel.startEditBudget(
+                            budget = budget,
+                            isOverallBudget = budget == null || budget.categoryId == null
+                        )
+                    },
+                    onDeleteBudget = { budget ->
+                        budgetViewModel.deleteBudget(budget)
+                    },
+                    onAddCategoryBudget = {
+                        budgetViewModel.startEditBudget(
+                            budget = null,
+                            isOverallBudget = false
+                        )
+                    },
+                    onMonthChange = { month, year ->
+                        budgetViewModel.changeMonth(month, year)
+                    },
+                    onSaveBudget = { amount, categoryId ->
+                        budgetViewModel.saveBudgetFromDialog(amount, categoryId)
+                    },
+                    onCancelEdit = {
+                        budgetViewModel.cancelEdit()
+                    }
                 )
             }
             composable(BottomNavItem.Categories.route) {
