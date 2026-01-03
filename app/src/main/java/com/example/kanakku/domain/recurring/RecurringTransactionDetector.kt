@@ -111,21 +111,13 @@ class RecurringTransactionDetector {
 
     /**
      * Normalizes a merchant name for consistent matching.
-     * - Converts to uppercase
-     * - Trims whitespace
-     * - Removes common suffixes (INC, LTD, PVT, etc.)
-     * - Removes special characters
+     * Delegates to MerchantMatcher for consistent normalization across the app.
      *
      * @param merchant Raw merchant name from transaction
      * @return Normalized merchant pattern
      */
     private fun normalizeMerchantName(merchant: String): String {
-        return merchant
-            .uppercase()
-            .trim()
-            .replace(Regex("[^A-Z0-9\\s]"), "") // Remove special characters
-            .replace(Regex("\\s+(INC|LTD|PVT|PRIVATE|LIMITED|COMPANY|CO|CORP)\\s*$"), "")
-            .trim()
+        return MerchantMatcher.normalize(merchant)
             .replace(Regex("\\s+"), " ") // Normalize multiple spaces
     }
 
