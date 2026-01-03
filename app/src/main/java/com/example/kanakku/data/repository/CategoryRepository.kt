@@ -1,10 +1,9 @@
 package com.example.kanakku.data.repository
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import com.example.kanakku.core.error.ErrorHandler
 import com.example.kanakku.data.database.KanakkuDatabase
-import com.example.kanakku.data.database.entity.CustomCategoryEntity
+import com.example.kanakku.data.database.toDomain
+import com.example.kanakku.data.database.toEntity
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.DefaultCategories
 import kotlinx.coroutines.flow.Flow
@@ -119,14 +118,8 @@ class CategoryRepository(private val database: KanakkuDatabase) {
             }
 
             val timestamp = System.currentTimeMillis()
-            val entity = CustomCategoryEntity(
-                id = 0, // Auto-generate
-                name = category.name,
-                icon = category.icon,
-                colorHex = category.color.toHexString(),
-                keywords = category.keywords.joinToString(","),
+            val entity = category.toEntity(
                 parentId = parentId,
-                isSystemCategory = isSystemCategory,
                 sortOrder = sortOrder,
                 createdAt = timestamp,
                 updatedAt = timestamp
@@ -154,13 +147,13 @@ class CategoryRepository(private val database: KanakkuDatabase) {
             val existing = customCategoryDao.getCategoryById(categoryId)
                 ?: return@runSuspendCatching false
 
-            val updated = existing.copy(
-                name = category.name,
-                icon = category.icon,
-                colorHex = category.color.toHexString(),
-                keywords = category.keywords.joinToString(","),
+            // Convert category to entity but preserve structural fields from existing
+            val updated = category.toEntity(
+                parentId = existing.parentId,
+                sortOrder = existing.sortOrder,
+                createdAt = existing.createdAt,
                 updatedAt = System.currentTimeMillis()
-            )
+            ).copy(id = categoryId) // Preserve the ID
 
             val rowsUpdated = customCategoryDao.update(updated)
             if (rowsUpdated > 0) {
@@ -399,14 +392,8 @@ class CategoryRepository(private val database: KanakkuDatabase) {
             // Convert default categories to entities
             val timestamp = System.currentTimeMillis()
             val entities = DefaultCategories.ALL.mapIndexed { index, category ->
-                CustomCategoryEntity(
-                    id = 0, // Auto-generate
-                    name = category.name,
-                    icon = category.icon,
-                    colorHex = category.color.toHexString(),
-                    keywords = category.keywords.joinToString(","),
+                category.toEntity(
                     parentId = null, // All default categories are root-level
-                    isSystemCategory = true, // Mark as system category
                     sortOrder = index, // Preserve original order
                     createdAt = timestamp,
                     updatedAt = timestamp
@@ -439,82 +426,6 @@ class CategoryRepository(private val database: KanakkuDatabase) {
                 invalidateCache()
             }
             rowsDeleted
-        }
-    }
-
-    // ==================== Helper Methods ====================
-
-    /**
-     * Converts a Color to a hex string (e.g., #RRGGBB).
-     *
-     * @return Hex color string
-     */
-    private fun Color.toHexString(): String {
-        val argb = this.toArgb()
-        return String.format("#%06X", 0xFFFFFF and argb)
-    }
-
-    /**
-     * Converts a CustomCategoryEntity to a Category domain model.
-     *
-     * @return Category domain model
-     */
-    private fun CustomCategoryEntity.toDomain(): Category {
-        return Category(
-            id = this.id.toString(), // Convert Long ID to String for domain model
-            name = this.name,
-            icon = this.icon,
-            color = parseColorFromHex(this.colorHex),
-            keywords = parseKeywords(this.keywords)
-        )
-    }
-
-    /**
-     * Parses a hex color string to a Color object.
-     * Handles formats: #RGB, #RRGGBB, #AARRGGBB
-     *
-     * @param hex The hex color string
-     * @return Color object, defaults to gray if parsing fails
-     */
-    private fun parseColorFromHex(hex: String): Color {
-        return try {
-            val cleanHex = hex.removePrefix("#")
-            val argb = when (cleanHex.length) {
-                3 -> {
-                    // #RGB -> #RRGGBB
-                    val r = cleanHex[0].toString().repeat(2)
-                    val g = cleanHex[1].toString().repeat(2)
-                    val b = cleanHex[2].toString().repeat(2)
-                    0xFF000000.toInt() or (r.toInt(16) shl 16) or (g.toInt(16) shl 8) or b.toInt(16)
-                }
-                6 -> {
-                    // #RRGGBB
-                    0xFF000000.toInt() or cleanHex.toInt(16)
-                }
-                8 -> {
-                    // #AARRGGBB
-                    cleanHex.toLong(16).toInt()
-                }
-                else -> 0xFF9E9E9E.toInt() // Default gray
-            }
-            Color(argb)
-        } catch (e: Exception) {
-            ErrorHandler.handleError(e, "Parse color from hex: $hex")
-            Color(0xFF9E9E9E) // Default gray on parse failure
-        }
-    }
-
-    /**
-     * Parses a comma-separated keywords string to a list.
-     *
-     * @param keywords Comma-separated keywords string
-     * @return List of keywords, empty list if input is blank
-     */
-    private fun parseKeywords(keywords: String): List<String> {
-        return if (keywords.isBlank()) {
-            emptyList()
-        } else {
-            keywords.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         }
     }
 }
