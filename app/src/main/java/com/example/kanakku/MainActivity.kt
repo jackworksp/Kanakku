@@ -23,7 +23,9 @@ import com.example.kanakku.ui.MainViewModel
 import com.example.kanakku.ui.components.PrivacyInfoDialog
 import com.example.kanakku.ui.navigation.KanakkuNavHost
 import com.example.kanakku.ui.theme.KanakkuTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
