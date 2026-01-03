@@ -27,6 +27,7 @@ import com.example.kanakku.ui.backup.BackupViewModel
 import com.example.kanakku.ui.screens.AnalyticsScreen
 import com.example.kanakku.ui.screens.BackupSettingsScreen
 import com.example.kanakku.ui.screens.CategoriesScreen
+import com.example.kanakku.ui.screens.ExportScreen
 import com.example.kanakku.ui.screens.TransactionsScreen
 
 @Composable
@@ -211,6 +212,13 @@ fun KanakkuNavHost(
                             android.util.Log.e("BackupSettings", "Failed to initialize Google Sign-In")
                         }
                     }
+                )
+            }
+            composable(BottomNavItem.Export.route) {
+                val exportViewModel: ExportViewModel = viewModel()
+                ExportScreen(
+                    viewModel = exportViewModel,
+                    transactions = uiState.transactions
                 )
             }
         }
