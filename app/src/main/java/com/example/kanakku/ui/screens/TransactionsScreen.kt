@@ -17,7 +17,9 @@ import androidx.compose.ui.unit.dp
 import com.example.kanakku.data.model.*
 import com.example.kanakku.ui.MainUiState
 import com.example.kanakku.ui.SearchFilterState
+import com.example.kanakku.ui.components.ActiveFilterChips
 import com.example.kanakku.ui.components.CategoryPickerSheet
+import com.example.kanakku.ui.components.FilterSheet
 import com.example.kanakku.ui.components.SearchBar
 import java.text.SimpleDateFormat
 import java.util.*
@@ -45,6 +47,16 @@ fun TransactionsScreen(
         SearchBar(
             query = searchFilterState.currentFilter.searchQuery ?: "",
             onQueryChange = onSearchQueryChange,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Active filter chips
+        ActiveFilterChips(
+            currentFilter = searchFilterState.currentFilter,
+            onFilterChange = onFilterChange,
+            onOpenFilterSheet = { showFilterSheet = true },
             modifier = Modifier.padding(horizontal = 16.dp)
         )
 
@@ -95,6 +107,19 @@ fun TransactionsScreen(
             onDismiss = {
                 showCategoryPicker = false
                 selectedTransaction = null
+            }
+        )
+    }
+
+    if (showFilterSheet) {
+        FilterSheet(
+            currentFilter = searchFilterState.currentFilter,
+            onFilterChange = { newFilter ->
+                onFilterChange(newFilter)
+                showFilterSheet = false
+            },
+            onDismiss = {
+                showFilterSheet = false
             }
         )
     }
