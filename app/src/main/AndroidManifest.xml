@@ -38,6 +38,31 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+            FileProvider for secure file sharing.
+
+            Enables sharing exported transaction files (CSV, PDF) with other apps
+            via content:// URIs instead of insecure file:// URIs.
+
+            Key features:
+            - Provides temporary read/write access to shared files
+            - Prevents FileUriExposedException on Android 7.0+ (API 24+)
+            - Supports Android share sheet integration
+            - Paths configured in res/xml/file_paths.xml
+
+            Authority: com.example.kanakku.fileprovider
+            Usage: Used by ExportRepository.getFileUri() to generate shareable URIs
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.example.kanakku.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>
