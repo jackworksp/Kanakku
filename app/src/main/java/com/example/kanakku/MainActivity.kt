@@ -20,6 +20,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kanakku.ui.MainViewModel
 import com.example.kanakku.ui.navigation.KanakkuNavHost
+import com.example.kanakku.ui.savings.SavingsGoalsViewModel
 import com.example.kanakku.ui.theme.KanakkuTheme
 
 class MainActivity : ComponentActivity() {
@@ -35,7 +36,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
+fun KanakkuApp(
+    viewModel: MainViewModel = viewModel(),
+    savingsViewModel: SavingsGoalsViewModel = viewModel()
+) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val categoryMap by viewModel.categoryMap.collectAsState()
@@ -60,6 +64,9 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
         if (hasPermission) {
             viewModel.loadSmsData(context)
         }
+
+        // Initialize SavingsGoalsViewModel
+        savingsViewModel.initialize(context)
     }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -79,6 +86,7 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
                 KanakkuNavHost(
                     uiState = uiState,
                     categoryMap = categoryMap,
+                    savingsViewModel = savingsViewModel,
                     onRefresh = { viewModel.loadSmsData(context) },
                     onCategoryChange = { smsId, category ->
                         viewModel.updateTransactionCategory(smsId, category)

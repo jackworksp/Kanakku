@@ -3,11 +3,8 @@ package com.example.kanakku.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -18,7 +15,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.NavType
 import com.example.kanakku.data.model.Category
-import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.ui.MainUiState
 import com.example.kanakku.ui.savings.GoalDetailScreen
 import com.example.kanakku.ui.savings.SavingsGoalsScreen
@@ -31,6 +27,7 @@ import com.example.kanakku.ui.screens.TransactionsScreen
 fun KanakkuNavHost(
     uiState: MainUiState,
     categoryMap: Map<Long, Category>,
+    savingsViewModel: SavingsGoalsViewModel,
     onRefresh: () -> Unit,
     onCategoryChange: (Long, Category) -> Unit,
     modifier: Modifier = Modifier,
@@ -69,13 +66,6 @@ fun KanakkuNavHost(
                 )
             }
             composable(BottomNavItem.Savings.route) {
-                val context = LocalContext.current
-                val savingsViewModel: SavingsGoalsViewModel = viewModel()
-
-                LaunchedEffect(Unit) {
-                    savingsViewModel.initialize(context)
-                }
-
                 SavingsGoalsScreen(
                     viewModel = savingsViewModel,
                     onNavigateToGoalDetail = { goalId ->
@@ -89,13 +79,7 @@ fun KanakkuNavHost(
                     navArgument("goalId") { type = NavType.StringType }
                 )
             ) { backStackEntry ->
-                val context = LocalContext.current
-                val savingsViewModel: SavingsGoalsViewModel = viewModel()
                 val goalId = backStackEntry.arguments?.getString("goalId") ?: ""
-
-                LaunchedEffect(Unit) {
-                    savingsViewModel.initialize(context)
-                }
 
                 GoalDetailScreen(
                     goalId = goalId,
