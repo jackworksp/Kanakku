@@ -62,6 +62,12 @@ class AppPreferences private constructor(context: Context) {
         private const val KEY_AUTO_CATEGORIZE = "auto_categorize"
         private const val KEY_LAST_APP_VERSION = "last_app_version"
 
+        // Sync Metadata Keys
+        private const val KEY_INITIAL_SYNC_COMPLETE = "initial_sync_complete"
+        private const val KEY_SYNC_TOTAL_COUNT = "sync_total_count"
+        private const val KEY_SYNC_PROCESSED_COUNT = "sync_processed_count"
+        private const val KEY_LAST_SYNC_TIMESTAMP = "last_sync_timestamp"
+
         @Volatile
         private var instance: AppPreferences? = null
 
@@ -323,6 +329,144 @@ class AppPreferences private constructor(context: Context) {
     fun setLastAppVersion(versionCode: Int) {
         sharedPreferences.edit().putInt(KEY_LAST_APP_VERSION, versionCode).apply()
         Log.d(TAG, "Last app version set to: $versionCode")
+    }
+
+    // ============================================
+    // Sync Metadata
+    // ============================================
+
+    /**
+     * Checks if the initial full history sync has been completed.
+     * The initial sync reads all available SMS messages on first app launch
+     * and processes them into the transaction database.
+     *
+     * @return true if initial sync is complete, false if it hasn't run yet
+     */
+    fun isInitialSyncComplete(): Boolean {
+        return sharedPreferences.getBoolean(KEY_INITIAL_SYNC_COMPLETE, false)
+    }
+
+    /**
+     * Marks the initial full history sync as complete.
+     * This should be called after the first complete scan of all SMS messages
+     * has been successfully processed and stored in the database.
+     */
+    fun setInitialSyncComplete() {
+        sharedPreferences.edit().putBoolean(KEY_INITIAL_SYNC_COMPLETE, true).apply()
+        Log.d(TAG, "Initial sync marked as complete")
+    }
+
+    /**
+     * Resets the initial sync status.
+     * Useful for testing or when user explicitly requests a full re-sync.
+     * WARNING: This will cause the app to re-scan all SMS messages on next launch.
+     */
+    fun resetInitialSync() {
+        sharedPreferences.edit()
+            .putBoolean(KEY_INITIAL_SYNC_COMPLETE, false)
+            .remove(KEY_SYNC_TOTAL_COUNT)
+            .remove(KEY_SYNC_PROCESSED_COUNT)
+            .remove(KEY_LAST_SYNC_TIMESTAMP)
+            .apply()
+        Log.d(TAG, "Initial sync status reset")
+    }
+
+    /**
+     * Gets the total number of SMS messages to be processed in the current sync.
+     *
+     * @return Total SMS count for current sync, or 0 if no sync in progress
+     */
+    fun getSyncTotalCount(): Int {
+        return sharedPreferences.getInt(KEY_SYNC_TOTAL_COUNT, 0)
+    }
+
+    /**
+     * Sets the total number of SMS messages to be processed in the current sync.
+     * This should be set at the start of a sync operation to enable progress tracking.
+     *
+     * @param count Total number of SMS messages to process
+     */
+    fun setSyncTotalCount(count: Int) {
+        sharedPreferences.edit().putInt(KEY_SYNC_TOTAL_COUNT, count).apply()
+        Log.d(TAG, "Sync total count set to: $count")
+    }
+
+    /**
+     * Gets the number of SMS messages processed so far in the current sync.
+     *
+     * @return Number of processed SMS messages, or 0 if no sync in progress
+     */
+    fun getSyncProcessedCount(): Int {
+        return sharedPreferences.getInt(KEY_SYNC_PROCESSED_COUNT, 0)
+    }
+
+    /**
+     * Sets the number of SMS messages processed so far in the current sync.
+     * This should be updated periodically during sync to track progress.
+     *
+     * @param count Number of SMS messages processed
+     */
+    fun setSyncProcessedCount(count: Int) {
+        sharedPreferences.edit().putInt(KEY_SYNC_PROCESSED_COUNT, count).apply()
+        Log.d(TAG, "Sync processed count set to: $count")
+    }
+
+    /**
+     * Increments the sync processed count by one.
+     * Convenience method for updating progress after processing each SMS.
+     *
+     * @return The new processed count after incrementing
+     */
+    fun incrementSyncProcessedCount(): Int {
+        val newCount = getSyncProcessedCount() + 1
+        setSyncProcessedCount(newCount)
+        return newCount
+    }
+
+    /**
+     * Gets the timestamp of the last successful sync operation.
+     *
+     * @return Timestamp in milliseconds, or 0 if never synced
+     */
+    fun getLastSyncTimestamp(): Long {
+        return sharedPreferences.getLong(KEY_LAST_SYNC_TIMESTAMP, 0L)
+    }
+
+    /**
+     * Sets the timestamp of the last successful sync operation.
+     * Should be called when a sync completes successfully.
+     *
+     * @param timestamp Timestamp in milliseconds (typically System.currentTimeMillis())
+     */
+    fun setLastSyncTimestamp(timestamp: Long) {
+        sharedPreferences.edit().putLong(KEY_LAST_SYNC_TIMESTAMP, timestamp).apply()
+        Log.d(TAG, "Last sync timestamp set to: $timestamp")
+    }
+
+    /**
+     * Clears all sync progress tracking.
+     * Useful for resetting sync state after completion or cancellation.
+     * Does NOT reset the initial sync complete flag.
+     */
+    fun clearSyncProgress() {
+        sharedPreferences.edit()
+            .remove(KEY_SYNC_TOTAL_COUNT)
+            .remove(KEY_SYNC_PROCESSED_COUNT)
+            .apply()
+        Log.d(TAG, "Sync progress cleared")
+    }
+
+    /**
+     * Gets the current sync progress as a percentage.
+     *
+     * @return Progress percentage (0-100), or 0 if no sync data available
+     */
+    fun getSyncProgressPercentage(): Int {
+        val total = getSyncTotalCount()
+        if (total == 0) return 0
+
+        val processed = getSyncProcessedCount()
+        return ((processed.toFloat() / total.toFloat()) * 100).toInt().coerceIn(0, 100)
     }
 
     // ============================================

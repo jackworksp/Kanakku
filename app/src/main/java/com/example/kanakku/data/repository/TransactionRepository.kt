@@ -71,6 +71,7 @@ class TransactionRepository(
     private var transactionsCache: List<ParsedTransaction>? = null
     private var transactionCountCache: Int? = null
     private var latestTransactionDateCache: Long? = null
+    private var oldestTransactionDateCache: Long? = null
 
     /**
      * Mutex for thread-safe cache access.
@@ -87,6 +88,7 @@ class TransactionRepository(
             transactionsCache = null
             transactionCountCache = null
             latestTransactionDateCache = null
+            oldestTransactionDateCache = null
         }
         ErrorHandler.logDebug("Cache invalidated", "TransactionRepository")
     }

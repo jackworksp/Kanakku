@@ -4,7 +4,8 @@ enum class TimePeriod(val displayName: String, val days: Int) {
     DAY("Today", 1),
     WEEK("This Week", 7),
     MONTH("This Month", 30),
-    YEAR("This Year", 365)
+    YEAR("This Year", 365),
+    ALL_TIME("All Time", -1)  // -1 indicates no time filtering
 }
 
 data class PeriodSummary(

@@ -2,9 +2,11 @@ package com.example.kanakku.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +27,62 @@ import com.example.kanakku.ui.components.HighlightedText
 import com.example.kanakku.ui.components.SearchBar
 import java.text.SimpleDateFormat
 import java.util.*
+
+/**
+ * Date range filter options for viewing transaction history.
+ * Allows users to filter transactions by predefined time periods.
+ */
+enum class DateRangeFilter(val displayName: String) {
+    ALL_TIME("All Time"),
+    THIS_MONTH("This Month"),
+    LAST_3_MONTHS("Last 3 Months"),
+    LAST_6_MONTHS("Last 6 Months"),
+    LAST_YEAR("Last Year"),
+    CUSTOM("Custom")
+}
+
+/**
+ * Calculates the start timestamp for a given date range filter.
+ * Returns null for ALL_TIME (no filtering).
+ *
+ * @param filter The date range filter to calculate timestamp for
+ * @return Start timestamp in milliseconds, or null for ALL_TIME
+ */
+fun getDateRangeStartTimestamp(filter: DateRangeFilter): Long? {
+    if (filter == DateRangeFilter.ALL_TIME) return null
+
+    val calendar = Calendar.getInstance()
+    calendar.timeInMillis = System.currentTimeMillis()
+
+    return when (filter) {
+        DateRangeFilter.THIS_MONTH -> {
+            calendar.set(Calendar.DAY_OF_MONTH, 1)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            calendar.timeInMillis
+        }
+        DateRangeFilter.LAST_3_MONTHS -> {
+            calendar.add(Calendar.MONTH, -3)
+            calendar.timeInMillis
+        }
+        DateRangeFilter.LAST_6_MONTHS -> {
+            calendar.add(Calendar.MONTH, -6)
+            calendar.timeInMillis
+        }
+        DateRangeFilter.LAST_YEAR -> {
+            calendar.add(Calendar.YEAR, -1)
+            calendar.timeInMillis
+        }
+        DateRangeFilter.CUSTOM -> {
+            // For now, CUSTOM behaves like ALL_TIME
+            // Can be extended with date picker dialog in the future
+            null
+        }
+        DateRangeFilter.ALL_TIME -> null
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -150,11 +208,12 @@ private fun TransactionsHeader(
     searchFilterState: SearchFilterState,
     onRefresh: () -> Unit
 ) {
-    val totalDebit = uiState.transactions
+    // Calculate totals based on filtered transactions
+    val totalDebit = filteredTransactions
         .filter { it.type == TransactionType.DEBIT }
         .sumOf { it.amount }
 
-    val totalCredit = uiState.transactions
+    val totalCredit = filteredTransactions
         .filter { it.type == TransactionType.CREDIT }
         .sumOf { it.amount }
 
@@ -177,6 +236,14 @@ private fun TransactionsHeader(
                 Text("Refresh")
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Date Range Filter Chips
+        DateRangeFilterChips(
+            selectedFilter = selectedDateRange,
+            onFilterSelected = onDateRangeChanged
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -245,6 +312,46 @@ private fun TransactionsHeader(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Normal
+            )
+        }
+    }
+}
+
+/**
+ * Date range filter chips component for selecting transaction time periods.
+ * Uses horizontally scrollable row of filter chips for easy selection.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateRangeFilterChips(
+    selectedFilter: DateRangeFilter,
+    onFilterSelected: (DateRangeFilter) -> Unit
+) {
+    // Filter out CUSTOM for now (can be added later with date picker)
+    val availableFilters = remember {
+        DateRangeFilter.entries.filter { it != DateRangeFilter.CUSTOM }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        availableFilters.forEach { filter ->
+            FilterChip(
+                selected = selectedFilter == filter,
+                onClick = { onFilterSelected(filter) },
+                label = {
+                    Text(
+                        text = filter.displayName,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             )
         }
     }

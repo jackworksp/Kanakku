@@ -11,10 +11,14 @@ class AnalyticsCalculator {
         categoryMap: Map<Long, Category>,
         period: TimePeriod
     ): PeriodSummary {
-        val now = System.currentTimeMillis()
-        val startTime = now - (period.days * 24 * 60 * 60 * 1000L)
-
-        val filtered = transactions.filter { it.date >= startTime }
+        // For ALL_TIME, use all transactions; otherwise filter by time period
+        val filtered = if (period == TimePeriod.ALL_TIME) {
+            transactions
+        } else {
+            val now = System.currentTimeMillis()
+            val startTime = now - (period.days * 24 * 60 * 60 * 1000L)
+            transactions.filter { it.date >= startTime }
+        }
 
         val totalSpent = filtered
             .filter { it.type == TransactionType.DEBIT }
@@ -27,7 +31,15 @@ class AnalyticsCalculator {
         val categoryTotals = getCategoryBreakdown(filtered, categoryMap)
         val topCategory = categoryTotals.maxByOrNull { it.totalAmount }?.category
 
-        val daysInPeriod = maxOf(1, period.days)
+        // Calculate average daily for ALL_TIME based on actual date range
+        val daysInPeriod = if (period == TimePeriod.ALL_TIME && filtered.isNotEmpty()) {
+            val oldestDate = filtered.minByOrNull { it.date }?.date ?: System.currentTimeMillis()
+            val newestDate = filtered.maxByOrNull { it.date }?.date ?: System.currentTimeMillis()
+            val daysDiff = ((newestDate - oldestDate) / (24 * 60 * 60 * 1000L)).toInt()
+            maxOf(1, daysDiff)
+        } else {
+            maxOf(1, period.days)
+        }
         val averageDaily = totalSpent / daysInPeriod
 
         return PeriodSummary(
@@ -65,17 +77,26 @@ class AnalyticsCalculator {
         transactions: List<ParsedTransaction>,
         period: TimePeriod
     ): List<TrendPoint> {
-        val now = System.currentTimeMillis()
-        val startTime = now - (period.days * 24 * 60 * 60 * 1000L)
+        // For ALL_TIME, use all transactions; otherwise filter by time period
+        val filtered = if (period == TimePeriod.ALL_TIME) {
+            transactions.filter { it.type == TransactionType.DEBIT }
+        } else {
+            val now = System.currentTimeMillis()
+            val startTime = now - (period.days * 24 * 60 * 60 * 1000L)
+            transactions.filter { it.date >= startTime && it.type == TransactionType.DEBIT }
+        }
 
-        val filtered = transactions
-            .filter { it.date >= startTime && it.type == TransactionType.DEBIT }
+        // Handle empty data gracefully
+        if (filtered.isEmpty()) {
+            return emptyList()
+        }
 
         val dateFormat = when (period) {
             TimePeriod.DAY -> SimpleDateFormat("HH:00", Locale.getDefault())
             TimePeriod.WEEK -> SimpleDateFormat("EEE", Locale.getDefault())
             TimePeriod.MONTH -> SimpleDateFormat("dd", Locale.getDefault())
             TimePeriod.YEAR -> SimpleDateFormat("MMM", Locale.getDefault())
+            TimePeriod.ALL_TIME -> SimpleDateFormat("MMM yyyy", Locale.getDefault())
         }
 
         return filtered
@@ -94,12 +115,31 @@ class AnalyticsCalculator {
         transactions: List<ParsedTransaction>,
         period: TimePeriod
     ): List<DaySpending> {
-        val now = System.currentTimeMillis()
-        val startTime = now - (period.days * 24 * 60 * 60 * 1000L)
-        val dayFormat = SimpleDateFormat("dd MMM", Locale.getDefault())
-        val dayKeyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        // For ALL_TIME, use all transactions; otherwise filter by time period
+        val filtered = if (period == TimePeriod.ALL_TIME) {
+            transactions
+        } else {
+            val now = System.currentTimeMillis()
+            val startTime = now - (period.days * 24 * 60 * 60 * 1000L)
+            transactions.filter { it.date >= startTime }
+        }
 
-        val filtered = transactions.filter { it.date >= startTime }
+        // Handle empty data gracefully
+        if (filtered.isEmpty()) {
+            return emptyList()
+        }
+
+        // For ALL_TIME, group by month instead of day for better visualization
+        val dayFormat = if (period == TimePeriod.ALL_TIME) {
+            SimpleDateFormat("MMM yyyy", Locale.getDefault())
+        } else {
+            SimpleDateFormat("dd MMM", Locale.getDefault())
+        }
+        val dayKeyFormat = if (period == TimePeriod.ALL_TIME) {
+            SimpleDateFormat("yyyy-MM", Locale.getDefault())
+        } else {
+            SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        }
 
         val grouped = filtered.groupBy { dayKeyFormat.format(Date(it.date)) }
 
