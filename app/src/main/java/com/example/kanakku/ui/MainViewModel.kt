@@ -29,7 +29,12 @@ data class MainUiState(
     val errorMessage: String? = null,
     val isLoadedFromDatabase: Boolean = false,
     val newTransactionsSynced: Int = 0,
-    val lastSyncTimestamp: Long? = null
+    val lastSyncTimestamp: Long? = null,
+    // Sync progress tracking
+    val isInitialSync: Boolean = false,
+    val syncProgress: Int = 0,
+    val syncTotal: Int = 0,
+    val syncStatusMessage: String? = null
 )
 
 class MainViewModel : ViewModel() {

@@ -3,13 +3,13 @@
   "spec": "006-extended-transaction-history",
   "state": "building",
   "subtasks": {
-    "completed": 2,
+    "completed": 3,
     "total": 14,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Data Layer - Extended SMS Reading",
+    "current": "ViewModel & Sync Logic",
     "id": null,
     "total": 3
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 4,
+    "number": 5,
     "started_at": "2026-01-03T17:28:34.236463"
   },
-  "last_update": "2026-01-03T17:41:59.593152"
+  "last_update": "2026-01-03T17:50:10.535670"
 }
