@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,10 +34,59 @@ class MainActivity : ComponentActivity() {
         AppPreferences.getInstance(this)
 
         setContent {
-            KanakkuTheme {
-                KanakkuApp()
+            KanakkuAppWithTheme()
+        }
+    }
+}
+
+/**
+ * Root composable that applies theme preferences and wraps KanakkuApp.
+ *
+ * This composable reads theme preferences from AppPreferences and applies them
+ * to the entire app. It reactively updates when preferences change, ensuring
+ * theme changes take effect immediately.
+ */
+@Composable
+fun KanakkuAppWithTheme() {
+    val context = LocalContext.current
+    val appPrefs = remember { AppPreferences.getInstance(context) }
+
+    // Read theme preferences and observe changes
+    var darkModePreference by remember { mutableStateOf(appPrefs.isDarkModeEnabled()) }
+    var dynamicColorsPreference by remember { mutableStateOf(appPrefs.isDynamicColorsEnabled()) }
+
+    // Listen for preference changes
+    DisposableEffect(Unit) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            when (key) {
+                "dark_mode_enabled" -> {
+                    darkModePreference = appPrefs.isDarkModeEnabled()
+                }
+                "use_dynamic_colors" -> {
+                    dynamicColorsPreference = appPrefs.isDynamicColorsEnabled()
+                }
             }
         }
+
+        appPrefs.registerChangeListener(listener)
+
+        onDispose {
+            appPrefs.unregisterChangeListener(listener)
+        }
+    }
+
+    // Determine dark theme setting
+    // null = system default, true = dark mode, false = light mode
+    val darkTheme = when (darkModePreference) {
+        null -> isSystemInDarkTheme()
+        else -> darkModePreference == true
+    }
+
+    KanakkuTheme(
+        darkTheme = darkTheme,
+        dynamicColor = dynamicColorsPreference
+    ) {
+        KanakkuApp()
     }
 }
 
