@@ -12,6 +12,7 @@ import com.example.kanakku.data.model.SmsMessage
 import com.example.kanakku.data.preferences.AppPreferences
 import com.example.kanakku.data.sms.BankSmsParser
 import com.example.kanakku.notification.TransactionNotificationManager
+import com.example.kanakku.data.events.TransactionEventManager
 
 /**
  * Background service for processing bank transaction SMS messages.
@@ -21,6 +22,7 @@ import com.example.kanakku.notification.TransactionNotificationManager
  * - Checking for duplicate transactions
  * - Saving parsed transactions to the database
  * - Showing rich notifications for new transactions
+ * - Emitting real-time events to update the UI
  *
  * WorkManager is used instead of IntentService (deprecated in API 30+) because:
  * - Automatically handles battery optimization and doze mode
@@ -32,8 +34,9 @@ import com.example.kanakku.notification.TransactionNotificationManager
  * 1. Parse SMS message (regex matching)
  * 2. Check if transaction already exists (single DB query)
  * 3. Save transaction if new (single DB insert)
- * 4. Show notification with transaction details
- * 5. Log results
+ * 4. Show notification with transaction details (if enabled)
+ * 5. Emit real-time event to update UI (if app is open)
+ * 6. Log results
  *
  * Thread Safety: WorkManager executes work on a background thread automatically.
  * Battery Efficiency: Event-driven (triggered by SMS), completes in < 1 second.
@@ -253,10 +256,23 @@ class SmsProcessingService(
                 ErrorHandler.handleError(e, "SmsProcessingService.doWork - show notification")
             }
 
-            // TODO (Phase 5): Broadcast transaction update to UI if app is open
-            // val intent = Intent(ACTION_NEW_TRANSACTION)
-            // intent.putExtra(EXTRA_TRANSACTION_ID, parsedTransaction.smsId)
-            // LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
+            // Emit real-time transaction event to notify UI
+            // This allows the UI to update immediately without manual refresh
+            try {
+                TransactionEventManager.emitNewTransactionEvent(
+                    smsId = parsedTransaction.smsId,
+                    amount = parsedTransaction.amount,
+                    type = parsedTransaction.type
+                )
+                ErrorHandler.logInfo(
+                    "Real-time transaction event emitted successfully",
+                    "SmsProcessingService.doWork"
+                )
+            } catch (e: Exception) {
+                // Don't fail the entire work if event emission fails
+                // UI will still show updated data on next manual refresh
+                ErrorHandler.handleError(e, "SmsProcessingService.doWork - emit event")
+            }
 
             Result.success()
 
