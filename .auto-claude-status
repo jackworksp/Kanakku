@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "019-offline-first-architecture",
+  "spec": "014-real-time-transaction-detection",
   "state": "building",
   "subtasks": {
-    "completed": 0,
+    "completed": 3,
     "total": 19,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Final Polish and Documentation",
+    "current": "SMS Broadcast Receiver Implementation",
     "id": null,
-    "total": 2
+    "total": 3
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 19,
-    "started_at": "2026-01-03T02:29:00.143235"
+    "number": 5,
+    "started_at": "2026-01-03T14:07:19.406163"
   },
-  "last_update": "2026-01-03T04:14:23.878111"
+  "last_update": "2026-01-03T14:29:56.081582"
 }
