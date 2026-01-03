@@ -1931,6 +1931,524 @@ class BankSmsParserTest {
         assertEquals("Priya Sharma", merchant)
     }
 
+    // ==================== Additional Merchant Extraction Tests (Different UPI Patterns) ====================
+
+    @Test
+    fun extractUpiMerchant_extractsFromHdfcBankUpiFormat() {
+        // Given - HDFC Bank UPI message format
+        val body = "Rs.1,250.00 debited from A/c XX1234 on 02-Jan-26 to Vishal Mega Mart via UPI. UPI Ref No 202601020012345. Avl Bal Rs.25,000.00"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Vishal Mega Mart", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsFromSbiBankUpiFormat() {
+        // Given - SBI Bank UPI message format
+        val body = "Dear Customer, Rs.899.00 debited from A/c XX5678 for UPI payment to DMart Ready on 02-Jan-26. UPI Ref 202601020098765. Avl Bal Rs.18,500.50"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Dmart Ready", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsFromIciciBankUpiFormat() {
+        // Given - ICICI Bank UPI message format
+        val body = "Rs.2,499 debited from A/c XX9012 to Spencer's Retail via UPI on 02-Jan-26. UPI Txn ID ICI123456789. Balance Rs.45,000.00"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Spencer's Retail", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsFromAxisBankUpiFormat() {
+        // Given - Axis Bank UPI message format
+        val body = "UPI payment of Rs.350 transferred to More Supermarket from A/c XX3456 on 02-Jan-26. Ref AXI987654321. Avl Bal Rs.12,750.00"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("More Supermarket", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantWithMsPrefix() {
+        // Given - Merchant with "M/s" prefix (common in India)
+        val body = "Rs.5,500 paid to M/s Reliance Industries on 02-Jan-26. UPI Ref 123456789"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Reliance Industries", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantWithShriPrefix() {
+        // Given - Merchant with "Shri" prefix
+        val body = "You sent Rs.1,000 to Shri Krishna Store via UPI. Ref 789123456"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Shri Krishna Store", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantWithDrPrefix() {
+        // Given - Doctor's clinic with "Dr." prefix
+        val body = "Rs.750 paid to Dr. Patel's Clinic on 02-Jan via UPI. Ref 456789123"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Dr Patel's Clinic", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsUppercaseMerchantName() {
+        // Given - All uppercase merchant name
+        val body = "Rs.599 sent to PANTALOONS FASHION STORE via Google Pay. Ref GP123456"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Pantaloons Fashion Store", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsLowercaseMerchantName() {
+        // Given - All lowercase merchant name
+        val body = "You paid Rs.299 to lifestyle stores india via PhonePe. Ref PP789123"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Lifestyle Stores India", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMixedCaseMerchantName() {
+        // Given - Mixed case merchant name
+        val body = "Rs.1,499 paid to MaXfashion Store on 02-Jan. UPI Ref 147258369"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Maxfashion Store", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantWithCorpSuffix() {
+        // Given - Merchant with "Corp" suffix
+        val body = "Rs.8,500 transferred to InfoTech Corp on 02-Jan-26. UPI Ref 963852741"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Infotech", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantWithLlpSuffix() {
+        // Given - Merchant with "LLP" suffix
+        val body = "Rs.12,000 paid to Consulting Services LLP via UPI. Ref 852963741"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Consulting Services", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantWithOpcSuffix() {
+        // Given - Merchant with "OPC" (One Person Company) suffix
+        val body = "Rs.3,500 sent to Web Solutions OPC on 02-Jan. Ref 741963852"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Web Solutions", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantWithMultipleWords() {
+        // Given - Long multi-word merchant name
+        val body = "Rs.950 paid to The Grand Indian Sweets And Snacks on 02-Jan-26. Ref 159753486"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("The Grand Indian Sweets And Snacks", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsFoodDeliveryMerchant() {
+        // Given - Food delivery service
+        val body = "Rs.385 debited to Swiggy Instamart via UPI on 02-Jan. Google Ref ID GR456789"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Swiggy Instamart", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsEcommerceMerchant() {
+        // Given - E-commerce platform
+        val body = "You sent Rs.2,999 to Flipkart Internet Pvt Ltd using Google Pay. Ref GR753159"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Flipkart Internet", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsTravelServiceMerchant() {
+        // Given - Travel booking service
+        val body = "Rs.4,850 paid to MakeMyTrip India on 02-Jan-26. PhonePe Txn ID PP852963"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Makemytrip India", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsSubscriptionMerchant() {
+        // Given - Subscription service
+        val body = "Rs.199 debited to Hotstar Premium via UPI on 02-Jan. Ref 951357486"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Hotstar Premium", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsPharmacyMerchant() {
+        // Given - Pharmacy/medical store
+        val body = "Rs.650 sent to Apollo Pharmacy 24x7 via PhonePe. Ref PP159753"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Apollo Pharmacy 24X7", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsUtilityBillMerchant() {
+        // Given - Utility bill payment
+        val body = "Rs.3,200 paid to Tata Power Mumbai on 02-Jan-26. UPI Ref 753951486"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Tata Power Mumbai", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsEducationMerchant() {
+        // Given - Education/course payment
+        val body = "Rs.12,500 transferred to Unacademy Plus via UPI on 02-Jan. Ref 357159753"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Unacademy Plus", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsGymMembershipMerchant() {
+        // Given - Gym/fitness payment
+        val body = "You paid Rs.1,800 to Cult.fit Gym via Google Pay. Google Ref ID GR159357"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Cult Fit Gym", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsInsuranceMerchant() {
+        // Given - Insurance premium payment
+        val body = "Rs.5,400 debited to HDFC Life Insurance from A/c XX1234 via UPI. Ref 852741963"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Hdfc Life Insurance", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantFromReceivedFromKeyword() {
+        // Given - Credit transaction with "received from"
+        val body = "Rs.8,500 credited to A/c XX5678. Received from Freelance Client on 02-Jan-26. UPI Ref 963741852"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Freelance Client", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantWithBrackets() {
+        // Given - Merchant name with brackets
+        val body = "Rs.550 paid to D-Mart (Ready) on 02-Jan. UPI Ref 741852963"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("D-Mart", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantBeforeVpaSymbol() {
+        // Given - Merchant name before VPA in same phrase
+        val body = "You transferred Rs.1,200 to BigBasket bigbasket@icici on 02-Jan"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Bigbasket", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantWithVersion() {
+        // Given - Merchant with version/type suffix
+        val body = "Rs.899 paid to JioMart Express on 02-Jan-26. Ref 159357486"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Jiomart Express", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsPetrolPumpMerchant() {
+        // Given - Petrol pump payment
+        val body = "Rs.2,500 debited to Indian Oil Petrol Pump via UPI on 02-Jan. Ref 753486159"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Indian Oil Petrol Pump", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsParkingMerchant() {
+        // Given - Parking payment
+        val body = "You paid Rs.100 to Park+ Parking via PhonePe. Ref PP753951"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Park+ Parking", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsTicketBookingMerchant() {
+        // Given - Movie ticket booking
+        val body = "Rs.750 sent to PVR Cinemas Gold via Google Pay. Google Ref ID GR951357"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Pvr Cinemas Gold", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantWithYear() {
+        // Given - Merchant name with year
+        val body = "Rs.1,500 paid to Shop2024 Store on 02-Jan. UPI Ref 357486159"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Shop2024 Store", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantFromComplexBankMessage() {
+        // Given - Complex bank message with multiple details
+        val body = "Dear Customer, your A/c XX7890 is debited for Rs.3,750.50 on 02-JAN-26 towards UPI payment to CRED App. UPI Ref No: 202601020123456. Available Balance: Rs.42,250.75. For queries call 18001234567"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Cred App", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantWithPlusSign() {
+        // Given - Merchant with + sign
+        val body = "Rs.299 paid to Disney+ Hotstar via UPI on 02-Jan. Ref 852963147"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Disney+", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsCharityMerchant() {
+        // Given - Charity/donation payment
+        val body = "You donated Rs.2,000 to Red Cross Society via Google Pay. Ref GR753159"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Red Cross Society", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsGovernmentServiceMerchant() {
+        // Given - Government service payment
+        val body = "Rs.500 paid to Income Tax Payment on 02-Jan-26 via UPI. Ref 951753486"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Income Tax Payment", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantFromMinimalUpiMessage() {
+        // Given - Very minimal UPI message
+        val body = "UPI to Dominos Rs.400"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Dominos", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantWithLocation() {
+        // Given - Merchant with location suffix
+        val body = "Rs.1,250 paid to Starbucks Mumbai Central on 02-Jan. Ref 357159486"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Starbucks Mumbai Central", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsRechargeMerchant() {
+        // Given - Mobile recharge
+        val body = "Rs.399 debited to Jio Recharge via UPI on 02-Jan. Ref 753159357"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Jio Recharge", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsDthMerchant() {
+        // Given - DTH recharge
+        val body = "You paid Rs.450 to Tata Sky DTH via PhonePe. Ref PP951357"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Tata Sky Dth", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsRentPaymentMerchant() {
+        // Given - Rent payment
+        val body = "Rs.25,000 transferred to House Owner Rent via UPI on 02-Jan. Ref 159753357"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("House Owner Rent", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantFromPaytmSpecificFormat() {
+        // Given - Paytm specific message format
+        val body = "Paytm: Rs.199 paid to Amazon Prime Video on 02-Jan-26. Paytm Txn ID PTM123456789"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Amazon Prime Video", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantFromPhonePeSpecificFormat() {
+        // Given - PhonePe specific message format
+        val body = "PhonePe: You sent Rs.850 to Myntra Fashion Store on PhonePe. PhonePe Txn ID PP147258369"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Myntra Fashion Store", merchant)
+    }
+
+    @Test
+    fun extractUpiMerchant_extractsMerchantFromGooglePaySpecificFormat() {
+        // Given - Google Pay specific message format
+        val body = "Google Pay: Rs.1,299 sent to Ajio Fashion using Google Pay. Google Ref ID GR852963741"
+
+        // When
+        val merchant = parser.extractUpiMerchant(body)
+
+        // Then
+        assertEquals("Ajio Fashion", merchant)
+    }
+
     // ==================== Merchant from VPA Tests ====================
 
     @Test
