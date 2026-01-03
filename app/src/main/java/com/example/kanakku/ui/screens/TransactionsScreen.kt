@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.example.kanakku.data.model.*
 import com.example.kanakku.ui.MainUiState
 import com.example.kanakku.ui.components.CategoryPickerSheet
+import com.example.kanakku.ui.components.DateRangeSelectorChip
+import com.example.kanakku.ui.components.DateRangePickerSheet
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -25,16 +27,30 @@ import java.util.*
 fun TransactionsScreen(
     uiState: MainUiState,
     categoryMap: Map<Long, Category>,
+    selectedDateRange: DateRange,
+    onDateRangeChange: (DateRange) -> Unit,
     onRefresh: () -> Unit,
     onCategoryChange: (Long, Category) -> Unit
 ) {
     var selectedTransaction by remember { mutableStateOf<ParsedTransaction?>(null) }
     var showCategoryPicker by remember { mutableStateOf(false) }
+    var showDateRangePicker by remember { mutableStateOf(false) }
+
+    // Filter transactions by selected date range
+    val filteredTransactions = remember(uiState.transactions, selectedDateRange) {
+        uiState.transactions.filter { selectedDateRange.contains(it.date) }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TransactionsHeader(uiState = uiState, onRefresh = onRefresh)
+        TransactionsHeader(
+            transactions = filteredTransactions,
+            uiState = uiState,
+            selectedDateRange = selectedDateRange,
+            onDateRangeClick = { showDateRangePicker = true },
+            onRefresh = onRefresh
+        )
 
-        if (uiState.transactions.isEmpty()) {
+        if (filteredTransactions.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -42,7 +58,11 @@ fun TransactionsScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No bank transactions found in the last 30 days",
+                    text = if (uiState.transactions.isEmpty()) {
+                        "No bank transactions found in the last 30 days"
+                    } else {
+                        "No transactions found in the selected date range"
+                    },
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
@@ -53,7 +73,7 @@ fun TransactionsScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(uiState.transactions) { transaction ->
+                items(filteredTransactions) { transaction ->
                     TransactionCard(
                         transaction = transaction,
                         category = categoryMap[transaction.smsId],
@@ -82,18 +102,35 @@ fun TransactionsScreen(
             }
         )
     }
+
+    // Date Range Picker Sheet
+    if (showDateRangePicker) {
+        DateRangePickerSheet(
+            currentDateRange = selectedDateRange,
+            onDateRangeSelected = { newRange ->
+                onDateRangeChange(newRange)
+                showDateRangePicker = false
+            },
+            onDismiss = {
+                showDateRangePicker = false
+            }
+        )
+    }
 }
 
 @Composable
 private fun TransactionsHeader(
+    transactions: List<ParsedTransaction>,
     uiState: MainUiState,
+    selectedDateRange: DateRange,
+    onDateRangeClick: () -> Unit,
     onRefresh: () -> Unit
 ) {
-    val totalDebit = uiState.transactions
+    val totalDebit = transactions
         .filter { it.type == TransactionType.DEBIT }
         .sumOf { it.amount }
 
-    val totalCredit = uiState.transactions
+    val totalCredit = transactions
         .filter { it.type == TransactionType.CREDIT }
         .sumOf { it.amount }
 
@@ -116,6 +153,15 @@ private fun TransactionsHeader(
                 Text("Refresh")
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Date Range Selector
+        DateRangeSelectorChip(
+            dateRange = selectedDateRange,
+            onClick = onDateRangeClick,
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -165,7 +211,9 @@ private fun TransactionsHeader(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "${uiState.transactions.size} transactions from ${uiState.bankSmsCount} bank SMS" +
+            text = "${transactions.size} transactions" +
+                    if (transactions.size < uiState.transactions.size) " (${uiState.transactions.size} total)" else "" +
+                    " from ${uiState.bankSmsCount} bank SMS" +
                     if (uiState.duplicatesRemoved > 0) " (${uiState.duplicatesRemoved} duplicates removed)" else "",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant

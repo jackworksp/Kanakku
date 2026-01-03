@@ -46,6 +46,8 @@ fun KanakkuNavHost(
                 TransactionsScreen(
                     uiState = uiState,
                     categoryMap = categoryMap,
+                    selectedDateRange = selectedDateRange,
+                    onDateRangeChange = onDateRangeChange,
                     onRefresh = onRefresh,
                     onCategoryChange = onCategoryChange
                 )
