@@ -59,24 +59,50 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        viewModel.updatePermissionStatus(isGranted)
-        if (isGranted) {
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        // Check if at least READ_SMS is granted (minimum required functionality)
+        val hasReadSms = permissions[Manifest.permission.READ_SMS] == true
+        val hasReceiveSms = permissions[Manifest.permission.RECEIVE_SMS] == true
+
+        viewModel.updatePermissionStatus(hasReadSms)
+
+        if (hasReadSms) {
             viewModel.loadSmsData(context)
+
+            // Log warning if RECEIVE_SMS is not granted (real-time detection won't work)
+            if (!hasReceiveSms) {
+                android.util.Log.w(
+                    "MainActivity",
+                    "RECEIVE_SMS permission denied - real-time transaction detection disabled"
+                )
+            }
         }
     }
 
     LaunchedEffect(Unit) {
-        val hasPermission = ContextCompat.checkSelfPermission(
+        val hasReadSms = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.READ_SMS
         ) == PackageManager.PERMISSION_GRANTED
 
-        viewModel.updatePermissionStatus(hasPermission)
+        val hasReceiveSms = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECEIVE_SMS
+        ) == PackageManager.PERMISSION_GRANTED
 
-        if (hasPermission) {
+        viewModel.updatePermissionStatus(hasReadSms)
+
+        if (hasReadSms) {
             viewModel.loadSmsData(context)
+
+            // Log info if RECEIVE_SMS is not granted
+            if (!hasReceiveSms) {
+                android.util.Log.i(
+                    "MainActivity",
+                    "RECEIVE_SMS permission not granted - real-time transaction detection disabled"
+                )
+            }
         }
     }
 
@@ -96,7 +122,12 @@ fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
                 PermissionScreen(
                     modifier = Modifier.padding(innerPadding),
                     onRequestPermission = {
-                        permissionLauncher.launch(Manifest.permission.READ_SMS)
+                        permissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.READ_SMS,
+                                Manifest.permission.RECEIVE_SMS
+                            )
+                        )
                     }
                 )
             }
@@ -147,15 +178,33 @@ fun PermissionScreen(
         Spacer(modifier = Modifier.height(48.dp))
 
         Text(
-            text = "This app needs SMS permission to read your bank transaction messages and help you track spending.",
+            text = "This app needs SMS permissions to:",
             style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "• Read your bank transaction messages\n• Detect new transactions in real-time\n• Help you track spending automatically",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "All data stays on your device. No information is sent to any server.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(onClick = onRequestPermission) {
-            Text("Grant SMS Permission")
+            Text("Grant SMS Permissions")
         }
     }
 }

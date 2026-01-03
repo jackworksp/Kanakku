@@ -3,23 +3,23 @@
   "spec": "014-real-time-transaction-detection",
   "state": "building",
   "subtasks": {
-    "completed": 10,
+    "completed": 11,
     "total": 19,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Preferences & Settings",
+    "current": "UI Integration & Permission Flow",
     "id": null,
-    "total": 2
+    "total": 3
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 12,
+    "number": 13,
     "started_at": "2026-01-03T14:07:19.406163"
   },
-  "last_update": "2026-01-03T15:28:10.400973"
+  "last_update": "2026-01-03T15:34:41.770337"
 }
