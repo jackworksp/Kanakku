@@ -27,6 +27,7 @@ import com.example.kanakku.ui.MainViewModel
 import com.example.kanakku.ui.components.InitialSyncProgress
 import com.example.kanakku.ui.components.PrivacyInfoDialog
 import com.example.kanakku.ui.navigation.KanakkuNavHost
+import com.example.kanakku.ui.savings.SavingsGoalsViewModel
 import com.example.kanakku.ui.theme.KanakkuTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -148,6 +149,9 @@ fun KanakkuApp(viewModel: MainViewModel = hiltViewModel()) {
         if (hasPermission) {
             viewModel.loadSmsData()
         }
+
+        // Initialize SavingsGoalsViewModel
+        savingsViewModel.initialize(context)
     }
 
     // Apply theme with observed theme mode for immediate updates
