@@ -121,8 +121,31 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Analytics Preferences Section
+        SettingsSection(title = "Analytics") {
+            // Default Time Period Selector
+            SettingsTimePeriodItem(
+                currentPeriod = uiState.defaultAnalyticsPeriod,
+                onPeriodChange = { viewModel.updateDefaultAnalyticsPeriod(it) }
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            // Auto-Categorize Toggle
+            SettingsToggleItem(
+                title = "Auto-Categorize",
+                description = "Automatically categorize transactions based on patterns",
+                checked = uiState.isAutoCategorize,
+                onCheckedChange = { viewModel.updateAutoCategorize(it) }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         // Placeholder for remaining sections
-        // - Analytics Preferences (4.4)
         // - Data Management (4.5)
         // - About (4.6)
     }
@@ -269,6 +292,65 @@ private fun SettingsDarkModeItem(
                 SegmentedButton(
                     selected = isDarkMode == value,
                     onClick = { onDarkModeChange(value) },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = index,
+                        count = options.size
+                    )
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Time period settings item with DAY/WEEK/MONTH/YEAR options.
+ *
+ * @param currentPeriod Current selected time period (DAY, WEEK, MONTH, or YEAR)
+ * @param onPeriodChange Callback when time period selection changes
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsTimePeriodItem(
+    currentPeriod: String,
+    onPeriodChange: (String) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Default Time Period",
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Default view for analytics screen",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Segmented button for DAY/WEEK/MONTH/YEAR
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            val options = listOf(
+                Pair("Day", "DAY"),
+                Pair("Week", "WEEK"),
+                Pair("Month", "MONTH"),
+                Pair("Year", "YEAR")
+            )
+
+            options.forEachIndexed { index, (label, value) ->
+                SegmentedButton(
+                    selected = currentPeriod == value,
+                    onClick = { onPeriodChange(value) },
                     shape = SegmentedButtonDefaults.itemShape(
                         index = index,
                         count = options.size
