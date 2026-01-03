@@ -12,6 +12,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.kanakku.data.model.*
 import com.example.kanakku.domain.analytics.AnalyticsCalculator
+import com.example.kanakku.ui.theme.bronzeRanking
+import com.example.kanakku.ui.theme.chartBlue
+import com.example.kanakku.ui.theme.chartPurple
+import com.example.kanakku.ui.theme.expenseColor
+import com.example.kanakku.ui.theme.goldRanking
+import com.example.kanakku.ui.theme.silverRanking
 import com.example.kanakku.ui.charts.CategoryPieChart
 import com.example.kanakku.ui.charts.SpendingBarChart
 import com.example.kanakku.ui.charts.SpendingLineChart
@@ -140,13 +146,13 @@ fun AnalyticsScreen(
             SummaryCard(
                 title = "Total Spent",
                 value = "₹${formatAmount(summary.totalSpent)}",
-                color = Color(0xFFC62828),
+                color = MaterialTheme.colorScheme.expenseColor,
                 modifier = Modifier.weight(1f)
             )
             SummaryCard(
                 title = "Avg/Day",
                 value = "₹${formatAmount(summary.averageDaily)}",
-                color = Color(0xFF1565C0),
+                color = MaterialTheme.colorScheme.chartBlue,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -160,7 +166,7 @@ fun AnalyticsScreen(
             SummaryCard(
                 title = "Transactions",
                 value = "${summary.transactionCount}",
-                color = Color(0xFF6A1B9A),
+                color = MaterialTheme.colorScheme.chartPurple,
                 modifier = Modifier.weight(1f)
             )
             SummaryCard(
@@ -341,9 +347,9 @@ private fun MerchantRow(rank: Int, merchant: MerchantTotal) {
         Surface(
             shape = MaterialTheme.shapes.small,
             color = when(rank) {
-                1 -> Color(0xFFFFD700).copy(alpha = 0.2f)
-                2 -> Color(0xFFC0C0C0).copy(alpha = 0.2f)
-                3 -> Color(0xFFCD7F32).copy(alpha = 0.2f)
+                1 -> MaterialTheme.colorScheme.goldRanking.copy(alpha = 0.2f)
+                2 -> MaterialTheme.colorScheme.silverRanking.copy(alpha = 0.2f)
+                3 -> MaterialTheme.colorScheme.bronzeRanking.copy(alpha = 0.2f)
                 else -> MaterialTheme.colorScheme.surfaceVariant
             }
         ) {
@@ -353,9 +359,9 @@ private fun MerchantRow(rank: Int, merchant: MerchantTotal) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 color = when(rank) {
-                    1 -> Color(0xFFB8860B)
-                    2 -> Color(0xFF808080)
-                    3 -> Color(0xFF8B4513)
+                    1 -> MaterialTheme.colorScheme.goldRanking
+                    2 -> MaterialTheme.colorScheme.silverRanking
+                    3 -> MaterialTheme.colorScheme.bronzeRanking
                     else -> MaterialTheme.colorScheme.onSurfaceVariant
                 }
             )
@@ -381,7 +387,7 @@ private fun MerchantRow(rank: Int, merchant: MerchantTotal) {
             text = "₹${formatAmount(merchant.totalAmount)}",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFC62828)
+            color = MaterialTheme.colorScheme.expenseColor
         )
     }
 }

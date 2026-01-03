@@ -20,6 +20,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.kanakku.data.model.*
 import com.example.kanakku.ui.components.CategoryPickerSheet
+import com.example.kanakku.ui.theme.expenseColor
+import com.example.kanakku.ui.theme.incomeColor
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -266,7 +268,7 @@ private fun CategoryTransactionCard(
     onClick: () -> Unit
 ) {
     val isDebit = transaction.type == TransactionType.DEBIT
-    val amountColor = if (isDebit) Color(0xFFC62828) else Color(0xFF2E7D32)
+    val amountColor = if (isDebit) MaterialTheme.colorScheme.expenseColor else MaterialTheme.colorScheme.incomeColor
     val amountPrefix = if (isDebit) "-" else "+"
 
     Card(

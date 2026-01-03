@@ -32,6 +32,7 @@ import com.example.kanakku.ui.screens.BackupSettingsScreen
 import com.example.kanakku.ui.screens.CategoriesScreen
 import com.example.kanakku.ui.screens.ExportScreen
 import com.example.kanakku.ui.screens.TransactionsScreen
+import com.example.kanakku.ui.theme.ThemeViewModel
 
 @Composable
 fun KanakkuNavHost(

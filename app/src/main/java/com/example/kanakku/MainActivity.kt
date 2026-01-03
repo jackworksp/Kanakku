@@ -102,6 +102,14 @@ fun KanakkuApp(viewModel: MainViewModel = hiltViewModel()) {
     val searchFilterState by viewModel.searchFilterState.collectAsState()
     val appPrefs = remember { AppPreferences.getInstance(context) }
 
+    // Initialize ThemeViewModel
+    LaunchedEffect(Unit) {
+        themeViewModel.initialize(context)
+    }
+
+    // Observe theme mode for reactive theme changes
+    val themeMode by themeViewModel.themeMode.collectAsState()
+
     // Track whether to show the privacy dialog
     var showPrivacyDialog by remember {
         mutableStateOf(!appPrefs.isPrivacyDialogShown())
@@ -129,15 +137,17 @@ fun KanakkuApp(viewModel: MainViewModel = hiltViewModel()) {
         }
     }
 
-    // Show privacy dialog on first launch
-    if (showPrivacyDialog) {
-        PrivacyInfoDialog(
-            onDismiss = {
-                appPrefs.setPrivacyDialogShown()
-                showPrivacyDialog = false
-            }
-        )
-    }
+    // Apply theme with observed theme mode for immediate updates
+    KanakkuTheme(themeMode = themeMode) {
+        // Show privacy dialog on first launch
+        if (showPrivacyDialog) {
+            PrivacyInfoDialog(
+                onDismiss = {
+                    appPrefs.setPrivacyDialogShown()
+                    showPrivacyDialog = false
+                }
+            )
+        }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         when {

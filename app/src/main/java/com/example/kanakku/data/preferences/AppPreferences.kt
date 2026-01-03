@@ -6,6 +6,10 @@ import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.example.kanakku.core.error.ErrorHandler
+import com.example.kanakku.data.model.ThemeMode
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.io.IOException
 import java.security.GeneralSecurityException
 
@@ -17,6 +21,7 @@ import java.security.GeneralSecurityException
  * - First launch tracking
  * - UI preferences (theme, display options)
  * - Sync metadata and settings
+ * - Reactive theme preference observation via StateFlow
  *
  * All preference data is encrypted at rest using the Android Keystore system through
  * EncryptedSharedPreferences. This ensures that user settings are protected even if
@@ -35,9 +40,16 @@ import java.security.GeneralSecurityException
  *     appPrefs.setFirstLaunchComplete()
  * }
  *
- * // Get/set preferences
- * appPrefs.setDarkModeEnabled(true)
- * val isDarkMode = appPrefs.isDarkModeEnabled()
+ * // Get/set theme mode
+ * appPrefs.setThemeMode(ThemeMode.DARK)
+ * val themeMode = appPrefs.getThemeMode()
+ *
+ * // Observe theme changes reactively
+ * viewModelScope.launch {
+ *     appPrefs.themeModeFlow.collect { themeMode ->
+ *         // Update UI based on theme mode
+ *     }
+ * }
  * ```
  *
  * Fallback Mechanism:
@@ -56,6 +68,7 @@ class AppPreferences private constructor(context: Context) {
         private const val KEY_FIRST_LAUNCH = "first_launch"
         private const val KEY_PRIVACY_DIALOG_SHOWN = "privacy_dialog_shown"
         private const val KEY_DARK_MODE_ENABLED = "dark_mode_enabled"
+        private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_USE_DYNAMIC_COLORS = "use_dynamic_colors"
         private const val KEY_COMPACT_VIEW = "compact_view"
         private const val KEY_SHOW_OFFLINE_BADGE = "show_offline_badge"
@@ -102,6 +115,47 @@ class AppPreferences private constructor(context: Context) {
 
     private val sharedPreferences: SharedPreferences = initializePreferences(context.applicationContext)
     private var isUsingEncryption: Boolean = true
+
+    // ==================== Reactive Theme Preference ====================
+
+    /**
+     * Private mutable state flow for theme mode changes.
+     * Updated whenever theme preference changes.
+     */
+    private val _themeModeFlow = MutableStateFlow(loadThemeMode())
+
+    /**
+     * Reactive flow of current theme mode.
+     * Emits the current theme mode and all subsequent changes.
+     * Subscribers will be notified immediately when theme preference changes.
+     *
+     * Usage:
+     * ```
+     * viewModelScope.launch {
+     *     appPrefs.themeModeFlow.collect { themeMode ->
+     *         // Update UI based on theme mode
+     *     }
+     * }
+     * ```
+     */
+    val themeModeFlow: StateFlow<ThemeMode> = _themeModeFlow.asStateFlow()
+
+    /**
+     * Listener for SharedPreferences changes to keep StateFlow in sync.
+     * Automatically updates the theme mode flow when preferences change externally.
+     */
+    private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == KEY_THEME_MODE || key == KEY_DARK_MODE_ENABLED) {
+            val newThemeMode = loadThemeMode()
+            _themeModeFlow.value = newThemeMode
+            Log.d(TAG, "Theme mode changed to: $newThemeMode")
+        }
+    }
+
+    init {
+        // Register listener to keep StateFlow synchronized with preference changes
+        sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
+    }
 
     /**
      * Initializes SharedPreferences with encryption if possible, falls back to regular prefs if not.
@@ -203,30 +257,89 @@ class AppPreferences private constructor(context: Context) {
     // ============================================
 
     /**
+     * Loads the current theme mode from SharedPreferences.
+     * Handles migration from old Boolean-based dark mode setting to new ThemeMode enum.
+     *
+     * @return Current ThemeMode (LIGHT, DARK, or SYSTEM)
+     */
+    private fun loadThemeMode(): ThemeMode {
+        // First check for new KEY_THEME_MODE preference
+        val themeModeString = sharedPreferences.getString(KEY_THEME_MODE, null)
+        if (themeModeString != null) {
+            return try {
+                ThemeMode.valueOf(themeModeString)
+            } catch (e: IllegalArgumentException) {
+                Log.w(TAG, "Invalid theme mode value: $themeModeString, defaulting to SYSTEM")
+                ThemeMode.SYSTEM
+            }
+        }
+
+        // Fallback: migrate from old KEY_DARK_MODE_ENABLED preference
+        return if (sharedPreferences.contains(KEY_DARK_MODE_ENABLED)) {
+            val isDarkMode = sharedPreferences.getBoolean(KEY_DARK_MODE_ENABLED, false)
+            if (isDarkMode) ThemeMode.DARK else ThemeMode.LIGHT
+        } else {
+            ThemeMode.SYSTEM // Default to system if no preference is set
+        }
+    }
+
+    /**
+     * Gets the current theme mode.
+     *
+     * @return Current ThemeMode (LIGHT, DARK, or SYSTEM)
+     */
+    fun getThemeMode(): ThemeMode {
+        return loadThemeMode()
+    }
+
+    /**
+     * Sets the theme mode preference and updates the reactive flow.
+     *
+     * @param themeMode The theme mode to set (LIGHT, DARK, or SYSTEM)
+     */
+    fun setThemeMode(themeMode: ThemeMode) {
+        sharedPreferences.edit().putString(KEY_THEME_MODE, themeMode.name).apply()
+        _themeModeFlow.value = themeMode
+        Log.d(TAG, "Theme mode set to: ${themeMode.displayName}")
+    }
+
+    /**
      * Checks if dark mode is enabled.
+     * DEPRECATED: Use getThemeMode() instead for better type safety.
      *
      * @return true if dark mode is enabled, false for light mode, null for system default
      */
+    @Deprecated(
+        message = "Use getThemeMode() instead",
+        replaceWith = ReplaceWith("getThemeMode()"),
+        level = DeprecationLevel.WARNING
+    )
     fun isDarkModeEnabled(): Boolean? {
-        return if (sharedPreferences.contains(KEY_DARK_MODE_ENABLED)) {
-            sharedPreferences.getBoolean(KEY_DARK_MODE_ENABLED, false)
-        } else {
-            null // System default
+        return when (loadThemeMode()) {
+            ThemeMode.DARK -> true
+            ThemeMode.LIGHT -> false
+            ThemeMode.SYSTEM -> null
         }
     }
 
     /**
      * Sets dark mode preference.
+     * DEPRECATED: Use setThemeMode() instead for better type safety.
      *
      * @param enabled true for dark mode, false for light mode, null for system default
      */
+    @Deprecated(
+        message = "Use setThemeMode() instead",
+        replaceWith = ReplaceWith("setThemeMode(when(enabled) { true -> ThemeMode.DARK; false -> ThemeMode.LIGHT; null -> ThemeMode.SYSTEM })"),
+        level = DeprecationLevel.WARNING
+    )
     fun setDarkModeEnabled(enabled: Boolean?) {
-        if (enabled == null) {
-            sharedPreferences.edit().remove(KEY_DARK_MODE_ENABLED).apply()
-        } else {
-            sharedPreferences.edit().putBoolean(KEY_DARK_MODE_ENABLED, enabled).apply()
+        val themeMode = when (enabled) {
+            true -> ThemeMode.DARK
+            false -> ThemeMode.LIGHT
+            null -> ThemeMode.SYSTEM
         }
-        Log.d(TAG, "Dark mode set to: $enabled")
+        setThemeMode(themeMode)
     }
 
     /**
