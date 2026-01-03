@@ -3,23 +3,23 @@
   "spec": "010-manual-transaction-entry",
   "state": "building",
   "subtasks": {
-    "completed": 7,
+    "completed": 8,
     "total": 15,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "UI Layer - Add Transaction Form",
+    "current": "ViewModel Integration",
     "id": null,
-    "total": 3
+    "total": 2
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 9,
+    "number": 10,
     "started_at": "2026-01-03T17:28:14.088204"
   },
-  "last_update": "2026-01-03T18:13:51.792189"
+  "last_update": "2026-01-03T18:18:32.283940"
 }

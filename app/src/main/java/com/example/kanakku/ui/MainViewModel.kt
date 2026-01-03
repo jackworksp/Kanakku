@@ -334,4 +334,142 @@ class MainViewModel : ViewModel() {
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
+
+    /**
+     * Saves a manually entered transaction to the database.
+     *
+     * Flow:
+     * 1. Set loading state
+     * 2. Create ParsedTransaction with MANUAL source
+     * 3. Save to database via repository
+     * 4. Apply category override for the new transaction
+     * 5. Refresh transaction list to include new transaction
+     * 6. Clear loading state
+     *
+     * Error Handling:
+     * - Database save failures
+     * - Category application failures (logged but don't fail the save)
+     * - All errors provide user-friendly messages via ErrorHandler
+     *
+     * @param amount The transaction amount
+     * @param type The transaction type (DEBIT/CREDIT)
+     * @param category The category to assign
+     * @param merchant The merchant name
+     * @param date The transaction timestamp
+     * @param notes Optional notes for the transaction
+     * @param onSuccess Callback invoked after successful save
+     */
+    fun saveManualTransaction(
+        amount: Double,
+        type: TransactionType,
+        category: Category,
+        merchant: String,
+        date: Long,
+        notes: String?,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+
+            try {
+                // Ensure repository is initialized
+                if (repository == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Repository not initialized. Please reload the app."
+                    )
+                    return@launch
+                }
+                val repo = repository!!
+
+                // Create manual transaction with all required fields
+                val manualTransaction = ParsedTransaction(
+                    smsId = 0L, // Will be replaced by repository with generated ID
+                    amount = amount,
+                    type = type,
+                    merchant = merchant,
+                    accountNumber = null, // Not applicable for manual transactions
+                    referenceNumber = null, // Not applicable for manual transactions
+                    date = date,
+                    rawSms = "", // Empty for manual transactions
+                    senderAddress = "MANUAL", // Indicate manual entry
+                    balanceAfter = null,
+                    location = null,
+                    source = com.example.kanakku.data.model.TransactionSource.MANUAL,
+                    notes = notes?.takeIf { it.isNotBlank() } // Only save non-empty notes
+                )
+
+                // Save to database and get generated ID
+                val saveResult = repo.saveManualTransaction(manualTransaction)
+
+                saveResult
+                    .onSuccess { generatedId ->
+                        // Apply category override for the new transaction
+                        categoryManager.setManualOverride(generatedId, category)
+                            .onSuccess {
+                                // Update category map with new category
+                                _categoryMap.value = _categoryMap.value.toMutableMap().apply {
+                                    put(generatedId, category)
+                                }
+                                ErrorHandler.logInfo(
+                                    "Category ${category.name} applied to manual transaction $generatedId",
+                                    "saveManualTransaction"
+                                )
+                            }
+                            .onFailure { throwable ->
+                                // Log warning but don't fail the save operation
+                                val errorInfo = throwable.toErrorInfo()
+                                ErrorHandler.logWarning(
+                                    "Failed to apply category: ${errorInfo.technicalMessage}",
+                                    "saveManualTransaction"
+                                )
+                            }
+
+                        // Refresh transaction list to include new transaction
+                        val updatedTransactions = repo.getAllTransactionsSnapshot()
+                            .onFailure { throwable ->
+                                val errorInfo = throwable.toErrorInfo()
+                                ErrorHandler.logWarning(
+                                    "Failed to refresh transaction list: ${errorInfo.technicalMessage}",
+                                    "saveManualTransaction"
+                                )
+                            }
+                            .getOrElse { emptyList() }
+
+                        // Update UI state with new transaction list
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            transactions = updatedTransactions,
+                            errorMessage = null
+                        )
+
+                        ErrorHandler.logInfo(
+                            "Manual transaction saved successfully with ID: $generatedId",
+                            "saveManualTransaction"
+                        )
+
+                        // Invoke success callback to navigate back
+                        onSuccess()
+                    }
+                    .onFailure { throwable ->
+                        val errorInfo = throwable.toErrorInfo()
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            errorMessage = "Failed to save transaction: ${errorInfo.userMessage}"
+                        )
+                        ErrorHandler.logError(
+                            "Failed to save manual transaction: ${errorInfo.technicalMessage}",
+                            "saveManualTransaction"
+                        )
+                    }
+            } catch (e: Exception) {
+                // Catch-all for unexpected errors
+                val errorInfo = ErrorHandler.handleError(e, "saveManualTransaction")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = errorInfo.userMessage
+                )
+            }
+        }
+    }
 }
