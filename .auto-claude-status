@@ -3,23 +3,23 @@
   "spec": "021-upi-transaction-detection-enhancement",
   "state": "building",
   "subtasks": {
-    "completed": 1,
+    "completed": 3,
     "total": 24,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "UPI Sender Detection",
+    "current": "VPA/UPI ID Extraction",
     "id": null,
-    "total": 3
+    "total": 5
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 3,
+    "number": 5,
     "started_at": "2026-01-03T08:12:55.133052"
   },
-  "last_update": "2026-01-03T08:23:00.344758"
+  "last_update": "2026-01-03T08:30:23.124816"
 }

@@ -74,6 +74,45 @@ class BankSmsParser {
             """OTP|One\s*Time\s*Password|verification\s*code|CVV""",
             RegexOption.IGNORE_CASE
         )
+
+        // VPA (Virtual Payment Address) pattern for UPI IDs
+        // Matches formats like: user@paytm, merchant@okaxis, name@ybl, person.name@upi, etc.
+        // Common UPI handles: @paytm, @okaxis, @okicici, @okhdfcbank, @ybl, @ibl, @axl,
+        // @axisbank, @sbi, @icici, @hdfc, @upi, @oksbi, @okhdfc, @hdfcbank, @sbibank, etc.
+        private val VPA_PATTERN = Regex(
+            """([a-zA-Z0-9][a-zA-Z0-9._-]{2,}@(?:paytm|okaxis|okicici|okhdfcbank|okhdfc|oksbi|ybl|ibl|axl|axisbank|axis|sbi|sbibank|icici|icicib(?:ank)?|hdfc|hdfcbank|upi|apl|indianbank|indbank|pnb|bob|unionbank|ubibank|canara|canarabank|cboi|cbin|barodapay|federal|rbl|idfc|idfcbank|kotak|kotakbank|indus|indusind|yes|yesbank|dbs|sc|hsbc|citi|citibank|jupiter|freecharge|mobikwik|airtel|olamoney|jio|postbank|equitas|dcu|cub))""",
+            RegexOption.IGNORE_CASE
+        )
+
+        // VPA extraction with context - extract VPA along with context keywords
+        // Matches patterns like: "to user@paytm", "from merchant@okaxis", "VPA: name@ybl", etc.
+        private val VPA_WITH_CONTEXT_PATTERN = Regex(
+            """(?:to|from|VPA:?|UPI\s*ID:?|paid\s*to|received\s*from|sent\s*to)\s+([a-zA-Z0-9][a-zA-Z0-9._-]{2,}@(?:paytm|okaxis|okicici|okhdfcbank|okhdfc|oksbi|ybl|ibl|axl|axisbank|axis|sbi|sbibank|icici|icicib(?:ank)?|hdfc|hdfcbank|upi|apl|indianbank|indbank|pnb|bob|unionbank|ubibank|canara|canarabank|cboi|cbin|barodapay|federal|rbl|idfc|idfcbank|kotak|kotakbank|indus|indusind|yes|yesbank|dbs|sc|hsbc|citi|citibank|jupiter|freecharge|mobikwik|airtel|olamoney|jio|postbank|equitas|dcu|cub))""",
+            RegexOption.IGNORE_CASE
+        )
+    }
+
+    /**
+     * Extract VPA (Virtual Payment Address) from SMS message.
+     *
+     * Handles both sender and receiver VPAs by looking for context keywords:
+     * - For debit: "to", "paid to", "sent to" (payee VPA)
+     * - For credit: "from", "received from" (payer VPA)
+     * - Direct VPA indicators: "VPA:", "UPI ID:"
+     *
+     * @param smsBody The SMS message body
+     * @return VPA string (e.g., "merchant@paytm") or null if not found
+     */
+    fun extractVpa(smsBody: String): String? {
+        // First try to extract VPA with context (more accurate)
+        val contextMatch = VPA_WITH_CONTEXT_PATTERN.find(smsBody)
+        if (contextMatch != null) {
+            return contextMatch.groupValues.getOrNull(1)?.lowercase()
+        }
+
+        // Fallback: Extract any VPA from the message
+        val vpaMatch = VPA_PATTERN.find(smsBody)
+        return vpaMatch?.groupValues?.getOrNull(1)?.lowercase()
     }
 
     /**
