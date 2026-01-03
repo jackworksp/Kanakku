@@ -12,9 +12,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.navigation.NavType
 import com.example.kanakku.data.model.Category
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.ui.MainUiState
+import com.example.kanakku.ui.savings.GoalDetailScreen
+import com.example.kanakku.ui.savings.SavingsGoalsScreen
 import com.example.kanakku.ui.screens.AnalyticsScreen
 import com.example.kanakku.ui.screens.CategoriesScreen
 import com.example.kanakku.ui.screens.TransactionsScreen
@@ -58,6 +62,21 @@ fun KanakkuNavHost(
                     transactions = uiState.transactions,
                     categoryMap = categoryMap,
                     onCategoryChange = onCategoryChange
+                )
+            }
+            composable(BottomNavItem.Savings.route) {
+                SavingsGoalsScreen()
+            }
+            composable(
+                route = "goalDetail/{goalId}",
+                arguments = listOf(
+                    navArgument("goalId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val goalId = backStackEntry.arguments?.getString("goalId") ?: ""
+                GoalDetailScreen(
+                    goalId = goalId,
+                    onNavigateBack = { navController.navigateUp() }
                 )
             }
         }
