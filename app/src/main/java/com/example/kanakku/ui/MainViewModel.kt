@@ -422,12 +422,9 @@ class MainViewModel : ViewModel() {
     private suspend fun applyFilter(filter: TransactionFilter) {
         val allTransactions = _uiState.value.transactions
 
-        // Apply filtering logic (will be implemented in subtask 2.3)
-        // For now, just update the state with the filter
+        // Apply filtering logic
         val filteredTransactions = if (filter.hasActiveFilters) {
-            // Filtering logic will be implemented in the next subtask
-            // For now, return all transactions as placeholder
-            allTransactions
+            filterTransactionsInMemory(allTransactions, filter)
         } else {
             allTransactions
         }
@@ -438,5 +435,65 @@ class MainViewModel : ViewModel() {
             isSearchActive = filter.hasActiveFilters,
             activeFilterCount = filter.activeFilterCount
         )
+    }
+
+    /**
+     * Efficiently filters transactions in-memory based on all filter criteria.
+     * Applies filters in order: search, type, category, date range, amount range.
+     *
+     * @param transactions The list of transactions to filter
+     * @param filter The filter configuration to apply
+     * @return Filtered list of transactions matching all criteria
+     */
+    private fun filterTransactionsInMemory(
+        transactions: List<ParsedTransaction>,
+        filter: TransactionFilter
+    ): List<ParsedTransaction> {
+        var filtered = transactions
+
+        // 1. Apply search query filter (case-insensitive search on merchant/rawSms/reference)
+        filter.searchQuery?.let { query ->
+            if (query.isNotBlank()) {
+                val searchLower = query.lowercase()
+                filtered = filtered.filter { transaction ->
+                    // Search in merchant name
+                    transaction.merchant?.lowercase()?.contains(searchLower) == true ||
+                    // Search in raw SMS content
+                    transaction.rawSms.lowercase().contains(searchLower) ||
+                    // Search in reference number
+                    transaction.referenceNumber?.lowercase()?.contains(searchLower) == true
+                }
+            }
+        }
+
+        // 2. Apply transaction type filter
+        filter.transactionType?.let { type ->
+            filtered = filtered.filter { it.type == type }
+        }
+
+        // 3. Apply category filter using categoryMap
+        filter.categoryId?.let { categoryId ->
+            val currentCategoryMap = _categoryMap.value
+            filtered = filtered.filter { transaction ->
+                // Check if transaction's category matches the filter
+                currentCategoryMap[transaction.smsId]?.id == categoryId
+            }
+        }
+
+        // 4. Apply date range filter (inclusive)
+        filter.dateRange?.let { (startDate, endDate) ->
+            filtered = filtered.filter { transaction ->
+                transaction.date >= startDate && transaction.date <= endDate
+            }
+        }
+
+        // 5. Apply amount range filter (inclusive)
+        filter.amountRange?.let { (minAmount, maxAmount) ->
+            filtered = filtered.filter { transaction ->
+                transaction.amount >= minAmount && transaction.amount <= maxAmount
+            }
+        }
+
+        return filtered
     }
 }
