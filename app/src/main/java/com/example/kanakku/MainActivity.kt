@@ -2,6 +2,7 @@ package com.example.kanakku
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -119,22 +120,30 @@ fun KanakkuApp(viewModel: MainViewModel = hiltViewModel()) {
         mutableStateOf(!appPrefs.isPrivacyDialogShown())
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
+    // Track whether to show the notification permission dialog (Android 13+)
+    var showNotificationPermissionDialog by remember {
+        mutableStateOf(false)
+    }
+
+    // Permission launcher for POST_NOTIFICATIONS (Android 13+ only)
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        viewModel.updatePermissionStatus(isGranted)
         if (isGranted) {
             viewModel.loadSmsData()
         }
     }
 
     LaunchedEffect(Unit) {
-        val hasPermission = ContextCompat.checkSelfPermission(
+        val hasReadSms = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.READ_SMS
         ) == PackageManager.PERMISSION_GRANTED
 
-        viewModel.updatePermissionStatus(hasPermission)
+        val hasReceiveSms = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECEIVE_SMS
+        ) == PackageManager.PERMISSION_GRANTED
 
         if (hasPermission) {
             viewModel.loadSmsData()
@@ -153,13 +162,39 @@ fun KanakkuApp(viewModel: MainViewModel = hiltViewModel()) {
             )
         }
 
+    // Show notification permission dialog on Android 13+ (after SMS permissions granted)
+    if (showNotificationPermissionDialog) {
+        NotificationPermissionDialog(
+            onDismiss = {
+                // User chose "Not Now" - app continues to work without notifications
+                showNotificationPermissionDialog = false
+                android.util.Log.i(
+                    "MainActivity",
+                    "User declined notification permission prompt - notifications disabled"
+                )
+            },
+            onGrantPermission = {
+                // User chose "Enable Notifications" - request the permission
+                showNotificationPermissionDialog = false
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+        )
+    }
+
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         when {
             !uiState.hasPermission -> {
                 PermissionScreen(
                     modifier = Modifier.padding(innerPadding),
                     onRequestPermission = {
-                        permissionLauncher.launch(Manifest.permission.READ_SMS)
+                        permissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.READ_SMS,
+                                Manifest.permission.RECEIVE_SMS
+                            )
+                        )
                     }
                 )
             }
@@ -232,15 +267,33 @@ fun PermissionScreen(
         Spacer(modifier = Modifier.height(48.dp))
 
         Text(
-            text = "This app needs SMS permission to read your bank transaction messages and help you track spending.",
+            text = "This app needs SMS permissions to:",
             style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "• Read your bank transaction messages\n• Detect new transactions in real-time\n• Help you track spending automatically",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "All data stays on your device. No information is sent to any server.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(onClick = onRequestPermission) {
-            Text("Grant SMS Permission")
+            Text("Grant SMS Permissions")
         }
     }
 }

@@ -80,6 +80,129 @@ class MainViewModel @Inject constructor(
      */
     private var syncJob: Job? = null
 
+    init {
+        // Start observing real-time transaction events
+        observeTransactionEvents()
+    }
+
+    /**
+     * Observes real-time transaction events from background services.
+     *
+     * When a new transaction is detected in the background (via SMS broadcast receiver),
+     * this collector receives the event and refreshes the UI with the latest data.
+     *
+     * This provides instant UI updates without manual refresh when:
+     * - App is in foreground
+     * - New bank SMS arrives
+     * - Transaction is parsed and saved by SmsProcessingService
+     *
+     * Error Handling:
+     * - Event collection errors are logged but don't crash the app
+     * - Failed refreshes fall back to cached data
+     * - User can still manually refresh if automatic update fails
+     */
+    private fun observeTransactionEvents() {
+        viewModelScope.launch {
+            try {
+                TransactionEventManager.transactionEvents.collect { event ->
+                    when (event) {
+                        is TransactionEvent.NewTransaction -> {
+                            ErrorHandler.logInfo(
+                                "Received new transaction event: smsId=${event.smsId}, " +
+                                        "amount=${event.amount}, type=${event.type}",
+                                "MainViewModel.observeTransactionEvents"
+                            )
+                            // Refresh transactions from database to include the new transaction
+                            refreshTransactionsFromDatabase()
+                        }
+                        is TransactionEvent.TransactionDeleted -> {
+                            ErrorHandler.logInfo(
+                                "Received transaction deleted event: smsId=${event.smsId}",
+                                "MainViewModel.observeTransactionEvents"
+                            )
+                            // Refresh transactions from database to reflect deletion
+                            refreshTransactionsFromDatabase()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Log error but don't crash - user can still manually refresh
+                ErrorHandler.handleError(e, "MainViewModel.observeTransactionEvents")
+            }
+        }
+    }
+
+    /**
+     * Refreshes transactions from the database.
+     *
+     * This is called when a real-time event is received to update the UI
+     * with the latest data without needing user interaction.
+     *
+     * Uses the fast path:
+     * 1. Load transactions from database (uses cache if available)
+     * 2. Re-categorize all transactions
+     * 3. Update UI state
+     *
+     * Error Handling:
+     * - Database errors are logged and ignored (cached data remains)
+     * - Categorization errors are logged (transactions shown without categories)
+     * - UI remains responsive even if refresh fails
+     */
+    private suspend fun refreshTransactionsFromDatabase() {
+        try {
+            val repo = repository ?: run {
+                ErrorHandler.logWarning(
+                    "Repository not initialized, skipping refresh",
+                    "MainViewModel.refreshTransactionsFromDatabase"
+                )
+                return
+            }
+
+            // Load latest transactions from database
+            val transactions = repo.getAllTransactionsSnapshot()
+                .onFailure { throwable ->
+                    val errorInfo = throwable.toErrorInfo()
+                    ErrorHandler.logWarning(
+                        "Failed to refresh transactions: ${errorInfo.technicalMessage}",
+                        "MainViewModel.refreshTransactionsFromDatabase"
+                    )
+                    // Keep existing data on error
+                    return
+                }
+                .getOrElse { emptyList() }
+
+            // Re-categorize all transactions
+            val categories = try {
+                categoryManager.categorizeAll(transactions)
+            } catch (e: Exception) {
+                val errorInfo = ErrorHandler.handleError(e, "Categorize refreshed transactions")
+                ErrorHandler.logWarning(
+                    "Failed to categorize refreshed transactions: ${errorInfo.technicalMessage}",
+                    "MainViewModel.refreshTransactionsFromDatabase"
+                )
+                emptyMap() // Continue with uncategorized transactions
+            }
+
+            // Update UI state with refreshed data
+            _categoryMap.value = categories
+            _uiState.value = _uiState.value.copy(
+                transactions = transactions
+            )
+
+            ErrorHandler.logInfo(
+                "Successfully refreshed ${transactions.size} transactions from database",
+                "MainViewModel.refreshTransactionsFromDatabase"
+            )
+        } catch (e: Exception) {
+            // Catch-all for unexpected errors
+            val errorInfo = ErrorHandler.handleError(e, "refreshTransactionsFromDatabase")
+            ErrorHandler.logWarning(
+                "Unexpected error refreshing transactions: ${errorInfo.technicalMessage}",
+                "MainViewModel.refreshTransactionsFromDatabase"
+            )
+        }
+    }
+
     fun updatePermissionStatus(hasPermission: Boolean) {
         _uiState.value = _uiState.value.copy(hasPermission = hasPermission)
     }

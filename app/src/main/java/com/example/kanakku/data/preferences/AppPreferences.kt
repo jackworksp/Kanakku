@@ -20,6 +20,7 @@ import java.security.GeneralSecurityException
  * - Encrypted storage for sensitive user preferences
  * - First launch tracking
  * - UI preferences (theme, display options)
+ * - Notification preferences (enabled, sound, vibration, privacy settings)
  * - Sync metadata and settings
  * - Reactive theme preference observation via StateFlow
  *
@@ -743,6 +744,136 @@ class AppPreferences private constructor(context: Context) {
         val clampedHour = hourOfDay.coerceIn(0, 23)
         sharedPreferences.edit().putInt(KEY_WEEKLY_SUMMARY_HOUR, clampedHour).apply()
         Log.d(TAG, "Weekly summary hour set to: $clampedHour")
+    }
+
+    // ============================================
+    // Notification Preferences
+    // ============================================
+
+    /**
+     * Checks if transaction notifications are enabled.
+     *
+     * This is the main toggle for transaction notifications. When disabled, no transaction
+     * notifications will be shown regardless of system notification settings.
+     *
+     * @return true if notifications are enabled, false otherwise (default: true)
+     */
+    fun areNotificationsEnabled(): Boolean {
+        return sharedPreferences.getBoolean(KEY_NOTIFICATIONS_ENABLED, true)
+    }
+
+    /**
+     * Sets whether transaction notifications are enabled.
+     *
+     * @param enabled true to enable notifications, false to disable
+     */
+    fun setNotificationsEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, enabled).apply()
+        Log.d(TAG, "Notifications enabled set to: $enabled")
+    }
+
+    /**
+     * Checks if notification sound is enabled.
+     *
+     * @return true if notification sound is enabled, false otherwise (default: true)
+     */
+    fun isNotificationSoundEnabled(): Boolean {
+        return sharedPreferences.getBoolean(KEY_NOTIFICATION_SOUND, true)
+    }
+
+    /**
+     * Sets whether notification sound is enabled.
+     *
+     * @param enabled true to enable sound, false for silent notifications
+     */
+    fun setNotificationSoundEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_NOTIFICATION_SOUND, enabled).apply()
+        Log.d(TAG, "Notification sound set to: $enabled")
+    }
+
+    /**
+     * Checks if notification vibration is enabled.
+     *
+     * @return true if vibration is enabled, false otherwise (default: true)
+     */
+    fun isNotificationVibrationEnabled(): Boolean {
+        return sharedPreferences.getBoolean(KEY_NOTIFICATION_VIBRATION, true)
+    }
+
+    /**
+     * Sets whether notification vibration is enabled.
+     *
+     * @param enabled true to enable vibration, false to disable
+     */
+    fun setNotificationVibrationEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_NOTIFICATION_VIBRATION, enabled).apply()
+        Log.d(TAG, "Notification vibration set to: $enabled")
+    }
+
+    /**
+     * Checks if balance should be shown in transaction notifications.
+     *
+     * Privacy setting: Some users may not want their balance visible in notifications
+     * that can appear on the lock screen.
+     *
+     * @return true if balance should be shown, false otherwise (default: true)
+     */
+    fun shouldShowBalanceInNotification(): Boolean {
+        return sharedPreferences.getBoolean(KEY_SHOW_BALANCE_IN_NOTIFICATION, true)
+    }
+
+    /**
+     * Sets whether balance should be shown in transaction notifications.
+     *
+     * @param show true to show balance, false to hide
+     */
+    fun setShowBalanceInNotification(show: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_SHOW_BALANCE_IN_NOTIFICATION, show).apply()
+        Log.d(TAG, "Show balance in notification set to: $show")
+    }
+
+    /**
+     * Checks if account number should be shown in transaction notifications.
+     *
+     * Privacy setting: Controls whether the last 4 digits of the account number
+     * are shown in notifications.
+     *
+     * @return true if account number should be shown, false otherwise (default: true)
+     */
+    fun shouldShowAccountInNotification(): Boolean {
+        return sharedPreferences.getBoolean(KEY_SHOW_ACCOUNT_IN_NOTIFICATION, true)
+    }
+
+    /**
+     * Sets whether account number should be shown in transaction notifications.
+     *
+     * @param show true to show account number, false to hide
+     */
+    fun setShowAccountInNotification(show: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_SHOW_ACCOUNT_IN_NOTIFICATION, show).apply()
+        Log.d(TAG, "Show account in notification set to: $show")
+    }
+
+    /**
+     * Checks if reference number should be shown in transaction notifications.
+     *
+     * Privacy setting: Controls whether the transaction reference number
+     * is shown in notifications.
+     *
+     * @return true if reference number should be shown, false otherwise (default: false)
+     */
+    fun shouldShowReferenceInNotification(): Boolean {
+        return sharedPreferences.getBoolean(KEY_SHOW_REFERENCE_IN_NOTIFICATION, false)
+    }
+
+    /**
+     * Sets whether reference number should be shown in transaction notifications.
+     *
+     * @param show true to show reference number, false to hide
+     */
+    fun setShowReferenceInNotification(show: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_SHOW_REFERENCE_IN_NOTIFICATION, show).apply()
+        Log.d(TAG, "Show reference in notification set to: $show")
     }
 
     // ============================================
