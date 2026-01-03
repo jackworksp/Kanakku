@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Telephony
 import android.telephony.SmsMessage
 import com.example.kanakku.core.error.ErrorHandler
+import com.example.kanakku.data.sms.BankSmsParser
 
 /**
  * BroadcastReceiver for intercepting incoming SMS messages in real-time.
@@ -27,6 +28,9 @@ import com.example.kanakku.core.error.ErrorHandler
  * is minimal. Only triggered when SMS arrives.
  */
 class SmsBroadcastReceiver : BroadcastReceiver() {
+
+    // BankSmsParser for filtering and parsing bank transaction SMS
+    private val bankSmsParser = BankSmsParser()
 
     /**
      * Called when an SMS_RECEIVED broadcast is received.
@@ -220,32 +224,72 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
     /**
      * Processes a single SMS message.
      *
-     * This method logs the SMS details for now. In later phases, this will:
-     * 1. Check if the SMS is a bank transaction message (using BankSmsParser)
-     * 2. Start SmsProcessingService to handle parsing and database save
-     * 3. Trigger notification if enabled
+     * This method:
+     * 1. Converts the Android SmsMessage to our app's SmsMessage data model
+     * 2. Checks if the SMS is a bank transaction message using BankSmsParser
+     * 3. Logs bank transaction SMS for debugging (Phase 2.3 will start service)
+     *
+     * Future phases will:
+     * - Phase 2.3: Start SmsProcessingService to handle parsing and database save
+     * - Phase 3: Trigger notification if enabled in preferences
      *
      * @param context Application context
-     * @param message The SMS message to process
+     * @param message The Android SmsMessage to process
      */
     private fun processSmsMessage(context: Context, message: SmsMessage) {
         try {
-            // Extract basic SMS information
+            // Extract basic SMS information from Android SmsMessage
             val sender = message.originatingAddress ?: "Unknown"
             val body = message.messageBody ?: ""
             val timestamp = message.timestampMillis
 
-            // Log SMS details for debugging (will be replaced with actual processing)
-            ErrorHandler.logDebug(
-                "SMS from: $sender, length: ${body.length} chars, time: $timestamp",
-                "processSmsMessage"
+            // Skip empty messages
+            if (body.isBlank()) {
+                ErrorHandler.logDebug(
+                    "Skipping empty SMS from: $sender",
+                    "processSmsMessage"
+                )
+                return
+            }
+
+            // Convert Android SmsMessage to our app's SmsMessage data model
+            // Use timestamp as temporary ID since we don't have database ID yet
+            val appSmsMessage = com.example.kanakku.data.model.SmsMessage(
+                id = timestamp,  // Temporary ID, will be replaced when saved to database
+                address = sender,
+                body = body,
+                date = timestamp,
+                isRead = false  // Newly received SMS is unread
             )
 
-            // TODO (Phase 2.2): Integrate BankSmsParser to filter bank SMS
-            // TODO (Phase 2.3): Start SmsProcessingService for background work
-            // TODO (Phase 3): Trigger notification if enabled in preferences
+            // Check if this is a bank transaction SMS using BankSmsParser
+            val isBankTransaction = bankSmsParser.isBankTransactionSms(appSmsMessage)
+
+            if (isBankTransaction) {
+                // This is a bank transaction SMS - log details
+                ErrorHandler.logInfo(
+                    "Bank transaction SMS detected from: $sender, body length: ${body.length} chars",
+                    "processSmsMessage"
+                )
+
+                // TODO (Phase 2.3): Start SmsProcessingService for background work
+                // The service will:
+                // - Parse transaction using bankSmsParser.parseSms()
+                // - Save to database via TransactionRepository
+                // - Trigger notification if enabled in preferences
+
+            } else {
+                // Not a bank transaction SMS - skip silently for efficiency
+                // (only log in debug builds to avoid spam)
+                ErrorHandler.logDebug(
+                    "Non-bank SMS from: $sender (filtered out)",
+                    "processSmsMessage"
+                )
+            }
 
         } catch (e: Exception) {
+            // Catch all exceptions to prevent receiver from crashing
+            // Even if one SMS fails, others should still be processed
             ErrorHandler.handleError(e, "processSmsMessage")
         }
     }
