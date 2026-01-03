@@ -85,6 +85,7 @@ fun AnalyticsScreen(
                             TimePeriod.WEEK -> "Week"
                             TimePeriod.MONTH -> "Month"
                             TimePeriod.YEAR -> "Year"
+                            TimePeriod.ALL_TIME -> "All"
                         },
                         style = MaterialTheme.typography.labelMedium
                     )
