@@ -15,40 +15,40 @@ import com.example.kanakku.domain.analytics.AnalyticsCalculator
 import com.example.kanakku.ui.charts.CategoryPieChart
 import com.example.kanakku.ui.charts.SpendingBarChart
 import com.example.kanakku.ui.charts.SpendingLineChart
+import com.example.kanakku.ui.components.DateRangeSelectorChip
+import com.example.kanakku.ui.components.DateRangePickerSheet
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(
     transactions: List<ParsedTransaction>,
-    categoryMap: Map<Long, Category>
+    categoryMap: Map<Long, Category>,
+    selectedDateRange: DateRange,
+    onDateRangeChange: (DateRange) -> Unit
 ) {
-    var selectedPeriod by remember { mutableStateOf(TimePeriod.MONTH) }
     val calculator = remember { AnalyticsCalculator() }
+    var showDateRangePicker by remember { mutableStateOf(false) }
 
-    val summary = remember(transactions, categoryMap, selectedPeriod) {
-        calculator.calculatePeriodSummary(transactions, categoryMap, selectedPeriod)
+    val summary = remember(transactions, categoryMap, selectedDateRange) {
+        calculator.calculatePeriodSummary(transactions, categoryMap, selectedDateRange)
     }
 
-    val categoryBreakdown = remember(transactions, categoryMap, selectedPeriod) {
-        val now = System.currentTimeMillis()
-        val startTime = now - (selectedPeriod.days * 24 * 60 * 60 * 1000L)
-        val filtered = transactions.filter { it.date >= startTime }
+    val categoryBreakdown = remember(transactions, categoryMap, selectedDateRange) {
+        val filtered = transactions.filter { selectedDateRange.contains(it.date) }
         calculator.getCategoryBreakdown(filtered, categoryMap)
     }
 
-    val dailySpending = remember(transactions, selectedPeriod) {
-        calculator.getDailySpending(transactions, selectedPeriod)
+    val dailySpending = remember(transactions, selectedDateRange) {
+        calculator.getDailySpending(transactions, selectedDateRange)
     }
 
-    val trendPoints = remember(transactions, selectedPeriod) {
-        calculator.getSpendingTrend(transactions, selectedPeriod)
+    val trendPoints = remember(transactions, selectedDateRange) {
+        calculator.getSpendingTrend(transactions, selectedDateRange)
     }
 
-    val topMerchants = remember(transactions, selectedPeriod) {
-        val now = System.currentTimeMillis()
-        val startTime = now - (selectedPeriod.days * 24 * 60 * 60 * 1000L)
-        val filtered = transactions.filter { it.date >= startTime }
+    val topMerchants = remember(transactions, selectedDateRange) {
+        val filtered = transactions.filter { selectedDateRange.contains(it.date) }
         calculator.getTopMerchants(filtered, 5)
     }
 
@@ -66,31 +66,12 @@ fun AnalyticsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Period Selector
-        SingleChoiceSegmentedButtonRow(
+        // Date Range Selector
+        DateRangeSelectorChip(
+            dateRange = selectedDateRange,
+            onClick = { showDateRangePicker = true },
             modifier = Modifier.fillMaxWidth()
-        ) {
-            TimePeriod.entries.forEachIndexed { index, period ->
-                SegmentedButton(
-                    selected = selectedPeriod == period,
-                    onClick = { selectedPeriod = period },
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = index,
-                        count = TimePeriod.entries.size
-                    )
-                ) {
-                    Text(
-                        text = when(period) {
-                            TimePeriod.DAY -> "Day"
-                            TimePeriod.WEEK -> "Week"
-                            TimePeriod.MONTH -> "Month"
-                            TimePeriod.YEAR -> "Year"
-                        },
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
-            }
-        }
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -241,6 +222,20 @@ fun AnalyticsScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    // Date Range Picker Sheet
+    if (showDateRangePicker) {
+        DateRangePickerSheet(
+            currentDateRange = selectedDateRange,
+            onDateRangeSelected = { newRange ->
+                onDateRangeChange(newRange)
+                showDateRangePicker = false
+            },
+            onDismiss = {
+                showDateRangePicker = false
+            }
+        )
     }
 }
 

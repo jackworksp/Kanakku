@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.kanakku.data.model.Category
+import com.example.kanakku.data.model.DateRange
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.ui.MainUiState
 import com.example.kanakku.ui.screens.AnalyticsScreen
@@ -23,8 +24,10 @@ import com.example.kanakku.ui.screens.TransactionsScreen
 fun KanakkuNavHost(
     uiState: MainUiState,
     categoryMap: Map<Long, Category>,
+    selectedDateRange: DateRange,
     onRefresh: () -> Unit,
     onCategoryChange: (Long, Category) -> Unit,
+    onDateRangeChange: (DateRange) -> Unit,
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController()
 ) {
@@ -50,7 +53,9 @@ fun KanakkuNavHost(
             composable(BottomNavItem.Analytics.route) {
                 AnalyticsScreen(
                     transactions = uiState.transactions,
-                    categoryMap = categoryMap
+                    categoryMap = categoryMap,
+                    selectedDateRange = selectedDateRange,
+                    onDateRangeChange = onDateRangeChange
                 )
             }
             composable(BottomNavItem.Categories.route) {
