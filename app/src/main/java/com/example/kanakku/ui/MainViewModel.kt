@@ -8,6 +8,7 @@ import com.example.kanakku.core.error.toErrorInfo
 import com.example.kanakku.data.category.CategoryManager
 import com.example.kanakku.data.database.DatabaseProvider
 import com.example.kanakku.data.model.Category
+import com.example.kanakku.data.model.DateRange
 import com.example.kanakku.data.model.ParsedTransaction
 import com.example.kanakku.data.model.SmsMessage
 import com.example.kanakku.data.repository.TransactionRepository
@@ -39,6 +40,9 @@ class MainViewModel : ViewModel() {
 
     private val _categoryMap = MutableStateFlow<Map<Long, Category>>(emptyMap())
     val categoryMap: StateFlow<Map<Long, Category>> = _categoryMap.asStateFlow()
+
+    private val _selectedDateRange = MutableStateFlow(DateRange.last30Days())
+    val selectedDateRange: StateFlow<DateRange> = _selectedDateRange.asStateFlow()
 
     private val parser = BankSmsParser()
     private val categoryManager = CategoryManager()
@@ -333,5 +337,15 @@ class MainViewModel : ViewModel() {
      */
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    /**
+     * Updates the selected date range for filtering transactions and analytics.
+     * The date range persists during the session via StateFlow.
+     *
+     * @param dateRange The new date range to apply
+     */
+    fun updateDateRange(dateRange: DateRange) {
+        _selectedDateRange.value = dateRange
     }
 }
