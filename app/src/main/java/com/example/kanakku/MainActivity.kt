@@ -1,46 +1,52 @@
 package com.example.kanakku
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kanakku.data.preferences.AppPreferences
-import com.example.kanakku.notification.NotificationChannelManager
 import com.example.kanakku.ui.MainViewModel
-import com.example.kanakku.ui.components.InitialSyncProgress
 import com.example.kanakku.ui.components.PrivacyInfoDialog
 import com.example.kanakku.ui.navigation.KanakkuNavHost
-import com.example.kanakku.ui.savings.SavingsGoalsViewModel
+import com.example.kanakku.ui.theme.BentoGradientEnd
+import com.example.kanakku.ui.theme.BentoGradientStart
 import com.example.kanakku.ui.theme.KanakkuTheme
-import dagger.hilt.android.AndroidEntryPoint
 
-@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    /**
-     * Initial navigation destination from widget deep link.
-     * When a widget is tapped, the intent contains a destination extra
-     * that determines which screen to navigate to.
-     */
-    private val initialDestination = mutableStateOf<String?>(null)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -48,210 +54,109 @@ class MainActivity : ComponentActivity() {
         // Initialize AppPreferences
         AppPreferences.getInstance(this)
 
-        // Register notification channels (Android O+ only, safe to call on all versions)
-        NotificationChannelManager.createNotificationChannels(this)
-
         setContent {
-            KanakkuAppWithTheme()
-        }
-    }
-}
-
-/**
- * Root composable that applies theme preferences and wraps KanakkuApp.
- *
- * This composable reads theme preferences from AppPreferences and applies them
- * to the entire app. It reactively updates when preferences change, ensuring
- * theme changes take effect immediately.
- */
-@Composable
-fun KanakkuAppWithTheme() {
-    val context = LocalContext.current
-    val appPrefs = remember { AppPreferences.getInstance(context) }
-
-    // Read theme preferences and observe changes
-    var darkModePreference by remember { mutableStateOf(appPrefs.isDarkModeEnabled()) }
-    var dynamicColorsPreference by remember { mutableStateOf(appPrefs.isDynamicColorsEnabled()) }
-
-    // Listen for preference changes
-    DisposableEffect(Unit) {
-        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            when (key) {
-                "dark_mode_enabled" -> {
-                    darkModePreference = appPrefs.isDarkModeEnabled()
-                }
-                "use_dynamic_colors" -> {
-                    dynamicColorsPreference = appPrefs.isDynamicColorsEnabled()
-                }
+            KanakkuTheme {
+                KanakkuApp()
             }
         }
-
-        appPrefs.registerChangeListener(listener)
-
-        onDispose {
-            appPrefs.unregisterChangeListener(listener)
-        }
-    }
-
-    // Determine dark theme setting
-    // null = system default, true = dark mode, false = light mode
-    val darkTheme = when (darkModePreference) {
-        null -> isSystemInDarkTheme()
-        else -> darkModePreference == true
-    }
-
-    KanakkuTheme(
-        darkTheme = darkTheme,
-        dynamicColor = dynamicColorsPreference
-    ) {
-        KanakkuApp()
     }
 }
 
 @Composable
-fun KanakkuApp(viewModel: MainViewModel = hiltViewModel()) {
+fun KanakkuApp(viewModel: MainViewModel = viewModel()) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val categoryMap by viewModel.categoryMap.collectAsState()
-    val searchFilterState by viewModel.searchFilterState.collectAsState()
     val appPrefs = remember { AppPreferences.getInstance(context) }
-
-    // Initialize ThemeViewModel
-    LaunchedEffect(Unit) {
-        themeViewModel.initialize(context)
-    }
-
-    // Observe theme mode for reactive theme changes
-    val themeMode by themeViewModel.themeMode.collectAsState()
 
     // Track whether to show the privacy dialog
     var showPrivacyDialog by remember {
         mutableStateOf(!appPrefs.isPrivacyDialogShown())
     }
 
-    // Track whether to show the notification permission dialog (Android 13+)
-    var showNotificationPermissionDialog by remember {
-        mutableStateOf(false)
-    }
-
-    // Permission launcher for POST_NOTIFICATIONS (Android 13+ only)
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+    val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
+        viewModel.updatePermissionStatus(isGranted)
         if (isGranted) {
-            viewModel.loadSmsData()
+            viewModel.loadSmsData(context)
         }
     }
 
     LaunchedEffect(Unit) {
-        val hasReadSms = ContextCompat.checkSelfPermission(
+        val hasPermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.READ_SMS
         ) == PackageManager.PERMISSION_GRANTED
 
-        val hasReceiveSms = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.RECEIVE_SMS
-        ) == PackageManager.PERMISSION_GRANTED
+        viewModel.updatePermissionStatus(hasPermission)
 
         if (hasPermission) {
-            viewModel.loadSmsData()
+            viewModel.loadSmsData(context)
         }
-
-        // Initialize SavingsGoalsViewModel
-        savingsViewModel.initialize(context)
     }
 
-    // Apply theme with observed theme mode for immediate updates
-    KanakkuTheme(themeMode = themeMode) {
-        // Show privacy dialog on first launch
-        if (showPrivacyDialog) {
-            PrivacyInfoDialog(
-                onDismiss = {
-                    appPrefs.setPrivacyDialogShown()
-                    showPrivacyDialog = false
-                }
-            )
-        }
-
-    // Show notification permission dialog on Android 13+ (after SMS permissions granted)
-    if (showNotificationPermissionDialog) {
-        NotificationPermissionDialog(
+    // Show privacy dialog on first launch
+    if (showPrivacyDialog) {
+        PrivacyInfoDialog(
             onDismiss = {
-                // User chose "Not Now" - app continues to work without notifications
-                showNotificationPermissionDialog = false
-                android.util.Log.i(
-                    "MainActivity",
-                    "User declined notification permission prompt - notifications disabled"
-                )
-            },
-            onGrantPermission = {
-                // User chose "Enable Notifications" - request the permission
-                showNotificationPermissionDialog = false
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
+                appPrefs.setPrivacyDialogShown()
+                showPrivacyDialog = false
             }
         )
     }
 
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        when {
-            !uiState.hasPermission -> {
-                PermissionScreen(
-                    modifier = Modifier.padding(innerPadding),
-                    onRequestPermission = {
-                        permissionLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.READ_SMS,
-                                Manifest.permission.RECEIVE_SMS
-                            )
-                        )
-                    }
-                )
-            }
-            uiState.isInitialSync -> {
-                // Show initial sync progress during first-time full history sync
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    InitialSyncProgress(
-                        progress = uiState.syncProgress,
-                        total = uiState.syncTotal,
-                        statusMessage = uiState.syncStatusMessage,
-                        onCancel = { viewModel.cancelSync() },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    )
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        AnimatedVisibility(
+            visible = !uiState.hasPermission,
+            enter = fadeIn() + scaleIn(initialScale = 0.95f),
+            exit = fadeOut() + scaleOut(targetScale = 0.95f)
+        ) {
+            ExpressivePermissionScreen(
+                modifier = Modifier.padding(innerPadding),
+                onRequestPermission = {
+                    permissionLauncher.launch(Manifest.permission.READ_SMS)
                 }
-            }
-            uiState.isLoading -> {
-                LoadingScreen(modifier = Modifier.padding(innerPadding))
-            }
-            else -> {
-                KanakkuNavHost(
-                    uiState = uiState,
-                    categoryMap = categoryMap,
-                    onRefresh = { viewModel.loadSmsData() },
-                    onCategoryChange = { smsId, category ->
-                        viewModel.updateTransactionCategory(smsId, category)
-                    },
-                    onResetLearnedMappings = {
-                        viewModel.resetLearnedMappings()
-                    },
-                    modifier = Modifier.padding(innerPadding)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = uiState.hasPermission && uiState.isLoading,
+            enter = fadeIn() + scaleIn(initialScale = 0.95f),
+            exit = fadeOut() + scaleOut(targetScale = 0.95f)
+        ) {
+            ExpressiveLoadingScreen(modifier = Modifier.padding(innerPadding))
+        }
+
+        AnimatedVisibility(
+            visible = uiState.hasPermission && !uiState.isLoading,
+            enter = fadeIn() + scaleIn(
+                initialScale = 0.95f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
                 )
-            }
+            ),
+            exit = fadeOut()
+        ) {
+            KanakkuNavHost(
+                uiState = uiState,
+                categoryMap = categoryMap,
+                onRefresh = { viewModel.loadSmsData(context) },
+                onCategoryChange = { smsId, category ->
+                    viewModel.updateTransactionCategory(smsId, category)
+                },
+                modifier = Modifier.padding(innerPadding)
+            )
         }
     }
 }
 
 @Composable
-fun PermissionScreen(
+fun ExpressivePermissionScreen(
     modifier: Modifier = Modifier,
     onRequestPermission: () -> Unit
 ) {
@@ -262,64 +167,198 @@ fun PermissionScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // App Icon/Logo
+        Box(
+            modifier = Modifier
+                .size(100.dp)
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(BentoGradientStart, BentoGradientEnd)
+                    ),
+                    shape = RoundedCornerShape(28.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "K",
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
         Text(
             text = "Kanakku",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Track your bank transactions automatically",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        Text(
-            text = "This app needs SMS permissions to:",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "• Read your bank transaction messages\n• Detect new transactions in real-time\n• Help you track spending automatically",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(horizontal = 32.dp)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "All data stays on your device. No information is sent to any server.",
-            style = MaterialTheme.typography.bodySmall,
+            text = "Track your bank transactions automatically",
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(48.dp))
 
-        Button(onClick = onRequestPermission) {
-            Text("Grant SMS Permissions")
+        // Feature Cards
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            FeatureCard(
+                icon = Icons.AutoMirrored.Filled.Message,
+                title = "SMS Reading",
+                description = "Read bank transaction SMS messages"
+            )
+            FeatureCard(
+                icon = Icons.Default.Lock,
+                title = "100% Offline",
+                description = "All data stays on your device"
+            )
+            FeatureCard(
+                icon = Icons.Default.Shield,
+                title = "Privacy First",
+                description = "No internet permission required"
+            )
+        }
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Button(
+            onClick = onRequestPermission,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = MaterialTheme.shapes.large,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text(
+                text = "Grant SMS Permission",
+                style = MaterialTheme.typography.labelLarge
+            )
         }
     }
 }
 
 @Composable
-fun LoadingScreen(modifier: Modifier = Modifier) {
+private fun FeatureCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(44.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ExpressiveLoadingScreen(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(modifier = Modifier.size(48.dp))
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Reading SMS messages...")
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            // Animated loading indicator with gradient
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                BentoGradientStart.copy(alpha = 0.1f),
+                                BentoGradientEnd.copy(alpha = 0.1f)
+                            )
+                        ),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(48.dp),
+                    color = BentoGradientStart,
+                    strokeWidth = 4.dp
+                )
+            }
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Reading SMS messages...",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "This may take a moment",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
+}
+
+// Keep old functions for backward compatibility
+@Composable
+fun PermissionScreen(
+    modifier: Modifier = Modifier,
+    onRequestPermission: () -> Unit
+) {
+    ExpressivePermissionScreen(
+        modifier = modifier,
+        onRequestPermission = onRequestPermission
+    )
+}
+
+@Composable
+fun LoadingScreen(modifier: Modifier = Modifier) {
+    ExpressiveLoadingScreen(modifier = modifier)
 }

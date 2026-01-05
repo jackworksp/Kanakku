@@ -1,399 +1,514 @@
 package com.example.kanakku.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.outlined.TrendingDown
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.kanakku.data.model.*
 import com.example.kanakku.ui.MainUiState
-import com.example.kanakku.ui.SearchFilterState
-import com.example.kanakku.ui.components.ActiveFilterChips
+import com.example.kanakku.ui.components.BentoCard
+import com.example.kanakku.ui.components.BentoChip
+import com.example.kanakku.ui.components.BentoEmptyState
+import com.example.kanakku.ui.components.BentoFeatureCard
+import com.example.kanakku.ui.components.BentoGlassCard
+import com.example.kanakku.ui.components.BentoMiniStat
+import com.example.kanakku.ui.components.BentoSectionHeader
+import com.example.kanakku.ui.components.BentoTransactionSummaryCard
 import com.example.kanakku.ui.components.CategoryPickerSheet
-import com.example.kanakku.ui.components.EmptySearchState
-import com.example.kanakku.ui.components.FilterSheet
-import com.example.kanakku.ui.components.HighlightedText
-import com.example.kanakku.ui.components.SearchBar
+import com.example.kanakku.ui.theme.BentoGradientEnd
+import com.example.kanakku.ui.theme.BentoGradientStart
+import com.example.kanakku.ui.theme.CreditColor
+import com.example.kanakku.ui.theme.CreditContainerLight
+import com.example.kanakku.ui.theme.DebitColor
+import com.example.kanakku.ui.theme.DebitColorLight
+import com.example.kanakku.ui.theme.DebitContainerLight
 import java.text.SimpleDateFormat
 import java.util.*
-
-/**
- * Date range filter options for viewing transaction history.
- * Allows users to filter transactions by predefined time periods.
- */
-enum class DateRangeFilter(val displayName: String) {
-    ALL_TIME("All Time"),
-    THIS_MONTH("This Month"),
-    LAST_3_MONTHS("Last 3 Months"),
-    LAST_6_MONTHS("Last 6 Months"),
-    LAST_YEAR("Last Year"),
-    CUSTOM("Custom")
-}
-
-/**
- * Calculates the start timestamp for a given date range filter.
- * Returns null for ALL_TIME (no filtering).
- *
- * @param filter The date range filter to calculate timestamp for
- * @return Start timestamp in milliseconds, or null for ALL_TIME
- */
-fun getDateRangeStartTimestamp(filter: DateRangeFilter): Long? {
-    if (filter == DateRangeFilter.ALL_TIME) return null
-
-    val calendar = Calendar.getInstance()
-    calendar.timeInMillis = System.currentTimeMillis()
-
-    return when (filter) {
-        DateRangeFilter.THIS_MONTH -> {
-            calendar.set(Calendar.DAY_OF_MONTH, 1)
-            calendar.set(Calendar.HOUR_OF_DAY, 0)
-            calendar.set(Calendar.MINUTE, 0)
-            calendar.set(Calendar.SECOND, 0)
-            calendar.set(Calendar.MILLISECOND, 0)
-            calendar.timeInMillis
-        }
-        DateRangeFilter.LAST_3_MONTHS -> {
-            calendar.add(Calendar.MONTH, -3)
-            calendar.timeInMillis
-        }
-        DateRangeFilter.LAST_6_MONTHS -> {
-            calendar.add(Calendar.MONTH, -6)
-            calendar.timeInMillis
-        }
-        DateRangeFilter.LAST_YEAR -> {
-            calendar.add(Calendar.YEAR, -1)
-            calendar.timeInMillis
-        }
-        DateRangeFilter.CUSTOM -> {
-            // For now, CUSTOM behaves like ALL_TIME
-            // Can be extended with date picker dialog in the future
-            null
-        }
-        DateRangeFilter.ALL_TIME -> null
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
     uiState: MainUiState,
-    searchFilterState: SearchFilterState,
     categoryMap: Map<Long, Category>,
-    selectedDateRange: DateRange,
-    onDateRangeChange: (DateRange) -> Unit,
     onRefresh: () -> Unit,
-    onCategoryChange: (Long, Category) -> Unit,
-    onSearchQueryChange: (String) -> Unit,
-    onFilterChange: (TransactionFilter) -> Unit,
-    onClearFilters: () -> Unit
+    onCategoryChange: (Long, Category) -> Unit
 ) {
     var selectedTransaction by remember { mutableStateOf<ParsedTransaction?>(null) }
     var showCategoryPicker by remember { mutableStateOf(false) }
-    var showFilterSheet by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        TransactionsHeader(
-            uiState = uiState,
-            searchFilterState = searchFilterState,
-            onRefresh = onRefresh
-        )
-
-        // Search bar
-        SearchBar(
-            query = searchFilterState.currentFilter.searchQuery ?: "",
-            onQueryChange = onSearchQueryChange,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Active filter chips
-        ActiveFilterChips(
-            currentFilter = searchFilterState.currentFilter,
-            onFilterChange = onFilterChange,
-            onOpenFilterSheet = { showFilterSheet = true },
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        when {
-            // No transactions at all - show original empty state
-            uiState.transactions.isEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No bank transactions found in the last 30 days",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
-            }
-            // Filters active but no results - show EmptySearchState
-            searchFilterState.filteredTransactions.isEmpty() && uiState.transactions.isNotEmpty() -> {
-                EmptySearchState(
-                    currentFilter = searchFilterState.currentFilter,
-                    onClearFilters = onClearFilters
-                )
-            }
-            // Show filtered transactions
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(searchFilterState.filteredTransactions) { transaction ->
-                        TransactionCard(
-                            transaction = transaction,
-                            category = categoryMap[transaction.smsId],
-                            onClick = {
-                                selectedTransaction = transaction
-                                showCategoryPicker = true
-                            },
-                            searchQuery = searchFilterState.currentFilter.searchQuery
-                        )
-                    }
-                    item { Spacer(modifier = Modifier.height(16.dp)) }
-                }
-            }
-        }
-
-        if (showCategoryPicker && selectedTransaction != null) {
-            CategoryPickerSheet(
-                currentCategory = categoryMap[selectedTransaction!!.smsId],
-                onCategorySelected = { category ->
-                    onCategoryChange(selectedTransaction!!.smsId, category)
-                    showCategoryPicker = false
-                    selectedTransaction = null
-                },
-                onDismiss = {
-                    showCategoryPicker = false
-                    selectedTransaction = null
-                }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Hero Header with Bento Grid
+        item {
+            TransactionsBentoHeader(
+                uiState = uiState,
+                onRefresh = onRefresh
             )
         }
-    }
 
-    if (showFilterSheet) {
-        FilterSheet(
-            currentFilter = searchFilterState.currentFilter,
-            onFilterChange = { newFilter ->
-                onFilterChange(newFilter)
-                showFilterSheet = false
-            },
-            onDismiss = {
-                showFilterSheet = false
+        // Transactions Section
+        item {
+            BentoSectionHeader(
+                title = "Recent Transactions",
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+
+        if (uiState.transactions.isEmpty()) {
+            item {
+                BentoEmptyState(
+                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                    title = "No Transactions",
+                    message = "No bank transactions found in the last 30 days"
+                )
             }
-        )
+        } else {
+            itemsIndexed(
+                items = uiState.transactions,
+                key = { _, transaction -> transaction.smsId }
+            ) { index, transaction ->
+                ExpressiveTransactionCard(
+                    transaction = transaction,
+                    category = categoryMap[transaction.smsId],
+                    onClick = {
+                        selectedTransaction = transaction
+                        showCategoryPicker = true
+                    }
+                )
+            }
+        }
+
+        item { Spacer(modifier = Modifier.height(80.dp)) }
     }
 
-    // Date Range Picker Sheet
-    if (showDateRangePicker) {
-        DateRangePickerSheet(
-            currentDateRange = selectedDateRange,
-            onDateRangeSelected = { newRange ->
-                onDateRangeChange(newRange)
-                showDateRangePicker = false
+    if (showCategoryPicker && selectedTransaction != null) {
+        CategoryPickerSheet(
+            currentCategory = categoryMap[selectedTransaction!!.smsId],
+            onCategorySelected = { category ->
+                onCategoryChange(selectedTransaction!!.smsId, category)
+                showCategoryPicker = false
+                selectedTransaction = null
             },
             onDismiss = {
-                showDateRangePicker = false
+                showCategoryPicker = false
+                selectedTransaction = null
             }
         )
     }
 }
 
 @Composable
-private fun TransactionsHeader(
-    transactions: List<ParsedTransaction>,
+private fun TransactionsBentoHeader(
     uiState: MainUiState,
-    searchFilterState: SearchFilterState,
     onRefresh: () -> Unit
 ) {
-    // Calculate totals based on filtered transactions
-    val totalDebit = filteredTransactions
+    val totalDebit = uiState.transactions
         .filter { it.type == TransactionType.DEBIT }
         .sumOf { it.amount }
 
-    val totalCredit = filteredTransactions
+    val totalCredit = uiState.transactions
         .filter { it.type == TransactionType.CREDIT }
         .sumOf { it.amount }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
+    val netFlow = totalCredit - totalDebit
+    val transactionCount = uiState.transactions.size
+
+    // Animation state for staggered entrance
+    var animationTriggered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { animationTriggered = true }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Title Row with Refresh - Expressive style
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Transactions",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-            Button(onClick = onRefresh) {
-                Text("Refresh")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Date Range Filter Chips
-        DateRangeFilterChips(
-            selectedFilter = selectedDateRange,
-            onFilterSelected = onDateRangeChanged
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Card(
-                modifier = Modifier.weight(1f),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.expenseBackground)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = "Spent",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.expenseColor
-                    )
-                    Text(
-                        text = "₹${formatAmount(totalDebit)}",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.expenseColor
-                    )
-                }
-            }
-
-            Card(
-                modifier = Modifier.weight(1f),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.incomeBackground)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = "Received",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.incomeColor
-                    )
-                    Text(
-                        text = "₹${formatAmount(totalCredit)}",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.incomeColor
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Show filtered count when filters are active, otherwise show total count
-        Text(
-            text = if (searchFilterState.isSearchActive) {
-                "Showing ${searchFilterState.filteredTransactions.size} of ${uiState.transactions.size} transactions"
-            } else {
-                "${uiState.transactions.size} transactions from ${uiState.bankSmsCount} bank SMS" +
-                        if (uiState.duplicatesRemoved > 0) " (${uiState.duplicatesRemoved} duplicates removed)" else ""
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        // Display last sync timestamp if available
-        uiState.lastSyncTimestamp?.let { timestamp ->
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Last synced: ${formatRelativeTime(timestamp)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Normal
-            )
-        }
-    }
-}
-
-/**
- * Date range filter chips component for selecting transaction time periods.
- * Uses horizontally scrollable row of filter chips for easy selection.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DateRangeFilterChips(
-    selectedFilter: DateRangeFilter,
-    onFilterSelected: (DateRangeFilter) -> Unit
-) {
-    // Filter out CUSTOM for now (can be added later with date picker)
-    val availableFilters = remember {
-        DateRangeFilter.entries.filter { it != DateRangeFilter.CUSTOM }
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        availableFilters.forEach { filter ->
-            FilterChip(
-                selected = selectedFilter == filter,
-                onClick = { onFilterSelected(filter) },
-                label = {
-                    Text(
-                        text = filter.displayName,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+            Column {
+                Text(
+                    text = "Transactions",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold
                 )
+                uiState.lastSyncTimestamp?.let { timestamp ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = CreditColor,
+                            modifier = Modifier.size(6.dp)
+                        ) {}
+                        Text(
+                            text = "Updated ${formatRelativeTime(timestamp)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            FilledTonalIconButton(
+                onClick = onRefresh,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Refresh",
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        // Hero Card - Net Flow with enhanced gradient
+        AnimatedVisibility(
+            visible = animationTriggered,
+            enter = fadeIn(tween(500)) + slideInVertically(
+                initialOffsetY = { it / 4 },
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
             )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .clip(MaterialTheme.shapes.extraLarge)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                BentoGradientStart,
+                                BentoGradientEnd,
+                                Color(0xFF00897B)
+                            ),
+                            start = Offset(0f, 0f),
+                            end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+                        )
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = 0.1f),
+                        shape = MaterialTheme.shapes.extraLarge
+                    )
+            ) {
+                // Decorative elements
+                Box(
+                    modifier = Modifier
+                        .size(200.dp)
+                        .offset(x = (-50).dp, y = (-50).dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.1f),
+                                    Color.Transparent
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                )
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 30.dp, y = 30.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.08f),
+                                    Color.Transparent
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column {
+                            Text(
+                                text = "Net Flow",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "This Month",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.6f)
+                            )
+                        }
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.15f),
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = if (netFlow >= 0) Icons.AutoMirrored.Outlined.TrendingUp else Icons.AutoMirrored.Outlined.TrendingDown,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    Text(
+                        text = "${if (netFlow >= 0) "+" else "-"}₹${formatAmount(kotlin.math.abs(netFlow))}",
+                        style = MaterialTheme.typography.displayMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color.White.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = "$transactionCount transactions",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                        if (uiState.duplicatesRemoved > 0) {
+                            Text(
+                                text = "${uiState.duplicatesRemoved} duplicates removed",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Summary Cards Row - Enhanced Bento Style
+        AnimatedVisibility(
+            visible = animationTriggered,
+            enter = fadeIn(tween(500, delayMillis = 150)) + slideInVertically(
+                initialOffsetY = { it / 4 },
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+            )
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Spent Card
+                BentoCard(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(110.dp),
+                    backgroundColor = DebitColorLight.copy(alpha = 0.5f)
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Spent",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = DebitColor.copy(alpha = 0.8f)
+                            )
+                            Surface(
+                                shape = CircleShape,
+                                color = DebitColor.copy(alpha = 0.15f),
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Outlined.TrendingDown,
+                                        contentDescription = null,
+                                        tint = DebitColor,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = "₹${formatAmount(totalDebit)}",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = DebitColor
+                        )
+                    }
+                }
+
+                // Received Card
+                BentoCard(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(110.dp),
+                    backgroundColor = CreditContainerLight.copy(alpha = 0.5f)
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Received",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = CreditColor.copy(alpha = 0.8f)
+                            )
+                            Surface(
+                                shape = CircleShape,
+                                color = CreditColor.copy(alpha = 0.15f),
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Outlined.TrendingUp,
+                                        contentDescription = null,
+                                        tint = CreditColor,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = "₹${formatAmount(totalCredit)}",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = CreditColor
+                        )
+                    }
+                }
+            }
+        }
+
+        // Quick Stats Pills
+        AnimatedVisibility(
+            visible = animationTriggered,
+            enter = fadeIn(tween(500, delayMillis = 300))
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val avgTransaction = if (transactionCount > 0) totalDebit / transactionCount else 0.0
+                BentoMiniStat(
+                    label = "Avg",
+                    value = "₹${formatAmount(avgTransaction)}",
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                val debitCount = uiState.transactions.count { it.type == TransactionType.DEBIT }
+                BentoMiniStat(
+                    label = "Debits",
+                    value = "$debitCount",
+                    color = DebitColor
+                )
+
+                val creditCount = uiState.transactions.count { it.type == TransactionType.CREDIT }
+                BentoMiniStat(
+                    label = "Credits",
+                    value = "$creditCount",
+                    color = CreditColor
+                )
+            }
         }
     }
 }
 
 @Composable
-fun TransactionCard(
+fun ExpressiveTransactionCard(
     transaction: ParsedTransaction,
     category: Category?,
-    onClick: () -> Unit,
-    searchQuery: String? = null
+    onClick: () -> Unit
 ) {
     val isDebit = transaction.type == TransactionType.DEBIT
-    val amountColor = if (isDebit) MaterialTheme.colorScheme.expenseColor else MaterialTheme.colorScheme.incomeColor
+    val amountColor = if (isDebit) DebitColor else CreditColor
     val amountPrefix = if (isDebit) "-" else "+"
-    val isManual = transaction.source == TransactionSource.MANUAL
+    val typeContainerColor = if (isDebit) DebitContainerLight else CreditContainerLight
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "scale"
+    )
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp)
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -401,30 +516,41 @@ fun TransactionCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    HighlightedText(
-                        text = transaction.merchant ?: transaction.senderAddress,
-                        highlight = searchQuery,
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Transaction type indicator
+                    Surface(
+                        shape = CircleShape,
+                        color = typeContainerColor,
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (isDebit) Icons.AutoMirrored.Outlined.TrendingDown else Icons.AutoMirrored.Outlined.TrendingUp,
+                                contentDescription = null,
+                                tint = amountColor,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
 
-                    Text(
-                        text = formatDate(transaction.date),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    transaction.referenceNumber?.let { ref ->
-                        HighlightedText(
-                            text = "Ref: $ref",
-                            highlight = searchQuery,
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = transaction.merchant ?: transaction.senderAddress,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
+                        )
+
+                        Text(
+                            text = formatDate(transaction.date),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -439,125 +565,95 @@ fun TransactionCard(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = if (isDebit) MaterialTheme.colorScheme.expenseBackground else MaterialTheme.colorScheme.incomeBackground,
-                                shape = RoundedCornerShape(4.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = typeContainerColor
                     ) {
                         Text(
                             text = if (isDebit) "DEBIT" else "CREDIT",
                             style = MaterialTheme.typography.labelSmall,
-                            color = amountColor
+                            color = amountColor,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
                 }
             }
 
-            // Manual transaction badge and category badges
-            if (isManual || category != null) {
-                Spacer(modifier = Modifier.height(8.dp))
+            // Category and Reference Row
+            if (category != null || transaction.referenceNumber != null) {
+                Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Show "Manual" badge for manually entered transactions
-                    if (isManual) {
-                        Row(
-                            modifier = Modifier
-                                .background(
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    shape = RoundedCornerShape(16.dp)
-                                )
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                text = "Manual",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-
-                    // Show category badge if assigned
                     category?.let { cat ->
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    color = cat.color.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(16.dp)
-                                )
-                                .padding(horizontal = 12.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = cat.name,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = cat.color
-                            )
-                        }
+                        BentoChip(
+                            text = cat.name,
+                            color = cat.color
+                        )
                     }
-                }
-            }
 
-            // Show notes if present (primarily for manual transactions)
-            transaction.notes?.let { notes ->
-                if (notes.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = notes,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                    )
+                    transaction.referenceNumber?.let { ref ->
+                        Text(
+                            text = "Ref: $ref",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+// Keep old TransactionCard for compatibility but mark as internal
+@Composable
+internal fun TransactionCard(
+    transaction: ParsedTransaction,
+    category: Category?,
+    onClick: () -> Unit
+) {
+    ExpressiveTransactionCard(
+        transaction = transaction,
+        category = category,
+        onClick = onClick
+    )
+}
+
 private fun formatAmount(amount: Double): String {
-    return String.format(Locale.getDefault(), "%,.2f", amount)
+    return when {
+        amount >= 10000000 -> String.format(Locale.getDefault(), "%.2fCr", amount / 10000000)
+        amount >= 100000 -> String.format(Locale.getDefault(), "%.2fL", amount / 100000)
+        amount >= 1000 -> String.format(Locale.getDefault(), "%.1fK", amount / 1000)
+        else -> String.format(Locale.getDefault(), "%.0f", amount)
+    }
 }
 
 private fun formatDate(timestamp: Long): String {
-    val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+    val sdf = SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault())
     return sdf.format(Date(timestamp))
 }
 
-/**
- * Formats a timestamp as a relative time string (e.g., "just now", "5 minutes ago", "2 hours ago").
- * For times older than 24 hours, displays absolute date and time.
- *
- * @param timestamp The timestamp in milliseconds
- * @return A user-friendly relative time string
- */
 private fun formatRelativeTime(timestamp: Long): String {
     val now = System.currentTimeMillis()
     val diff = now - timestamp
 
     return when {
-        diff < 60_000 -> "just now" // Less than 1 minute
-        diff < 3600_000 -> { // Less than 1 hour
+        diff < 60_000 -> "just now"
+        diff < 3600_000 -> {
             val minutes = (diff / 60_000).toInt()
-            if (minutes == 1) "1 minute ago" else "$minutes minutes ago"
+            if (minutes == 1) "1 min ago" else "$minutes mins ago"
         }
-        diff < 86400_000 -> { // Less than 24 hours
+        diff < 86400_000 -> {
             val hours = (diff / 3600_000).toInt()
             if (hours == 1) "1 hour ago" else "$hours hours ago"
         }
         else -> {
-            // More than 24 hours - show absolute date and time
-            val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+            val sdf = SimpleDateFormat("dd MMM", Locale.getDefault())
             sdf.format(Date(timestamp))
         }
     }
